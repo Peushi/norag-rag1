@@ -31,5 +31,10 @@
     "id": "Q06",
     "question": "I do not have a kitchen scale. How should I fill a measuring cup with flour?",
     "expected_sources": ["general/how_to_measure_flour.md"]
+  },
+  {
+    "id": "Q07",
+    "question": "How do I replace a bicycle tire?",
+    "expected_sources": []
   }
 ]

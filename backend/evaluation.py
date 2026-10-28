@@ -17,6 +17,7 @@ def evaluate_retrieval(top_k=5):
 
         # Exclude unanswerable questions from this hit-rate metric.
         if not expected:
+            print(f"{item['id']}: UNANSWERABLE | Excluded from Hit@{top_k}")
             continue
 
         total += 1
