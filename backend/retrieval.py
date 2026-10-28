@@ -3,7 +3,7 @@ import hashlib
 from .documents import load_documents
 from .chunking import chunk_text
 from .vector_store import get_collection, reset_collection
-
+from .index_settings import load_settings, save_settings, validate_settings
 
 def make_chunk_id(source, position):
     """generate a deterministic ID for a source and chunk position."""
@@ -11,8 +11,17 @@ def make_chunk_id(source, position):
     return f"{source_hash}::chunk_{position:04d}"
 
 
-def rebuild_index(chunk_size=800, overlap=80):
+def rebuild_index(chunk_size=None, overlap=None):
     """read every document and rebuild the vector index."""
+    settings = load_settings()
+
+    if chunk_size is None:
+        chunk_size = settings["chunk_size"]
+
+    if overlap is None:
+        overlap = settings["overlap"]
+
+    validate_settings(chunk_size, overlap)
 
     documents = load_documents()
     collection = reset_collection()
@@ -63,6 +72,16 @@ def rebuild_index(chunk_size=800, overlap=80):
         "chunk_size": chunk_size,
         "overlap": overlap,
     }
+
+
+def update_index_settings(chunk_size: int, overlap: int):
+    """Rebuild using new settings, then save them if the rebuild succeeds."""
+    validate_settings(chunk_size, overlap)
+
+    stats = rebuild_index(chunk_size=chunk_size, overlap=overlap)
+    save_settings(chunk_size=chunk_size, overlap=overlap)
+
+    return stats
 
 
 def retrieve_chunks(question, top_k=5, selected_documents=None):
