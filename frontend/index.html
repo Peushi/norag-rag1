@@ -1,0 +1,211 @@
+ <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BakeFix</title>
+    <style>
+      :root {
+        --bg: #f5f7fa;
+        --panel: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --primary: #3b82f6;
+        --border: #dfe7f2;
+      }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem 1rem 3rem;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+      }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+      h1 { margin: 0; }
+      .grid {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 1rem;
+      }
+      .docs, .answer-box {
+        min-height: 200px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        resize: vertical;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.75rem;
+        box-sizing: border-box;
+        font: inherit;
+      }
+      button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.7rem 1rem;
+        cursor: pointer;
+        font-size: 0.95rem;
+      }
+      input[type="file"] { width: 100%; }
+      ul { list-style: none; padding: 0; margin: 0; }
+      li {
+        padding: 0.5rem 0.25rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .muted { color: var(--muted); }
+      .ref {
+        margin-top: 1rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--border);
+      }
+      .error { color: #b91c1c; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">
+        <h1>BakeFix</h1>
+      </div>
+
+      <div class="grid">
+        <aside class="panel docs">
+          <h3>Documents</h3>
+          <form id="upload-form">
+            <input type="file" id="file-input" name="file" />
+            <div style="margin-top: 0.75rem;"><button type="submit">Upload</button></div>
+          </form>
+          <div id="document-list" class="muted" style="margin-top: 1rem;"></div>
+        </aside>
+
+        <main class="panel">
+          <label for="question"><strong>Ask a question</strong></label>
+          <textarea id="question" placeholder="Ask a question about the indexed documents..."></textarea>
+          <div style="margin-top: 0.75rem; display: flex; gap: 0.75rem; align-items: center;">
+            <button id="ask-button">Ask</button>
+            <span id="status" class="muted"></span>
+          </div>
+
+          <div class="answer-box" id="answer-box" style="margin-top: 1rem;">
+            <div class="muted">No answer yet.</div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script>
+      const docsList = document.getElementById('document-list');
+      const answerBox = document.getElementById('answer-box');
+      const status = document.getElementById('status');
+
+      async function fetchDocuments() {
+        const response = await fetch('/api/documents');
+        const data = await response.json();
+        const docs = data.documents || [];
+        if (!docs.length) {
+          docsList.innerHTML = '<div class="muted">No documents uploaded yet.</div>';
+          return;
+        }
+
+        docsList.innerHTML = '<ul>' + docs.map(doc => `
+          <li>
+            <span>${doc.name}</span>
+            <button type="button" data-doc-id="${doc.id}" class="delete-doc">Delete</button>
+          </li>
+        `).join('') + '</ul>';
+
+        document.querySelectorAll('.delete-doc').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const docId = button.dataset.docId;
+            const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE' });
+            if (res.ok) {
+              fetchDocuments();
+            }
+          });
+        });
+      }
+
+      document.getElementById('upload-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const fileInput = document.getElementById('file-input');
+        const file = fileInput.files[0];
+        if (!file) {
+          status.textContent = 'Choose a file first.';
+          return;
+        }
+        const formData = new FormData();
+        formData.append('file', file);
+        status.textContent = 'Uploading...';
+        const res = await fetch('/api/documents', { method: 'POST', body: formData });
+        status.textContent = res.ok ? 'Uploaded' : 'Upload failed';
+        fileInput.value = '';
+        fetchDocuments();
+      });
+
+      document.getElementById('ask-button').addEventListener('click', async () => {
+        const question = document.getElementById('question').value.trim();
+        if (!question) {
+          status.textContent = 'Enter a question.';
+          return;
+        }
+
+        status.textContent = 'Asking...';
+        answerBox.innerHTML = '<div class="muted">Thinking...</div>';
+
+        const payload = { question, top_k: 4 };
+        const response = await fetch('/api/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          answerBox.innerHTML = `<div class="error">${data.error?.message || 'Request failed'} </div>`;
+          status.textContent = 'Error';
+          return;
+        }
+
+        if (data.status === 'not_found') {
+          answerBox.innerHTML = `<div><strong>No answer found</strong><p>${data.answer}</p></div>`;
+        } else {
+          answerBox.innerHTML = `
+            <div><strong>Answer</strong><p>${data.answer}</p></div>
+            <div class="ref"><strong>References</strong>
+              <ul>${(data.references || []).map(ref => `
+                <li><span>${ref.source} (position ${ref.position})</span><span>${ref.chunk_id}</span></li>
+                <li><em>${ref.quote}</em></li>
+              `).join('')}</ul>
+            </div>
+          `;
+        }
+
+        status.textContent = data.status === 'answered' ? 'Answered' : 'No match';
+      });
+
+      fetchDocuments();
+    </script>
+  </body>
+</html>
