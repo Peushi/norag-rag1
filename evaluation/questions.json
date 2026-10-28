@@ -1,0 +1,35 @@
+[
+  {
+    "id": "Q01",
+    "question": "Why do cookies spread too much?",
+    "expected_sources": ["cookies/cookies_spreading.md"]
+  },
+  {
+    "id": "Q02",
+    "question": "My kitchen is cold and my bread dough is barely getting bigger. What should I check?",
+    "expected_sources": ["bread/bread_proofing_problems.md"]
+  },
+  {
+    "id": "Q03",
+    "question": "The filling of my pie is cooked, but the pastry underneath is still wet. How can I prevent that?",
+    "expected_sources": [
+      "pies/soggy_pie_crust.md",
+      "pies/prebaking_pie_crust.md"
+    ]
+  },
+  {
+    "id": "Q04",
+    "question": "I wanted dense, fudgy brownies, but mine came out fluffy like cake. What ingredients could explain this?",
+    "expected_sources": ["brownies/brownie_texture.md"]
+  },
+  {
+    "id": "Q05",
+    "question": "I only bake occasionally and keep my sourdough starter in the fridge. How often should I feed it?",
+    "expected_sources": ["bread/sourdough_starter_maintenance.md"]
+  },
+  {
+    "id": "Q06",
+    "question": "I do not have a kitchen scale. How should I fill a measuring cup with flour?",
+    "expected_sources": ["general/how_to_measure_flour.md"]
+  }
+]
