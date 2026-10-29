@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Literal
 
@@ -34,65 +33,50 @@ class AskRequest(RetrieveRequest):
     pass
 
 
-class AnswerReference(BaseModel):
+class Reference(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     chunk_id: str
     source: str
     position: int = Field(ge=0)
-=======
-﻿from typing import Literal
-
-from pydantic import BaseModel, Field
-
-
-class AskRequest(BaseModel):
-    question: str = Field(min_length=1)
-    top_k: int = Field(default=5, ge=1, le=20)
-    document_ids: list[str] | None = None
-
-
-class RetrieveRequest(BaseModel):
-    question: str = Field(min_length=1)
-    top_k: int = Field(default=5, ge=1, le=20)
-    document_ids: list[str] | None = None
-
-
-class RetrievedChunk(BaseModel):
-    id: str
-    text: str
-    source: str
-    position: int
-    distance: float
-
-
-class RetrieveResponse(BaseModel):
-    chunks: list[RetrievedChunk]
-
-
-class Reference(BaseModel):
-    chunk_id: str
-    source: str
-    position: int
->>>>>>> origin/main
     quote: str
 
 
+AnswerReference = Reference
+
+
 class AskResponse(BaseModel):
-<<<<<<< HEAD
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["answered", "not_found"]
     answer: str
-    references: list[AnswerReference] = Field(default_factory=list)
+    references: list[Reference] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_references(self):
         if self.status == "not_found" and self.references:
             raise ValueError("not_found responses must not contain references.")
-        if self.status == "answered" and len(self.references) == 0:
+        if self.status == "answered" and not self.references:
             raise ValueError("answered responses must include at least one reference.")
         return self
+
+
+class LLMAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["answered", "not_found"]
+    answer: str = Field(min_length=1, pattern=r".*\S.*")
+    cited_chunk_ids: list[str] = Field(default_factory=list)
+
+
+class SourceChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    text: str
+    source: str
+    position: int = Field(ge=0)
+    distance: float
 
 
 class APIErrorDetail(BaseModel):
@@ -136,14 +120,3 @@ class SettingsRequest(BaseModel):
     overlap: int = Field(default=120, ge=0, le=1000)
     top_k: int = Field(default=3, ge=1, le=20)
     relevance_threshold: float | None = Field(default=None, ge=0.0)
-=======
-    status: Literal["answered", "not_found"]
-    answer: str
-    references: list[Reference] = Field(default_factory=list)
-
-
-class LLMAnswer(BaseModel):
-    status: Literal["answered", "not_found"]
-    answer: str = Field(min_length=1, pattern=r".*\S.*")
-    cited_chunk_ids: list[str] = Field(default_factory=list)
->>>>>>> origin/main

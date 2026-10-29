@@ -7,6 +7,12 @@ from pydantic import ValidationError
 
 from backend.schemas import AskResponse, LLMAnswer, Reference
 
+class LLMServiceUnavailable(RuntimeError):
+    """The LLM service cannot be reached or configured."""
+
+
+class LLMResponseError(ValueError):
+    """The LLM returned an invalid or unusable response."""
 
 load_dotenv()
 
@@ -89,9 +95,9 @@ def generate_answer(question: str, chunks: list[dict]) -> AskResponse:
     prompt = build_prompt(question, chunks)
 
     if client is None:
-        raise RuntimeError(
+        raise LLMServiceUnavailable(
             "GOOGLE_API_KEY is missing. Configure it in your local .env file."
-        )
+    )
 
     try:
         response = client.chat.completions.create(
@@ -111,13 +117,13 @@ def generate_answer(question: str, chunks: list[dict]) -> AskResponse:
 
         content = response.choices[0].message.content
         if not content:
-            raise ValueError("Gemini returned an empty response.")
+            raise LLMResponseError("Gemini returned an empty response.")
 
         parsed_json = json.loads(content)
         llm_answer = LLMAnswer.model_validate(parsed_json)
 
     except (ValidationError, json.JSONDecodeError) as exc:
-        raise ValueError(
+        raise LLMResponseError(
             "Gemini returned a response that failed JSON/Pydantic validation."
         ) from exc
 
@@ -146,7 +152,7 @@ def generate_answer(question: str, chunks: list[dict]) -> AskResponse:
 
         chunk = retrieved_by_id.get(chunk_id)
         if chunk is None:
-            raise ValueError(
+            raise LLMResponseError(
                 f"Gemini cited chunk '{chunk_id}', which was not retrieved."
             )
 

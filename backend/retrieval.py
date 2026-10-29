@@ -141,3 +141,30 @@ def filter_by_relevance(chunks, max_distance=None):
         raise ValueError("Cosine distance threshold must be between 0 and 2")
 
     return [chunk for chunk in chunks if chunk["distance"] <= max_distance]
+
+
+def get_chunk(chunk_id: str):
+    """Return one indexed chunk by its ID, or None if it doesn't exist."""
+    collection = get_collection()
+
+    if collection.count() == 0:
+        return None
+
+    results = collection.get(
+        ids=[chunk_id],
+        include=["documents", "metadatas"],
+    )
+
+    if not results["ids"]:
+        return None
+
+    metadata = results["metadatas"][0]
+
+    return {
+        "id": results["ids"][0],
+        "text": results["documents"][0],
+        "source": metadata["source"],
+        "position": metadata["position"],
+        "distance": 0.0,
+    }
+
