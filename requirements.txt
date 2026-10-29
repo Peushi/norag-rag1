@@ -3,3 +3,7 @@ requests
 openai>=1.0.0
 chromadb
 sentence-transformers
+pydantic>=2,<3
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+python-multipart>=0.0.9
