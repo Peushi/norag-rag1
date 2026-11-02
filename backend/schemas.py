@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -31,7 +33,7 @@ class RetrieveResponse(BaseModel):
     chunks: list[RetrievedChunk]
 
 
-class AnswerReference(BaseModel):
+class Reference(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     chunk_id: str
@@ -40,7 +42,7 @@ class AnswerReference(BaseModel):
     quote: str
 
 
-Reference = AnswerReference
+AnswerReference = Reference
 
 
 class AskResponse(BaseModel):
@@ -48,7 +50,7 @@ class AskResponse(BaseModel):
 
     status: Literal["answered", "not_found"]
     answer: str
-    references: list[AnswerReference] = Field(default_factory=list)
+    references: list[Reference] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_references(self):
@@ -88,6 +90,7 @@ class SourceChunk(BaseModel):
     text: str
     source: str
     position: int = Field(ge=0)
+    distance: float
 
 
 class ChunkResponse(BaseModel):
