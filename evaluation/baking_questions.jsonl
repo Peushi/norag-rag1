@@ -1,0 +1,12 @@
+﻿{"id":"B01","question":"My first tray of cookies baked perfectly, but the next tray spread much more. What could have caused this?","expected_sources":["cookies/cookies_spreading.md"]}
+{"id":"B02","question":"My bread dough is fermenting very slowly because the kitchen is cold. What temperature should I aim for, and how can I help it rise?","expected_sources":["bread/bread_proofing_problems.md"]}
+{"id":"B03","question":"I want brownies that are dense and moist rather than light and cake-like. Which ingredient proportions should I look for?","expected_sources":["brownies/brownie_texture.md"]}
+{"id":"B04","question":"I have no weighing scale. How can I fill a cup with flour without accidentally adding too much?","expected_sources":["general/how_to_measure_flour.md"]}
+{"id":"B05","question":"I store my sourdough starter in the refrigerator between baking sessions. How often should I feed it, and what should I do before putting it back in the fridge?","expected_sources":["bread/sourdough_starter_maintenance.md"]}
+{"id":"B06","question":"My apple pie has a cooked filling but the pastry base is still wet. What can I place between the fruit and the pastry to reduce moisture?","expected_sources":["pies/soggy_pie_crust.md"]}
+{"id":"B07","question":"The edges of my pastry keep sliding down the pie dish during blind baking. How can I prevent this?","expected_sources":["pies/prebaking_pie_crust.md"]}
+{"id":"B08","question":"My sourdough starter has been neglected for a while. It has no mold or unusual colours. How can I bring it back to an active state?","expected_sources":["bread/sourdough_troubleshooting.md"]}
+{"id":"B09","question":"My homemade loaf is much smaller than expected. What different problems with the dough or baking process could explain why it did not rise properly?","expected_sources":["bread/bread_not_rising.md","bread/bread_proofing_problems.md"]}
+{"id":"B10","question":"My cookies are dry and crumbly. Could the way I measured the flour be responsible, and how can I avoid this next time?","expected_sources":["general/how_to_measure_flour.md"]}
+{"id":"B11","question":"What type of flour should I use to make homemade pasta, and what is the ideal resting time for pasta dough?","expected_sources":[]}
+{"id":"B12","question":"How do I replace a bicycle tire?","expected_sources":[]}
