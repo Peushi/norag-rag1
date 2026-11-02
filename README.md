@@ -87,6 +87,28 @@ Run the evaluation run-service checks with:
 python -m unittest backend.test_evaluation_runs
 ```
 
+The measured retrieval-only comparison is exposed separately from those
+answer-generation runs. It reads the committed, precomputed result and summary
+JSONL files for the `800/80` and `400/40` configurations:
+
+- `GET /api/evaluations/retrieval/retrieval-v2-baking/results`
+- `GET /api/evaluations/retrieval/retrieval-v2-kestrel/results`
+
+The response contains the aggregate HitRate and evidence Recall at k = 1, 3, 5,
+and 10, question-type breakdowns, and per-question evidence and retrieved
+passages. Passage rank follows the `evaluation_chunks` array order; passages
+are labeled relevant when they contain an expected source and complete quote
+(whitespace normalized). Unanswerable questions keep null per-question
+metrics and are excluded from aggregate metrics. Recall is macro-averaged per
+answerable question. This endpoint reports retrieval evidence coverage only;
+it does not claim answer-generation quality.
+
+Run the retrieval comparison API checks with:
+
+```bash
+python -m unittest backend.test_retrieval_comparison
+```
+
 ## Words analytics API
 
 The Words tab reads the `baking` and `kestrel` corpora using the shared

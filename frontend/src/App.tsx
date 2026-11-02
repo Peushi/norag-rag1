@@ -4,6 +4,7 @@ import { DocumentLibrary } from "./components/DocumentLibrary";
 import { DocumentSelector } from "./components/DocumentSelector";
 import { EvaluationRunner } from "./components/EvaluationRunner";
 import { RetrievalSettings } from "./components/RetrievalSettings";
+import { RetrievalComparison } from "./components/RetrievalComparison";
 import { WordsExperience } from "./components/WordsExperience";
 import { useAskQuestion } from "./hooks/useAskQuestion";
 import { useDocumentSelection } from "./hooks/useDocumentSelection";
@@ -114,7 +115,9 @@ export default function App() {
         <p className="eyebrow">
           {activeTab === "ask"
             ? "Good baking starts with a little know-how"
-            : "Explore the words behind your answers"}
+            : activeTab === "words"
+              ? "Explore the words behind your answers"
+              : "Measure retrieval against labeled evidence"}
         </p>
         <h1 id="page-title">
           {activeTab === "ask" ? (
@@ -123,18 +126,26 @@ export default function App() {
               <br />
               <em>a little easier.</em>
             </>
-          ) : (
+          ) : activeTab === "words" ? (
             <>
               Get to know your
               <br />
               <em>knowledge base.</em>
+            </>
+          ) : (
+            <>
+              See how well
+              <br />
+              <em>retrieval performs.</em>
             </>
           )}
         </h1>
         <p className="intro-copy">
           {activeTab === "ask"
             ? "Ask what's on your mind. BakeFix will look through your kitchen notes and bring back the helpful bits, with sources you can check."
-            : "See which words appear in the corpus, how often they occur, and which chunks contain them."}
+            : activeTab === "words"
+              ? "See which words appear in the corpus, how often they occur, and which chunks contain them."
+              : "Compare the measured baseline and smaller chunks using hit rate, evidence recall, and per-question results."}
         </p>
       </section>
 
@@ -275,6 +286,7 @@ export default function App() {
           dataset={selectedCorpus}
           onDatasetChange={setSelectedCorpus}
         />
+        <RetrievalComparison dataset={selectedCorpus} />
       </div>
 
       <p className="footer-note">

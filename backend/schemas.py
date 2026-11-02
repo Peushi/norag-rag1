@@ -174,6 +174,116 @@ class EvaluationResultsResponse(BaseModel):
     results: list[dict[str, Any]]
 
 
+class RetrievalMetricValues(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hit_rate: float | None
+    recall: float | None
+
+
+class RetrievalMetricSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    answerable_questions: int = Field(ge=0)
+    excluded_questions: int = Field(ge=0)
+    metrics: dict[str, RetrievalMetricValues]
+
+
+class RetrievalEvidenceChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    rank: int = Field(ge=1)
+
+
+class RetrievalEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: str
+    quote: str
+    boundary_split: bool
+    matched_chunks: list[RetrievalEvidenceChunk]
+
+
+class RetrievalPassage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    rank: int = Field(ge=1)
+    text: str
+    source: str
+    position: int = Field(ge=0)
+    distance: float
+    relevant: bool
+    matched_evidence_quotes: list[str]
+
+
+class RetrievalQuestionMetric(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hit: bool
+    recall: float = Field(ge=0.0, le=1.0)
+    matched_evidence: int = Field(ge=0)
+    expected_evidence: int = Field(ge=0)
+
+
+class RetrievalQuestionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    question: str
+    type: str
+    answerable: bool
+    evidence: list[RetrievalEvidence]
+    retrieval_metrics: dict[str, RetrievalQuestionMetric] | None
+    evaluation_chunks: list[RetrievalPassage]
+
+    @model_validator(mode="after")
+    def validate_answerability_metrics(self):
+        if self.answerable != (self.retrieval_metrics is not None):
+            raise ValueError(
+                "Only answerable questions must have retrieval metrics."
+            )
+        if self.retrieval_metrics is not None and set(self.retrieval_metrics) != {
+            "1",
+            "3",
+            "5",
+            "10",
+        }:
+            raise ValueError("Retrieval metrics must be provided at k=1,3,5,10.")
+        return self
+
+
+class RetrievalConfigurationResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    config_id: str
+    chunk_size: int
+    overlap: int
+    top_k: int
+    max_distance: float | None
+    limit: int | None
+    generate_answers: bool
+    top_k_values: list[int]
+    answerable_questions: int = Field(ge=0)
+    excluded_questions: int = Field(ge=0)
+    metrics: dict[str, RetrievalMetricValues]
+    question_type_breakdown: dict[str, RetrievalMetricSummary]
+    questions: list[RetrievalQuestionResult]
+
+
+class RetrievalComparisonResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    experiment_id: str
+    dataset: EvaluationDataset
+    embedding_model: str
+    distance_metric: str
+    relevance_rule: str
+    recall_averaging: str
+    configurations: list[RetrievalConfigurationResult]
+
+
 class WordEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
