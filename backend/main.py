@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -41,6 +42,17 @@ from backend.schemas import (
     RetrieveRequest,
     RetrieveResponse,
     SettingsRequest,
+    WordChunksResponse,
+    WordQuestionAnalysisRequest,
+    WordQuestionAnalysisResponse,
+    WordQuestionListResponse,
+    WordVocabularyResponse,
+)
+from backend.words_analytics import (
+    analyze_question as analyze_words_question,
+    get_vocabulary,
+    get_word_chunks,
+    list_questions,
 )
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -160,6 +172,75 @@ if FRONTEND_ASSETS_DIR.is_dir():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/words", response_model=WordVocabularyResponse)
+async def words_vocabulary(
+    dataset: Literal["baking", "kestrel"],
+    query: str = Query(default="", max_length=100),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    chunk_size: int = Query(default=800, ge=100, le=2000),
+    overlap: int = Query(default=80, ge=0, le=1000),
+):
+    if overlap >= chunk_size:
+        raise HTTPException(
+            status_code=422,
+            detail="overlap must be smaller than chunk_size",
+        )
+    return get_vocabulary(
+        dataset,
+        query=query,
+        limit=limit,
+        offset=offset,
+        chunk_size=chunk_size,
+        overlap=overlap,
+    )
+
+
+@app.get("/api/words/questions", response_model=WordQuestionListResponse)
+async def words_questions(dataset: Literal["baking", "kestrel"]):
+    try:
+        questions = list_questions(dataset)
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"dataset": dataset, "questions": questions}
+
+
+@app.get("/api/words/{word}/chunks", response_model=WordChunksResponse)
+async def words_for_selected_word(
+    word: str,
+    dataset: Literal["baking", "kestrel"],
+    chunk_size: int = Query(default=800, ge=100, le=2000),
+    overlap: int = Query(default=80, ge=0, le=1000),
+):
+    normalized_words = word.casefold()
+    if not normalized_words or len(normalized_words.split()) != 1:
+        raise HTTPException(status_code=422, detail="Provide exactly one word.")
+    if overlap >= chunk_size:
+        raise HTTPException(
+            status_code=422,
+            detail="overlap must be smaller than chunk_size",
+        )
+    return get_word_chunks(
+        dataset,
+        normalized_words,
+        chunk_size=chunk_size,
+        overlap=overlap,
+    )
+
+
+@app.post(
+    "/api/words/analyze-question",
+    response_model=WordQuestionAnalysisResponse,
+)
+async def analyze_words_in_question(payload: WordQuestionAnalysisRequest):
+    return analyze_words_question(
+        payload.dataset,
+        payload.question,
+        chunk_size=payload.chunk_size,
+        overlap=payload.overlap,
+    )
 
 
 @app.post(
