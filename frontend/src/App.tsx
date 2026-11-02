@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { AnswerPanel } from "./components/AnswerPanel";
 import { DocumentLibrary } from "./components/DocumentLibrary";
 import { DocumentSelector } from "./components/DocumentSelector";
+import { EvaluationRunner } from "./components/EvaluationRunner";
 import { RetrievalSettings } from "./components/RetrievalSettings";
+import { WordsExperience } from "./components/WordsExperience";
 import { useAskQuestion } from "./hooks/useAskQuestion";
 import { useDocumentSelection } from "./hooks/useDocumentSelection";
 import { useDocuments } from "./hooks/useDocuments";
 import { useRetrievalSettings } from "./hooks/useRetrievalSettings";
+import type { EvaluationDataset } from "./types/evaluations";
 import "../styles/option-1.css";
 import "../styles/option-2.css";
 import "../styles/option-3.css";
@@ -14,6 +17,7 @@ import "../styles/preview.css";
 
 const DESIGN_OPTIONS = ["1", "2", "3"] as const;
 type DesignOption = (typeof DESIGN_OPTIONS)[number];
+type AppTab = "ask" | "words" | "evaluation";
 
 function getInitialDesignOption(): DesignOption {
   const saved = window.localStorage.getItem("bakefix-design-option");
@@ -24,6 +28,9 @@ export default function App() {
   const [designOption, setDesignOption] = useState<DesignOption>(
     getInitialDesignOption,
   );
+  const [activeTab, setActiveTab] = useState<AppTab>("ask");
+  const [selectedCorpus, setSelectedCorpus] =
+    useState<EvaluationDataset>("baking");
   const {
     documents,
     isLoading: isLoadingDocuments,
@@ -104,19 +111,76 @@ export default function App() {
       </header>
 
       <section className="intro" aria-labelledby="page-title">
-        <p className="eyebrow">Good baking starts with a little know-how</p>
+        <p className="eyebrow">
+          {activeTab === "ask"
+            ? "Good baking starts with a little know-how"
+            : "Explore the words behind your answers"}
+        </p>
         <h1 id="page-title">
-          Let&apos;s make your next bake
-          <br />
-          <em>a little easier.</em>
+          {activeTab === "ask" ? (
+            <>
+              Let&apos;s make your next bake
+              <br />
+              <em>a little easier.</em>
+            </>
+          ) : (
+            <>
+              Get to know your
+              <br />
+              <em>knowledge base.</em>
+            </>
+          )}
         </h1>
         <p className="intro-copy">
-          Ask what&apos;s on your mind. BakeFix will look through your kitchen
-          notes and bring back the helpful bits, with sources you can check.
+          {activeTab === "ask"
+            ? "Ask what's on your mind. BakeFix will look through your kitchen notes and bring back the helpful bits, with sources you can check."
+            : "See which words appear in the corpus, how often they occur, and which chunks contain them."}
         </p>
       </section>
 
-      <div className="workspace">
+      <nav className="app-tabs" role="tablist" aria-label="Main views">
+        <button
+          id="ask-tab"
+          className={activeTab === "ask" ? "active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "ask"}
+          aria-controls="ask-panel"
+          onClick={() => setActiveTab("ask")}
+        >
+          Ask
+        </button>
+        <button
+          id="words-tab"
+          className={activeTab === "words" ? "active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "words"}
+          aria-controls="words-panel"
+          onClick={() => setActiveTab("words")}
+        >
+          Words
+        </button>
+        <button
+          id="evaluation-tab"
+          className={activeTab === "evaluation" ? "active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "evaluation"}
+          aria-controls="evaluation-panel"
+          onClick={() => setActiveTab("evaluation")}
+        >
+          Evaluation
+        </button>
+      </nav>
+
+      <div
+        id="ask-panel"
+        className="workspace"
+        role="tabpanel"
+        aria-labelledby="ask-tab"
+        hidden={activeTab !== "ask"}
+      >
         <DocumentLibrary
           documents={documents}
           onDelete={(item) => void deleteDocument(item)}
@@ -187,6 +251,30 @@ export default function App() {
             <AnswerPanel answer={answer} />
           </section>
         </main>
+      </div>
+      <div
+        id="words-panel"
+        role="tabpanel"
+        aria-labelledby="words-tab"
+        hidden={activeTab !== "words"}
+      >
+        <WordsExperience
+          corpus={selectedCorpus}
+          onCorpusChange={setSelectedCorpus}
+        />
+      </div>
+      <div
+        id="evaluation-panel"
+        className="evaluation-panel"
+        role="tabpanel"
+        aria-labelledby="evaluation-tab"
+        hidden={activeTab !== "evaluation"}
+      >
+        <EvaluationRunner
+          key={selectedCorpus}
+          dataset={selectedCorpus}
+          onDatasetChange={setSelectedCorpus}
+        />
       </div>
 
       <p className="footer-note">

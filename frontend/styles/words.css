@@ -1,0 +1,233 @@
+.app-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 auto 24px;
+}
+
+.workspace[hidden],
+#words-panel[hidden] {
+  display: none;
+}
+
+.app-tabs button {
+  padding: 10px 18px;
+  border: 1px solid var(--line, #ded8d0);
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-tabs button.active {
+  border-color: var(--accent, #8b5e3c);
+  background: var(--accent, #8b5e3c);
+  color: #fff;
+}
+
+.app-tabs button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent, #8b5e3c) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.words-card {
+  width: min(100%, 980px);
+  margin: 0 auto;
+}
+
+.evaluation-panel[hidden] {
+  display: none;
+}
+
+.evaluation-card {
+  width: min(100%, 980px);
+  margin: 0 auto;
+}
+
+.evaluation-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.evaluation-form label {
+  display: grid;
+  gap: 7px;
+  font-weight: 650;
+}
+
+.evaluation-form input,
+.evaluation-form select {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #d9d4cd);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.optional-label {
+  color: var(--muted, #77716a);
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+
+.evaluation-run-status,
+.evaluation-results {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid var(--line, #e6e2dc);
+  border-radius: 14px;
+  background: var(--surface-muted, #f8f6f2);
+}
+
+.evaluation-results h3 {
+  margin-top: 0;
+}
+
+.evaluation-results ul {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+}
+
+.evaluation-error {
+  margin-top: 16px;
+}
+
+.words-mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 28px 0 24px;
+  border-bottom: 1px solid var(--line, #e6e2dc);
+}
+
+.words-mode-tabs button {
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.words-mode-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent, #8b5e3c);
+  color: var(--accent, #8b5e3c);
+  font-weight: 700;
+}
+
+.words-mode-tabs button:focus-visible,
+.words-card input:focus-visible,
+.words-card select:focus-visible,
+.words-card textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent, #8b5e3c) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.words-mode-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.words-panel-heading h2,
+.word-chunk-preview h3,
+.question-word-preview h3 {
+  margin: 0 0 6px;
+}
+
+.words-panel-heading p,
+.word-chunk-preview p {
+  margin: 0;
+  color: var(--muted, #77716a);
+}
+
+.words-search-label {
+  margin-bottom: -10px;
+  font-weight: 650;
+}
+
+.words-card input[type="search"],
+.words-card select,
+.words-card textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line, #d9d4cd);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.words-card input:disabled,
+.words-card select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.words-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line, #e6e2dc);
+  border-radius: 14px;
+}
+
+.words-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.words-table th,
+.words-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line, #e6e2dc);
+}
+
+.words-table th {
+  background: var(--surface-muted, #f8f6f2);
+  font-size: 0.9rem;
+}
+
+.words-empty-cell {
+  padding: 28px 16px !important;
+  color: var(--muted, #77716a);
+  text-align: center;
+}
+
+.words-integration-note,
+.words-empty-state {
+  margin: 0;
+  color: var(--muted, #77716a);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.word-chunk-preview,
+.question-word-preview {
+  padding: 18px;
+  border: 1px solid var(--line, #e6e2dc);
+  border-radius: 14px;
+  background: var(--surface-muted, #f8f6f2);
+}
+
+.question-word-preview ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.question-word-preview li {
+  padding: 5px 10px;
+  border: 1px solid var(--line, #ded8d0);
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  font-size: 0.9rem;
+}
