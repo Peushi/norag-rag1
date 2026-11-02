@@ -21,12 +21,13 @@ DEFAULT_TOP_K = 3
 
 @dataclass
 class Settings:
-    chunk_size: int
-    overlap: int
-    top_k: int = DEFAULT_TOP_K
-    relevance_threshold: float | None = None
+    chunk_size: int # how the doc is split
+    overlap: int # how the doc is split
+    top_k: int = DEFAULT_TOP_K # retrieval asks for that much
+    relevance_threshold: float | None = None # filters chunks by distance
 
 
+# loads saved chunking settings
 _index_settings = load_settings()
 APP_SETTINGS = Settings(
     chunk_size=_index_settings["chunk_size"],
@@ -49,6 +50,7 @@ def list_documents() -> list[dict[str, str | int]]:
     return documents
 
 
+# resolves a doc ID to a file
 def read_text_document(document_id: str) -> str:
     """Read one corpus document by its relative source path."""
     from backend.documents import resolve_document_path

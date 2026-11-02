@@ -269,7 +269,3 @@ if __name__ == "__main__":
         parser.error("--limit must be at least 1")
 
     evaluate(arguments)
-
-
-
-

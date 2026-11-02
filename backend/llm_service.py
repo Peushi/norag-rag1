@@ -34,6 +34,14 @@ NOT_FOUND_ANSWER = (
 )
 
 
+class LLMServiceUnavailable(RuntimeError):
+    """Raised when the upstream LLM service cannot be used."""
+
+
+class LLMResponseError(ValueError):
+    """Raised when the upstream LLM returns unusable output."""
+
+
 def build_prompt(question: str, chunks: list[dict]) -> str:
     """Build a prompt using only the retrieved chunks as evidence."""
     context_parts = []
@@ -112,7 +120,7 @@ def generate_answer(question: str, chunks: list[dict]) -> AskResponse:
     retrieved_by_id = {str(chunk["id"]): chunk for chunk in chunks}
 
     if len(retrieved_by_id) != len(chunks):
-        raise ValueError("Retrieved chunks contain duplicate IDs.")
+        raise LLMResponseError("Retrieved chunks contain duplicate IDs.")
 
     prompt = build_prompt(question, chunks)
 

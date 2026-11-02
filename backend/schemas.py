@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Literal
 
@@ -23,14 +23,14 @@ class RetrieveRequest(BaseModel):
     top_k: int = Field(default=3, ge=1, le=20)
 
 
+class AskRequest(RetrieveRequest):
+    pass
+
+
 class RetrieveResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     chunks: list[RetrievedChunk]
-
-
-class AskRequest(RetrieveRequest):
-    pass
 
 
 class Reference(BaseModel):
@@ -69,16 +69,6 @@ class LLMAnswer(BaseModel):
     cited_chunk_ids: list[str] = Field(default_factory=list)
 
 
-class SourceChunk(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    text: str
-    source: str
-    position: int = Field(ge=0)
-    distance: float
-
-
 class APIErrorDetail(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -93,10 +83,20 @@ class APIErrorResponse(BaseModel):
     error: APIErrorDetail
 
 
+class SourceChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    text: str
+    source: str
+    position: int = Field(ge=0)
+    distance: float
+
+
 class ChunkResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    chunk: RetrievedChunk
+    chunk: SourceChunk
 
 
 class DocumentSummary(BaseModel):
@@ -116,7 +116,13 @@ class DocumentListResponse(BaseModel):
 class SettingsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    chunk_size: int = Field(default=600, ge=100, le=2000)
-    overlap: int = Field(default=120, ge=0, le=1000)
+    chunk_size: int = Field(default=800, ge=100, le=2000)
+    overlap: int = Field(default=80, ge=0, le=1000)
     top_k: int = Field(default=3, ge=1, le=20)
-    relevance_threshold: float | None = Field(default=None, ge=0.0)
+    relevance_threshold: float | None = Field(default=None, ge=0.0, le=2.0)
+
+    @model_validator(mode="after")
+    def validate_chunk_overlap(self):
+        if self.overlap >= self.chunk_size:
+            raise ValueError("overlap must be smaller than chunk_size")
+        return self
