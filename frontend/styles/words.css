@@ -164,6 +164,56 @@
   font: inherit;
 }
 
+.words-chunk-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  align-items: end;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line, #e6e2dc);
+  border-radius: 14px;
+  background: var(--surface-muted, #f8f6f2);
+}
+
+.words-chunk-settings label {
+  display: grid;
+  gap: 6px;
+  font-weight: 650;
+}
+
+.words-chunk-settings input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #d9d4cd);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.words-chunk-settings span {
+  grid-column: 1 / -1;
+  color: var(--muted, #77716a);
+  font-size: 0.9rem;
+}
+
+.word-search-form,
+.question-analysis-form {
+  display: grid;
+  gap: 12px;
+}
+
+.word-search-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.word-search-controls input {
+  flex: 1;
+  min-width: 0;
+}
+
 .words-card input:disabled,
 .words-card select:disabled {
   cursor: not-allowed;
@@ -199,6 +249,57 @@
   text-align: center;
 }
 
+.word-select-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent, #8b5e3c);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.word-select-button[aria-pressed="true"] {
+  color: var(--text, #2d2a27);
+}
+
+.words-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.word-matches-list {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.word-matches-list li {
+  padding: 14px;
+  border: 1px solid var(--line, #e6e2dc);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+
+.word-match-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--muted, #77716a);
+  font-size: 0.88rem;
+}
+
+.word-matches-list li p {
+  margin-bottom: 0;
+  white-space: pre-wrap;
+}
+
 .words-integration-note,
 .words-empty-state {
   margin: 0;
@@ -222,6 +323,10 @@
   margin: 12px 0;
   padding: 0;
   list-style: none;
+}
+
+.words-error {
+  margin: 8px 0;
 }
 
 .question-word-preview li {
