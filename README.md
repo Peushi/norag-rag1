@@ -86,3 +86,33 @@ Run the evaluation run-service checks with:
 ```bash
 python -m unittest backend.test_evaluation_runs
 ```
+
+## Words analytics API
+
+The Words tab reads the `baking` and `kestrel` corpora using the shared
+document loader and `chunk_text()` implementation. Chunk size and overlap
+default to `800/80` and can be changed in the Words view to compare another
+chunking setup, such as `400/40`. Chunk IDs use the same helper as retrieval
+and evaluation.
+
+Word matching is case-insensitive and token-based; punctuation separates
+tokens, so `KST-2044` is analyzed as `kst` and `2044`. Corpus occurrence totals
+count each token in the source documents once. Per-chunk counts reflect the
+selected overlapping chunks, so adding per-chunk counts can exceed the
+source-document total.
+
+- `GET /api/words?dataset=baking&chunk_size=800&overlap=80` returns paginated
+  vocabulary with source occurrence and distinct chunk counts.
+- `GET /api/words/{word}/chunks?dataset=kestrel&chunk_size=800&overlap=80`
+  returns matching chunks and per-chunk counts.
+- `GET /api/words/questions?dataset=baking` returns the fixed question set for
+  that dataset.
+- `POST /api/words/analyze-question` accepts `dataset`, `question`,
+  `chunk_size`, and `overlap`, then returns words found, missing words, and
+  matching chunks.
+
+The Words analytics checks can be run with:
+
+```bash
+python -m unittest backend.test_words_analytics
+```
