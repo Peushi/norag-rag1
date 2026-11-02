@@ -2,6 +2,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -119,38 +120,59 @@ def retrieve(collection, question, top_k, max_distance):
     return filter_by_relevance(chunks, max_distance)
 
 
-def evaluate(args):
-    config = DATASETS[args.dataset]
+Dataset = Literal["baking", "kestrel"]
+
+
+def run_evaluation(
+    *,
+    dataset: Dataset,
+    top_k: int = 5,
+    chunk_size: int = 800,
+    overlap: int = 80,
+    max_distance: float | None = None,
+    output_path: str | Path,
+    limit: int | None = None,
+) -> Path:
+    if dataset not in DATASETS:
+        raise ValueError(f"Unknown evaluation dataset: {dataset}")
+    if top_k < 1:
+        raise ValueError("top_k must be at least 1")
+    if chunk_size < 1 or overlap < 0 or overlap >= chunk_size:
+        raise ValueError("Invalid chunk size or overlap")
+    if max_distance is not None and not 0 <= max_distance <= 2:
+        raise ValueError("max_distance must be between 0 and 2")
+    if limit is not None and limit < 1:
+        raise ValueError("limit must be at least 1")
+
+    config = DATASETS[dataset]
 
     questions = load_questions(config["questions"])
-    if args.limit is not None:
-        questions = questions[:args.limit]
+    if limit is not None:
+        questions = questions[:limit]
     documents = load_documents(config["documents"])
 
     if not documents:
         raise RuntimeError(
-            f"No documents found for dataset: {args.dataset}"
+            f"No documents found for dataset: {dataset}"
         )
 
-    print(f"Dataset: {args.dataset}")
+    print(f"Dataset: {dataset}")
     print(f"Documents: {len(documents)}")
     print(f"Questions: {len(questions)}")
-    print(f"Chunk size: {args.chunk_size}")
-    print(f"Overlap: {args.overlap}")
-    print(f"Top K: {args.top_k}")
+    print(f"Chunk size: {chunk_size}")
+    print(f"Overlap: {overlap}")
+    print(f"Top K: {top_k}")
 
     collection, total_chunks = build_isolated_index(
-        args.dataset,
+        dataset,
         documents,
-        args.chunk_size,
-        args.overlap,
+        chunk_size,
+        overlap,
     )
 
     print(f"Indexed chunks: {total_chunks}")
 
-    output_path = (
-        EVALUATION_DIR / "results" / f"{args.dataset}_rag.jsonl"
-    )
+    output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     completed = 0
@@ -164,8 +186,8 @@ def evaluate(args):
             retrieved = retrieve(
                 collection,
                 question,
-                args.top_k,
-                args.max_distance,
+                top_k,
+                max_distance,
             )
 
             expected_sources = sorted({
@@ -188,9 +210,9 @@ def evaluate(args):
                 result = {
                     **item,
                     "model": MODEL,
-                    "top_k": args.top_k,
-                    "chunk_size": args.chunk_size,
-                    "overlap": args.overlap,
+                    "top_k": top_k,
+                    "chunk_size": chunk_size,
+                    "overlap": overlap,
                     "retrieval_hit": retrieval_hit,
                     "retrieved_chunks": retrieved,
                     "retrieved_sources": found_sources,
@@ -212,9 +234,9 @@ def evaluate(args):
                 result = {
                     **item,
                     "model": MODEL,
-                    "top_k": args.top_k,
-                    "chunk_size": args.chunk_size,
-                    "overlap": args.overlap,
+                    "top_k": top_k,
+                    "chunk_size": chunk_size,
+                    "overlap": overlap,
                     "retrieval_hit": retrieval_hit,
                     "retrieved_chunks": retrieved,
                     "retrieved_sources": found_sources,
@@ -235,6 +257,22 @@ def evaluate(args):
     print(f"Successful questions: {completed}")
     print(f"Errors: {errors}")
     print(f"Results saved to: {output_path}")
+    return output_path
+
+
+def evaluate(args, output_path=None):
+    """CLI compatibility wrapper around the reusable evaluation function."""
+    if output_path is None:
+        output_path = EVALUATION_DIR / "results" / f"{args.dataset}_rag.jsonl"
+    return run_evaluation(
+        dataset=args.dataset,
+        top_k=args.top_k,
+        chunk_size=args.chunk_size,
+        overlap=args.overlap,
+        max_distance=args.max_distance,
+        output_path=output_path,
+        limit=args.limit,
+    )
 
 
 if __name__ == "__main__":
@@ -268,4 +306,12 @@ if __name__ == "__main__":
     if arguments.limit is not None and arguments.limit < 1:
         parser.error("--limit must be at least 1")
 
-    evaluate(arguments)
+    run_evaluation(
+        dataset=arguments.dataset,
+        top_k=arguments.top_k,
+        chunk_size=arguments.chunk_size,
+        overlap=arguments.overlap,
+        max_distance=arguments.max_distance,
+        output_path=EVALUATION_DIR / "results" / f"{arguments.dataset}_rag.jsonl",
+        limit=arguments.limit,
+    )

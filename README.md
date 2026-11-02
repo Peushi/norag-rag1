@@ -55,19 +55,34 @@ The built frontend is served from FastAPI at `http://localhost:8000/`. The
 generated `frontend/dist/` directory is ignored by Git; commit the frontend
 source and package lockfile instead.
 
-## Retrieval checks
+## V2 evaluations
 
-Rebuild and inspect retrieval results from the repository root:
+The evaluation runner supports the `baking` and `kestrel` datasets. From the
+repository root, run an evaluation with:
 
 ```bash
-python -m backend.retrieval_smoke_test
+python -m evaluation.rag_evaluation \
+  --dataset baking \
+  --top-k 5 \
+  --chunk-size 800 \
+  --overlap 80
 ```
 
-The retrieval evaluation runner expects `evaluation/questions.json`, with each
-question containing an `id`, `question`, and `expected_sources` list. An empty
-`expected_sources` list marks an unanswerable question, which is excluded from
-the retrieval hit-rate calculation.
+Use `--dataset kestrel` to evaluate the Kestrel knowledge base. Optional
+`--max-distance` and `--limit` arguments filter retrieved chunks or limit the
+number of questions. CLI runs write their JSONL results to
+`evaluation/results/<dataset>_rag.jsonl`.
+
+The frontend Evaluation tab starts a run through `POST /api/evaluations`,
+checks progress with `GET /api/evaluations/{run_id}`, and loads completed
+results with `GET /api/evaluations/{run_id}/results`. API-started runs write to
+unique directories under `evaluation/results/runs/`, so they do not overwrite
+the CLI result files. Run metadata is persisted, but the job registry and
+per-dataset concurrency guard are in-process; use one backend process for this
+local V2 workflow.
+
+Run the evaluation run-service checks with:
 
 ```bash
-python -m backend.evaluation
+python -m unittest backend.test_evaluation_runs
 ```
