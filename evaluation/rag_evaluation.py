@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -260,20 +260,6 @@ def run_evaluation(
     return output_path
 
 
-def evaluate(args, output_path=None):
-    """CLI compatibility wrapper around the reusable evaluation function."""
-    if output_path is None:
-        output_path = EVALUATION_DIR / "results" / f"{args.dataset}_rag.jsonl"
-    return run_evaluation(
-        dataset=args.dataset,
-        top_k=args.top_k,
-        chunk_size=args.chunk_size,
-        overlap=args.overlap,
-        max_distance=args.max_distance,
-        output_path=output_path,
-        limit=args.limit,
-    )
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -290,6 +276,7 @@ if __name__ == "__main__":
     parser.add_argument("--overlap", type=int, default=80)
     parser.add_argument("--max-distance", type=float, default=None)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--output-path", type=Path, default=None)
 
     arguments = parser.parse_args()
 
@@ -312,6 +299,9 @@ if __name__ == "__main__":
         chunk_size=arguments.chunk_size,
         overlap=arguments.overlap,
         max_distance=arguments.max_distance,
-        output_path=EVALUATION_DIR / "results" / f"{arguments.dataset}_rag.jsonl",
+        output_path=(
+            arguments.output_path
+            or EVALUATION_DIR / "results" / f"{arguments.dataset}_rag.jsonl"
+        ),
         limit=arguments.limit,
     )
