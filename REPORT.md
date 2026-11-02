@@ -1,4 +1,4 @@
-# BakeFix — V1 Report
+# BakeFix — V1 and V2 Report
 
 BakeFix is a baking troubleshooting RAG application. V1 establishes a naive
 baseline: retrieve passages from baking guides, then generate grounded answers
@@ -67,9 +67,116 @@ python -m backend.evaluation
 - **Observed bug, fixed:** The first index build failed because deleting a missing collection raised `NotFoundError`; the handler now catches that exception.
 
 ### Peushi— Answer Generation
+| Decision | Choice and reason |
+|---|---|
+| LLM integration | Google Gemini through the OpenAI-compatible API, keeping model configuration in environment variables. |
+| Prompt construction | A grounded prompt provides the user's question and retrieved passages as context. The model is instructed to answer using the supplied evidence and avoid unsupported claims. |
+| Response validation | Pydantic schemas validate the generated response structure and ensure references correspond to retrieved chunks. |
+| Citation verification | References are checked against the retrieved chunk IDs to prevent invalid citations. |
+| Abstention | When the retrieved evidence is insufficient, the system returns a `not_found` response rather than inventing an answer. |
+| Evaluation | Created reusable no-context and RAG evaluation workflows, JSONL result files, and manual-review tools to assess answer quality. |
 
+### Peushi — Known Limitations
+
+- **Retrieval dependency:** Answer quality depends on whether the retriever provides the correct evidence.
+- **LLM variability:** Generated responses may vary between runs.
+- **Context limitations:** Missing or incomplete evidence can lead to an abstention even when the answer exists elsewhere in the corpus.
+- **Citation limitations:** Valid citation IDs do not automatically guarantee that the cited passage fully supports the answer.
 
 
 ### Sasha — Integration and UI
 
 
+
+## V2 — Retrieval Evaluation and Words Analytics
+
+### Objective
+
+V2 focuses on evaluating retrieval quality rather than simply checking whether the correct source document appears in the results.
+
+We evaluated two corpora, Baking and Kestrel KB, using the same question sets and embedding model across two chunking configurations. The goal was to measure evidence retrieval, compare configurations, and understand failures using Words Analytics.
+
+### Karma — Retrieval and Evaluation
+
+#### Decision Log
+
+| Decision | Alternatives considered | Choice and justification |
+|---|---|---|
+| Relevance measurement | Source-level matching vs. supporting-passage matching | We moved to source-and-quote matching because retrieving the correct document does not guarantee that the answer is retrieved. |
+| Metrics | A single HitRate@5 vs. multiple retrieval measurements | We measure HitRate and Recall at k = 1, 3, 5, and 10, including results per question type. Recall also captures incomplete evidence retrieval. |
+| Configurations | Keep 800/80 vs. experiment with smaller chunks | We compared 800/80 and 400/40 to measure how chunk size affects retrieval. |
+| Evaluation | Generate answers for every question vs. retrieval-only evaluation | Retrieval-only is the default to evaluate retrieval independently without unnecessary Gemini calls. |
+| Evidence matching | Allow partial quotations vs. require a complete supporting quote | We require the complete quote within one chunk, with whitespace normalization. Split quotations are flagged as a limitation. |
+
+#### Retrieval Results
+
+Both corpora were evaluated using `all-MiniLM-L6-v2`, cosine distance, unchanged question sets, and no relevance threshold.
+
+| Corpus | Configuration | HitRate@5 | Recall@5 |
+|---|---|---:|---:|
+| Baking | 800/80 | 100% | 79.2% |
+| Baking | 400/40 | 70% | 44.2% |
+| Kestrel | 800/80 | 87.5% | 81.3% |
+| Kestrel | 400/40 | 75% | 71.9% |
+
+**HitRate@k** measures the proportion of answerable questions for which at least one expected supporting passage is retrieved in the top k.
+
+**Recall@k** measures the proportion of expected passages recovered for each answerable question, averaged across questions.
+
+Unanswerable questions are excluded from both metrics.
+
+The 800/80 configuration performed better overall across both corpora. Smaller chunks reduced retrieval quality, partly because some expected quotations crossed chunk boundaries.
+
+We therefore retained 800/80 as our preferred configuration among those tested. However, some individual questions improved with 400/40, showing that the larger configuration is not universally better.
+
+Complete results at k = 1, 3, 5, and 10, including per-question-type measurements, are available in [the retrieval comparison](evaluation/results/retrieval_comparison.md).
+
+#### Observed Failures and Words Analysis
+
+**1. Kestrel q01 — Exact identifier retrieval**
+
+The question asks about error `KST-2044`. The required passage contains both IP addresses needed to resolve the error.
+
+With 800/80, the passage ranked seventh, meaning top-5 retrieval missed both expected quotations.
+
+Words Analytics showed that the exact identifier `2044` appears in the correct chunk but not in the five higher-ranked chunks. Meanwhile, more general words such as `kst` occur across multiple runbook chunks.
+
+This suggests that semantic ranking did not sufficiently prioritize the distinguishing identifier, although the vocabulary analysis does not establish the embedding model's internal cause.
+
+**2. Baking B04 — Flour measurement instructions**
+
+The question asks how to measure flour without a scale.
+
+With 400/40, the two expected instructions ranked sixth and seventh, despite the five higher-ranked chunks coming from the correct document.
+
+Words Analytics showed that common terms such as `flour` and `cup` appeared in many chunks. Their presence alone did not distinguish the specific instructions from general flour-measurement information.
+
+With 800/80, both expected passages appeared together at rank three.
+
+This demonstrates how chunk size can affect the amount of useful context retrieved.
+
+Additional failures, including Kestrel q08 and Baking B07, are documented in [the retrieval miss diagnoses](evaluation/results/retrieval_miss_diagnoses.md).
+
+#### Verification
+
+The four evaluation runs produced reproducible results, and 22 automated tests passed after Words Analytics integration.
+
+Evaluation was performed without live Gemini calls, allowing retrieval quality to be measured separately from answer generation.
+
+#### Remaining Limitations
+
+- Exact-quote matching is reproducible but does not capture every useful paraphrase.
+- Some required evidence can be divided across chunk boundaries.
+- Retrieving one supporting passage does not guarantee that all evidence needed for a complete answer is available.
+- Semantic similarity does not guarantee relevance, particularly for exact identifiers and multi-document questions.
+- Answer correctness and abstention quality require separate generation-side evaluation.
+
+These findings provide directions for future retrieval improvements.
+
+### Peushi — LLM Evaluation and Answer Quality
+
+*To be completed by Peushi.*
+
+### Aleksandra — Words Analytics and Frontend Integration
+
+*To be completed by Aleksandra.*
