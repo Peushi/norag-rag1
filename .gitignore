@@ -29,3 +29,5 @@ future/
 
 # Local backup files
 *.backup
+
+evaluation/indexes/
