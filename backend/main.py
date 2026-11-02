@@ -2,13 +2,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from openai import APIConnectionError, APIStatusError, APITimeoutError
 
 from backend.documents import add_document_and_reindex
+from backend.evaluation_runs import (
+    EvaluationAlreadyRunningError,
+    EvaluationRunNotFoundError,
+    create_run,
+    execute_run,
+    get_run,
+    get_run_results,
+)
 from backend.llm_service import LLMResponseError, LLMServiceUnavailable
 from backend.rag_service import (
     APP_SETTINGS,
@@ -27,6 +35,9 @@ from backend.schemas import (
     ChunkResponse,
     DocumentListResponse,
     DocumentSummary,
+    EvaluationResultsResponse,
+    EvaluationRunRequest,
+    EvaluationRunResponse,
     RetrieveRequest,
     RetrieveResponse,
     SettingsRequest,
@@ -149,6 +160,55 @@ if FRONTEND_ASSETS_DIR.is_dir():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post(
+    "/api/evaluations",
+    response_model=EvaluationRunResponse,
+    status_code=202,
+)
+async def start_evaluation(
+    payload: EvaluationRunRequest,
+    background_tasks: BackgroundTasks,
+):
+    try:
+        run = create_run(payload)
+    except EvaluationAlreadyRunningError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    background_tasks.add_task(execute_run, run.run_id, payload)
+    return run
+
+
+@app.get(
+    "/api/evaluations/{run_id}",
+    response_model=EvaluationRunResponse,
+)
+async def evaluation_status(run_id: str):
+    try:
+        return get_run(run_id)
+    except EvaluationRunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Evaluation run not found.") from exc
+
+
+@app.get(
+    "/api/evaluations/{run_id}/results",
+    response_model=EvaluationResultsResponse,
+)
+async def evaluation_results(run_id: str):
+    try:
+        run = get_run(run_id)
+        results = get_run_results(run_id)
+    except EvaluationRunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Evaluation run not found.") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    return EvaluationResultsResponse(
+        run_id=run.run_id,
+        dataset=run.dataset,
+        results=results,
+    )
 
 
 @app.get("/api/documents", response_model=DocumentListResponse)

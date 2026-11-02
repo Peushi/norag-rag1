@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -126,3 +126,49 @@ class SettingsRequest(BaseModel):
         if self.overlap >= self.chunk_size:
             raise ValueError("overlap must be smaller than chunk_size")
         return self
+
+
+EvaluationDataset = Literal["baking", "kestrel"]
+EvaluationRunStatus = Literal["queued", "running", "completed", "failed"]
+
+
+class EvaluationRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dataset: EvaluationDataset
+    top_k: int = Field(default=5, ge=1, le=20)
+    chunk_size: int = Field(default=800, ge=100, le=2000)
+    overlap: int = Field(default=80, ge=0, le=1000)
+    max_distance: float | None = Field(default=None, ge=0.0, le=2.0)
+    limit: int | None = Field(default=None, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def validate_chunk_overlap(self):
+        if self.overlap >= self.chunk_size:
+            raise ValueError("overlap must be smaller than chunk_size")
+        return self
+
+
+class EvaluationRunResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    dataset: EvaluationDataset
+    status: EvaluationRunStatus
+    top_k: int
+    chunk_size: int
+    overlap: int
+    max_distance: float | None
+    limit: int | None
+    created_at: str
+    started_at: str | None = None
+    completed_at: str | None = None
+    error: str | None = None
+
+
+class EvaluationResultsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    dataset: EvaluationDataset
+    results: list[dict[str, Any]]

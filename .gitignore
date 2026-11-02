@@ -49,3 +49,4 @@ future/
 *.backup
 
 evaluation/indexes/
+evaluation/results/runs/
