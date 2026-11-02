@@ -40,6 +40,8 @@ FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
 app = FastAPI(title="BakeFix RAG API")
 
 
+# ERROR HANDLERS
+# what HTTP response FastAPI sends when an error occurs
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
@@ -211,6 +213,7 @@ async def update_settings(payload: SettingsRequest):
     }
 
 
+# what the retreival part found
 @app.post("/api/retrieve", response_model=RetrieveResponse)
 async def retrieve_endpoint(payload: RetrieveRequest):
     try:
@@ -224,6 +227,9 @@ async def retrieve_endpoint(payload: RetrieveRequest):
     return RetrieveResponse(chunks=chunks)
 
 
+
+# full question - answer route
+# retreives relevant chunks and passes them
 @app.post("/api/ask", response_model=AskResponse)
 async def ask_endpoint(payload: AskRequest):
     try:
@@ -232,11 +238,17 @@ async def ask_endpoint(payload: AskRequest):
             document_ids=payload.document_ids,
             top_k=payload.top_k,
         )
+    except LLMServiceUnavailable:
+        raise
+    except LLMResponseError:
+        raise
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return result
 
 
+
+# looks up 1 indexed chunk
 @app.get("/api/chunks/{chunk_id:path}", response_model=ChunkResponse)
 async def chunk_by_id(chunk_id: str):
     chunk = get_chunk_by_id(chunk_id)

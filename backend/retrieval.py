@@ -131,6 +131,27 @@ def retrieve_chunks(question, top_k=5, selected_documents=None):
     return chunks
 
 
+def get_chunk(chunk_id):
+    """Fetch one stored chunk by its deterministic ID."""
+    collection = get_collection()
+    if collection.count() == 0:
+        return None
+
+    result = collection.get(ids=[chunk_id], include=["documents", "metadatas"])
+    if not result.get("ids") or not result["ids"]:
+        return None
+
+    document = result["documents"][0]
+    metadata = result["metadatas"][0]
+
+    return {
+        "id": chunk_id,
+        "text": document,
+        "source": metadata["source"],
+        "position": metadata["position"],
+    }
+
+
 def filter_by_relevance(chunks, max_distance=None):
     """optionally remove chunks that are too far from the query."""
 

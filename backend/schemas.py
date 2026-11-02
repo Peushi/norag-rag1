@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 from __future__ import annotations
-
 from typing import Literal
-
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -24,14 +21,14 @@ class RetrieveRequest(BaseModel):
     top_k: int = Field(default=3, ge=1, le=20)
 
 
+class AskRequest(RetrieveRequest):
+    pass
+
+
 class RetrieveResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     chunks: list[RetrievedChunk]
-
-
-class AskRequest(RetrieveRequest):
-    pass
 
 
 class AnswerReference(BaseModel):
@@ -40,46 +37,13 @@ class AnswerReference(BaseModel):
     chunk_id: str
     source: str
     position: int = Field(ge=0)
-=======
-﻿from typing import Literal
-
-from pydantic import BaseModel, Field
-
-
-class AskRequest(BaseModel):
-    question: str = Field(min_length=1)
-    top_k: int = Field(default=5, ge=1, le=20)
-    document_ids: list[str] | None = None
-
-
-class RetrieveRequest(BaseModel):
-    question: str = Field(min_length=1)
-    top_k: int = Field(default=5, ge=1, le=20)
-    document_ids: list[str] | None = None
-
-
-class RetrievedChunk(BaseModel):
-    id: str
-    text: str
-    source: str
-    position: int
-    distance: float
-
-
-class RetrieveResponse(BaseModel):
-    chunks: list[RetrievedChunk]
-
-
-class Reference(BaseModel):
-    chunk_id: str
-    source: str
-    position: int
->>>>>>> origin/main
     quote: str
 
 
+Reference = AnswerReference
+
+
 class AskResponse(BaseModel):
-<<<<<<< HEAD
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["answered", "not_found"]
@@ -90,9 +54,17 @@ class AskResponse(BaseModel):
     def validate_references(self):
         if self.status == "not_found" and self.references:
             raise ValueError("not_found responses must not contain references.")
-        if self.status == "answered" and len(self.references) == 0:
+        if self.status == "answered" and not self.references:
             raise ValueError("answered responses must include at least one reference.")
         return self
+
+
+class LLMAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["answered", "not_found"]
+    answer: str = Field(min_length=1, pattern=r".*\S.*")
+    cited_chunk_ids: list[str] = Field(default_factory=list)
 
 
 class APIErrorDetail(BaseModel):
@@ -109,10 +81,19 @@ class APIErrorResponse(BaseModel):
     error: APIErrorDetail
 
 
+class SourceChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    text: str
+    source: str
+    position: int = Field(ge=0)
+
+
 class ChunkResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    chunk: RetrievedChunk
+    chunk: SourceChunk
 
 
 class DocumentSummary(BaseModel):
@@ -132,18 +113,13 @@ class DocumentListResponse(BaseModel):
 class SettingsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    chunk_size: int = Field(default=600, ge=100, le=2000)
-    overlap: int = Field(default=120, ge=0, le=1000)
+    chunk_size: int = Field(default=800, ge=100, le=2000)
+    overlap: int = Field(default=80, ge=0, le=1000)
     top_k: int = Field(default=3, ge=1, le=20)
-    relevance_threshold: float | None = Field(default=None, ge=0.0)
-=======
-    status: Literal["answered", "not_found"]
-    answer: str
-    references: list[Reference] = Field(default_factory=list)
+    relevance_threshold: float | None = Field(default=None, ge=0.0, le=2.0)
 
-
-class LLMAnswer(BaseModel):
-    status: Literal["answered", "not_found"]
-    answer: str = Field(min_length=1, pattern=r".*\S.*")
-    cited_chunk_ids: list[str] = Field(default_factory=list)
->>>>>>> origin/main
+    @model_validator(mode="after")
+    def validate_chunk_overlap(self):
+        if self.overlap >= self.chunk_size:
+            raise ValueError("overlap must be smaller than chunk_size")
+        return self
