@@ -172,3 +172,87 @@ class EvaluationResultsResponse(BaseModel):
     run_id: str
     dataset: EvaluationDataset
     results: list[dict[str, Any]]
+
+
+class WordEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    word: str
+    occurrence_count: int = Field(ge=0)
+    chunk_count: int = Field(ge=0)
+
+
+class WordChunkMatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    chunk_id: str
+    source: str
+    position: int = Field(ge=0)
+    text: str
+    occurrence_count: int = Field(ge=1)
+    matched_words: list[str] = Field(default_factory=list)
+
+
+class WordVocabularyResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dataset: EvaluationDataset
+    chunk_size: int
+    overlap: int
+    total_words: int = Field(ge=0)
+    matching_words: int = Field(ge=0)
+    offset: int = Field(ge=0)
+    words: list[WordEntry]
+
+
+class WordChunksResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dataset: EvaluationDataset
+    chunk_size: int
+    overlap: int
+    word: str
+    occurrence_count: int = Field(ge=0)
+    chunk_count: int = Field(ge=0)
+    chunks: list[WordChunkMatch]
+
+
+class WordQuestionAnalysisRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dataset: EvaluationDataset
+    question: str = Field(min_length=1, max_length=4000)
+    chunk_size: int = Field(default=800, ge=100, le=2000)
+    overlap: int = Field(default=80, ge=0, le=1000)
+
+    @model_validator(mode="after")
+    def validate_chunk_overlap(self):
+        if self.overlap >= self.chunk_size:
+            raise ValueError("overlap must be smaller than chunk_size")
+        return self
+
+
+class WordQuestionAnalysisResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dataset: EvaluationDataset
+    chunk_size: int
+    overlap: int
+    words_found: list[WordEntry]
+    words_missing: list[str]
+    matching_chunks: list[WordChunkMatch]
+
+
+class WordQuestionSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    question: str
+    type: str = "other"
+
+
+class WordQuestionListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dataset: EvaluationDataset
+    questions: list[WordQuestionSummary]

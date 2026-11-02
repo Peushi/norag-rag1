@@ -360,7 +360,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-distance", type=float, default=None)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--generate-answers", action="store_true", help="Also call Gemini; default is retrieval only")
-    parser.add_argument("--output", type=Path, default=None, help="Results JSONL path")
+    parser.add_argument("--output", "--output-path", dest="output", type=Path, default=None, help="Results JSONL path")
 
     arguments = parser.parse_args()
 
