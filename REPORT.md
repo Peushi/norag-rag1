@@ -67,7 +67,21 @@ python -m backend.evaluation
 - **Observed bug, fixed:** The first index build failed because deleting a missing collection raised `NotFoundError`; the handler now catches that exception.
 
 ### Peushi— Answer Generation
+| Decision | Choice and reason |
+|---|---|
+| LLM integration | Google Gemini through the OpenAI-compatible API, keeping model configuration in environment variables. |
+| Prompt construction | A grounded prompt provides the user's question and retrieved passages as context. The model is instructed to answer using the supplied evidence and avoid unsupported claims. |
+| Response validation | Pydantic schemas validate the generated response structure and ensure references correspond to retrieved chunks. |
+| Citation verification | References are checked against the retrieved chunk IDs to prevent invalid citations. |
+| Abstention | When the retrieved evidence is insufficient, the system returns a `not_found` response rather than inventing an answer. |
+| Evaluation | Created reusable no-context and RAG evaluation workflows, JSONL result files, and manual-review tools to assess answer quality. |
 
+### Peushi — Known Limitations
+
+- **Retrieval dependency:** Answer quality depends on whether the retriever provides the correct evidence.
+- **LLM variability:** Generated responses may vary between runs.
+- **Context limitations:** Missing or incomplete evidence can lead to an abstention even when the answer exists elsewhere in the corpus.
+- **Citation limitations:** Valid citation IDs do not automatically guarantee that the cited passage fully supports the answer.
 
 
 ### Sasha — Integration and UI
