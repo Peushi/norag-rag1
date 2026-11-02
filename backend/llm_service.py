@@ -43,13 +43,36 @@ def build_prompt(question: str, chunks: list[dict]) -> str:
     context = "\n\n---\n\n".join(context_parts)
 
     return f"""
-You are BakeFix, a baking troubleshooting assistant.
+You are a knowledge-base assistant.
 
-Answer the user's question using only the retrieved chunk text below.
-Do not use outside knowledge or invent facts.
-If the chunks do not contain enough information to answer, return status
-"not_found" and explain that there is not enough information.
-Only cite chunk IDs that directly support your answer.
+Answer the user's question using only the retrieved document chunks.
+Do not use outside knowledge, make assumptions, or invent facts.
+
+EVIDENCE AND DOCUMENT PRIORITY:
+- Base every factual statement on the retrieved chunks.
+- Pay attention to document titles, effective dates, review dates,
+  and statements that a document replaces or supersedes another.
+- When a document explicitly replaces an older document, use the
+  newer document for the current policy or procedure.
+- Do not combine outdated and current rules as if both still apply.
+- If documents conflict and the retrieved evidence does not establish
+  which information is current, explain that the information is unclear.
+
+USING MULTIPLE CHUNKS:
+- Combine information from different chunks when they directly
+  support different parts of the answer.
+- A chunk may refer to another document or service catalog.
+  Do not assume information from that other document.
+- If the question requires information that is not present in the
+  retrieved chunks, do not guess or invent it.
+
+ANSWERING:
+- Give a direct, concise answer to the question.
+- Include important details such as names, numbers, dates,
+  addresses, steps, and escalation channels when supported by evidence.
+- If there is not enough evidence to answer the question reliably,
+  return status "not_found".
+- Only cite chunk IDs that directly support the answer.
 
 Return ONLY a valid JSON object with these fields:
 - status: "answered" or "not_found"
@@ -64,7 +87,6 @@ RETRIEVED CHUNKS:
 QUESTION:
 {question}
 """.strip()
-
 
 def generate_answer(question: str, chunks: list[dict]) -> AskResponse:
     """
