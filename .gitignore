@@ -2,12 +2,23 @@
 .venv/
 venv/
 
+# Node dependencies and generated frontend output
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+*.tsbuildinfo
+
 # Python cache/artifacts
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 .Python
+.coverage
+.coverage.*
+htmlcov/
 
 # Tool caches
 .pytest_cache/
@@ -16,9 +27,16 @@ __pycache__/
 
 # Env and secrets
 .env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+*.tmp
 
 # ChromaDB persistent storage
 chroma_db/
+index_settings.json
 
 # OS/editor files
 .DS_Store
