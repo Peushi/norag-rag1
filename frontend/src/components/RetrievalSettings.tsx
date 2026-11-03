@@ -1,4 +1,5 @@
 import type { ChangeEvent } from "react";
+import "../../styles/retrieval-settings.css";
 
 type RetrievalSettingsValues = {
   chunk_size: string;

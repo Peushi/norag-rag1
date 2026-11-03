@@ -28,6 +28,11 @@ from backend.rag_service import (
     retrieve_chunks,
     update_settings as update_rag_settings,
 )
+from backend.retrieval_comparison import (
+    RetrievalComparisonDataError,
+    RetrievalComparisonNotFoundError,
+    get_retrieval_comparison,
+)
 from backend.schemas import (
     APIErrorDetail,
     APIErrorResponse,
@@ -41,6 +46,7 @@ from backend.schemas import (
     EvaluationRunResponse,
     RetrieveRequest,
     RetrieveResponse,
+    RetrievalComparisonResponse,
     SettingsRequest,
     WordChunksResponse,
     WordQuestionAnalysisRequest,
@@ -259,6 +265,22 @@ async def start_evaluation(
 
     background_tasks.add_task(execute_run, run.run_id, payload)
     return run
+
+
+@app.get(
+    "/api/evaluations/retrieval/{experiment_id}/results",
+    response_model=RetrievalComparisonResponse,
+)
+async def retrieval_comparison_results(experiment_id: str):
+    try:
+        return get_retrieval_comparison(experiment_id)
+    except RetrievalComparisonNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Retrieval comparison '{experiment_id}' was not found.",
+        ) from exc
+    except RetrievalComparisonDataError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get(

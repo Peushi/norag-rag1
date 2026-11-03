@@ -1,4 +1,5 @@
 import type { Dispatch } from "react";
+import "../../styles/document-scope.css";
 import type { DocumentSummary } from "../types/api";
 
 type SelectionAction =

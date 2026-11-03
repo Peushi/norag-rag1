@@ -1,4 +1,4 @@
-import argparse
+﻿import argparse
 import json
 import sys
 from pathlib import Path
@@ -11,8 +11,10 @@ from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunct
 
 from backend.chunking import chunk_text
 from backend.documents import PROJECT_ROOT, load_documents
+from backend.index_settings import validate_settings
 from backend.llm_service import MODEL, generate_answer
 from backend.retrieval import make_chunk_id, filter_by_relevance
+from evaluation.retrieval_metrics import K_VALUES, match_evidence, score_at_k, summarize_metrics
 
 
 
@@ -43,7 +45,7 @@ def build_isolated_index(dataset, documents, chunk_size, overlap):
 
     try:
         client.delete_collection("rag_evaluation")
-    except Exception:
+    except chromadb.errors.NotFoundError:
         pass
 
     embedding_fn = SentenceTransformerEmbeddingFunction(
@@ -132,17 +134,21 @@ def run_evaluation(
     max_distance: float | None = None,
     output_path: str | Path,
     limit: int | None = None,
+    generate_answers: bool = False,
 ) -> Path:
     if dataset not in DATASETS:
         raise ValueError(f"Unknown evaluation dataset: {dataset}")
-    if top_k < 1:
+    if type(top_k) is not int or top_k < 1:
         raise ValueError("top_k must be at least 1")
-    if chunk_size < 1 or overlap < 0 or overlap >= chunk_size:
-        raise ValueError("Invalid chunk size or overlap")
-    if max_distance is not None and not 0 <= max_distance <= 2:
+    validate_settings(chunk_size, overlap)
+    if max_distance is not None and (
+        type(max_distance) not in (int, float) or not 0 <= max_distance <= 2
+    ):
         raise ValueError("max_distance must be between 0 and 2")
-    if limit is not None and limit < 1:
+    if limit is not None and (type(limit) is not int or limit < 1):
         raise ValueError("limit must be at least 1")
+    if type(generate_answers) is not bool:
+        raise ValueError("generate_answers must be a boolean")
 
     config = DATASETS[dataset]
 
@@ -156,12 +162,19 @@ def run_evaluation(
             f"No documents found for dataset: {dataset}"
         )
 
+    if not questions:
+        raise ValueError("No evaluation questions found")
+    # Validate labels before replacing an index or opening an output file.
+    for item in questions:
+        match_evidence(item, [], documents, chunk_size=chunk_size, overlap=overlap)
+
     print(f"Dataset: {dataset}")
     print(f"Documents: {len(documents)}")
     print(f"Questions: {len(questions)}")
     print(f"Chunk size: {chunk_size}")
     print(f"Overlap: {overlap}")
     print(f"Top K: {top_k}")
+    print(f"Generate answers: {generate_answers}")
 
     collection, total_chunks = build_isolated_index(
         dataset,
@@ -177,18 +190,21 @@ def run_evaluation(
 
     completed = 0
     errors = 0
+    results_for_summary = []
 
     with output_path.open("w", encoding="utf-8") as output:
         for index, item in enumerate(questions, start=1):
             question = item["question"]
             print(f"\n[{index}/{len(questions)}] {item['id']}: {question}")
 
-            retrieved = retrieve(
+            evaluation_chunks = retrieve(
                 collection,
                 question,
-                top_k,
+                max(top_k, max(K_VALUES)),
                 max_distance,
             )
+            # Preserve the configured generation context and legacy output.
+            retrieved = evaluation_chunks[:top_k]
 
             expected_sources = sorted({
                 evidence["source"]
@@ -204,30 +220,38 @@ def run_evaluation(
                 if expected_sources else None
             )
 
+            evidence_matches = match_evidence(
+                item,
+                evaluation_chunks,
+                documents,
+                chunk_size=chunk_size,
+                overlap=overlap,
+            )
+
             try:
-                response = generate_answer(question, retrieved)
+                response = generate_answer(question, retrieved) if generate_answers else None
 
                 result = {
                     **item,
-                    "model": MODEL,
+                    "model": MODEL if generate_answers else None,
                     "top_k": top_k,
                     "chunk_size": chunk_size,
                     "overlap": overlap,
                     "retrieval_hit": retrieval_hit,
                     "retrieved_chunks": retrieved,
                     "retrieved_sources": found_sources,
-                    "status": response.status,
-                    "model_answer": response.answer,
+                    "status": response.status if response else "retrieval_only",
+                    "model_answer": response.answer if response else None,
                     "references": [
                         reference.model_dump()
-                        for reference in response.references
+                        for reference in (response.references if response else [])
                     ],
                     "manual_review": "pending",
                     "error": None,
                 }
 
                 completed += 1
-                print(f"Status: {response.status}")
+                print(f"Status: {result['status']}")
                 print(f"Retrieved sources: {found_sources}")
 
             except Exception as exc:
@@ -250,15 +274,74 @@ def run_evaluation(
                 errors += 1
                 print(f"ERROR: {exc}")
 
+            # Keep the existing source-based retrieval_hit for compatibility.
+            result["evidence_matches"] = evidence_matches
+            result["generate_answers"] = generate_answers
+            result["retrieval_metrics"] = score_at_k(evidence_matches)
+            result["evaluation_chunks"] = evaluation_chunks
+            result["evaluation_config"] = {
+                "dataset": dataset,
+                "configuration_id": f"minilm_{chunk_size}_{overlap}",
+                "embedding_model": "all-MiniLM-L6-v2",
+                "distance_metric": "cosine",
+                "k_values": list(K_VALUES),
+                "max_distance": max_distance,
+                "limit": limit,
+            }
+            results_for_summary.append(result)
             output.write(json.dumps(result, ensure_ascii=False) + "\n")
             output.flush()
 
+    summary = {
+        "dataset": dataset,
+        "generate_answers": generate_answers,
+        "chunk_size": chunk_size,
+        "overlap": overlap,
+        "top_k": top_k,
+        "max_distance": max_distance,
+        "limit": limit,
+        "embedding_model": "all-MiniLM-L6-v2",
+        "distance_metric": "cosine",
+        "configuration_id": f"minilm_{chunk_size}_{overlap}",
+        "k_values": list(K_VALUES),
+        "recall_averaging": "macro: mean of per-question evidence recall",
+        "relevance_rule": "expected source and full quote in one chunk; whitespace normalized",
+        **summarize_metrics(results_for_summary),
+    }
+    summary_path = output_path.with_name(output_path.stem + "_summary.jsonl")
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False) + "\n", encoding="utf-8")
+    for k, metrics in summary["overall"]["metrics"].items():
+        print(f"k={k}: {metrics}")
+    print(f"Summary saved to: {summary_path}")
     print("\nEvaluation finished.")
     print(f"Successful questions: {completed}")
     print(f"Errors: {errors}")
     print(f"Results saved to: {output_path}")
     return output_path
 
+
+def evaluate(args, output_path=None):
+    """CLI compatibility wrapper around the reusable evaluation function."""
+    if output_path is None:
+        mode = "rag" if getattr(args, "generate_answers", False) else "retrieval"
+        suffix = ""
+        if args.top_k != 5:
+            suffix += f"_k{args.top_k}"
+        if args.max_distance is not None:
+            suffix += f"_distance{args.max_distance}"
+        if args.limit is not None:
+            suffix += f"_limit{args.limit}"
+        output_path = EVALUATION_DIR / "results" / f"{args.dataset}_{mode}_{args.chunk_size}_{args.overlap}{suffix}.jsonl"
+    return run_evaluation(
+        dataset=args.dataset,
+        top_k=args.top_k,
+        chunk_size=args.chunk_size,
+        overlap=args.overlap,
+        max_distance=args.max_distance,
+        output_path=output_path,
+        limit=args.limit,
+        generate_answers=getattr(args, "generate_answers", False),
+    )
 
 
 if __name__ == "__main__":
@@ -276,7 +359,8 @@ if __name__ == "__main__":
     parser.add_argument("--overlap", type=int, default=80)
     parser.add_argument("--max-distance", type=float, default=None)
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--output-path", type=Path, default=None)
+    parser.add_argument("--generate-answers", action="store_true", help="Also call Gemini; default is retrieval only")
+    parser.add_argument("--output", "--output-path", dest="output", type=Path, default=None, help="Results JSONL path")
 
     arguments = parser.parse_args()
 
@@ -293,15 +377,4 @@ if __name__ == "__main__":
     if arguments.limit is not None and arguments.limit < 1:
         parser.error("--limit must be at least 1")
 
-    run_evaluation(
-        dataset=arguments.dataset,
-        top_k=arguments.top_k,
-        chunk_size=arguments.chunk_size,
-        overlap=arguments.overlap,
-        max_distance=arguments.max_distance,
-        output_path=(
-            arguments.output_path
-            or EVALUATION_DIR / "results" / f"{arguments.dataset}_rag.jsonl"
-        ),
-        limit=arguments.limit,
-    )
+    evaluate(arguments, output_path=arguments.output)
