@@ -175,7 +175,38 @@ These findings provide directions for future retrieval improvements.
 
 ### Peushi — LLM Evaluation and Answer Quality
 
-*To be completed by Peushi.*
+#### Objective
+
+My work focused on evaluating Gemini's answer quality with and without retrieved context, checking whether answers were correct, grounded, and properly supported by references.
+
+#### Implementation Decisions
+
+- **LLM integration:** Integrated Google Gemini through the OpenAI-compatible API.
+- **Prompt engineering:** Created prompts that instruct Gemini to answer using retrieved evidence and avoid unsupported claims.
+- **Validation:** Used Pydantic to validate response structures and verify that citation IDs match retrieved chunks.
+- **Abstention:** Implemented `not_found` responses when the available evidence is insufficient.
+- **Evaluation:** Created reusable RAG and no-context evaluation scripts, JSONL result files, and manual-review tools.
+
+#### Evaluation Results
+
+| Corpus | Evaluation | Correct | Partial | Wrong |
+|---|---|---:|---:|---:|
+| Baking | RAG | 10 + 2 correct refusals | 0 | 0 |
+| Baking | No-context | 6 | 6 | 0 |
+| Kestrel | RAG | 7 | 1 | 2 |
+| Kestrel | No-context | 1 | 1 | 8 |
+
+The results show that providing retrieved context improved answer quality, especially for the Kestrel knowledge base.
+
+#### Observed Failures and Limitations
+
+- **Missing evidence:** Kestrel q01 and q08 demonstrated that missing or incomplete retrieved passages can lead to incorrect or incomplete answers.
+- **Prompt improvement:** Refining the prompt resolved an initial Kestrel q07 billing-policy interpretation issue; the retest correctly identified the 20% annual discount.
+- **LLM variability:** Answers may vary between runs.
+- **Evaluation limitations:** Manual assessment involves some subjectivity, and the datasets are relatively small.
+- **Citation limitations:** Valid citation IDs do not necessarily guarantee that the cited passages fully support the generated answer.
+
+Overall, the evaluation showed that RAG improves answer quality compared with generation without context, but reliable answers still depend on retrieving sufficient evidence.
 
 ### Aleksandra — Words Analytics and Frontend Integration
 
