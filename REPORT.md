@@ -6,55 +6,58 @@ with source references.
 
 ## Team Responsibilities
 
-| Member | Responsibilities |
-|---|---|
-| Karma Soliman | Document management, chunking, embeddings, ChromaDB indexing, retrieval, and retrieval evaluation |
-| Peushi Ariyawansa | Gemini integration, grounded generation, Pydantic validation, and citation verification |
-| Aleksandra Temereva | FastAPI routes, React frontend, shared API schema, integration, and error handling |
+| Member              | Responsibilities                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| Karma Soliman       | Document management, chunking, embeddings, ChromaDB indexing, retrieval, and retrieval evaluation |
+| Peushi Ariyawansa   | Gemini integration, grounded generation, Pydantic validation, and citation verification           |
+| Aleksandra Temereva | FastAPI routes, React frontend, shared API schema, integration, and error handling                |
 
 ## Decision Log
 
 ### Karma — Indexing and Retrieval
 
-| Decision | Choice and reason |
-|---|---|
-| Corpus | Baking troubleshooting guides, primarily from King Arthur Baking. Markdown preserves readable content and source information; the loader also supports `.txt`. |
-| Chunking | Fixed-size windows of 800 characters with 80-character overlap: a simple, reproducible V1 baseline. |
-| Embeddings | Local `all-MiniLM-L6-v2` (384 dimensions), avoiding hosted embedding API costs. The same model embeds documents and questions. |
-| Vector storage | Persistent local ChromaDB stores text, embeddings, and metadata, with source-document filtering. |
-| Retrieval | Cosine distance, where lower is closer; default top-k is 5. Optional relevance filtering is separate, with no fixed threshold chosen yet. |
-| Shared output | Each result contains `id`, `text`, `source`, `position`, and `distance`, supporting citation verification and displaying retrieved evidence. |
-| Index management | Full rebuilds after document or chunk-setting changes keep V1 simple for a small corpus. Chunk settings are saved for reuse. |
-| Evaluation | Source-based Hit@5 checks whether at least one expected document appears among the top five chunks. Unanswerable questions are excluded. |
+| Decision         | Choice and reason                                                                                                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Corpus           | Baking troubleshooting guides, primarily from King Arthur Baking. Markdown preserves readable content and source information; the loader also supports `.txt`. |
+| Chunking         | Fixed-size windows of 800 characters with 80-character overlap: a simple, reproducible V1 baseline.                                                            |
+| Embeddings       | Local `all-MiniLM-L6-v2` (384 dimensions), avoiding hosted embedding API costs. The same model embeds documents and questions.                                 |
+| Vector storage   | Persistent local ChromaDB stores text, embeddings, and metadata, with source-document filtering.                                                               |
+| Retrieval        | Cosine distance, where lower is closer; default top-k is 5. Optional relevance filtering is separate, with no fixed threshold chosen yet.                      |
+| Shared output    | Each result contains `id`, `text`, `source`, `position`, and `distance`, supporting citation verification and displaying retrieved evidence.                   |
+| Index management | Full rebuilds after document or chunk-setting changes keep V1 simple for a small corpus. Chunk settings are saved for reuse.                                   |
+| Evaluation       | Source-based Hit@5 checks whether at least one expected document appears among the top five chunks. Unanswerable questions are excluded.                       |
 
 ### Peushi — Answer Generation
 
-
-
 ### Aleksandra — API and Frontend
 
-
+| Decision               | Choice and reason                                                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Client/server boundary | A React frontend communicates with the FastAPI backend over JSON endpoints, keeping retrieval and generation logic on the server.                                               |
+| Shared contract        | Pydantic request and response models define and validate the API payloads so the frontend can rely on consistent answer, retrieval, and document shapes.                        |
+| User workflow          | The UI separates document management, retrieval settings, and question answering. Users can inspect the retrieved evidence alongside the generated answer to check its sources. |
+| Search configuration   | Chunk size, overlap, and top-k are configurable through the settings endpoint, allowing users to tune retrieval without changing the client or server code.                     |
+| Failure handling       | The API returns explicit validation and not-found errors, and the frontend displays failures to users rather than presenting them as successful empty results.                  |
 
 ## Retrieval Baseline
 
 Results from the recorded local run:
 
-| Parameter | Value |
-|---|---|
-| Embedding model | `all-MiniLM-L6-v2` |
-| Vector database / distance | ChromaDB / cosine |
-| Chunk size / overlap | 800 / 80 characters |
-| Top-k | 5 |
-| Indexed documents / chunks | 10 / 68 |
-| Evaluation questions | 6 answerable + 1 unanswerable |
-| Source-based Hit@5 | 6/6 (100%) |
+| Parameter                  | Value                         |
+| -------------------------- | ----------------------------- |
+| Embedding model            | `all-MiniLM-L6-v2`            |
+| Vector database / distance | ChromaDB / cosine             |
+| Chunk size / overlap       | 800 / 80 characters           |
+| Top-k                      | 5                             |
+| Indexed documents / chunks | 10 / 68                       |
+| Evaluation questions       | 6 answerable + 1 unanswerable |
+| Source-based Hit@5         | 6/6 (100%)                    |
 
 Reproduce after building the index:
 
 ```bash
 python -m backend.evaluation
 ```
-
 
 ## Known Failures and Limitations
 
@@ -67,14 +70,15 @@ python -m backend.evaluation
 - **Observed bug, fixed:** The first index build failed because deleting a missing collection raised `NotFoundError`; the handler now catches that exception.
 
 ### Peushi— Answer Generation
-| Decision | Choice and reason |
-|---|---|
-| LLM integration | Google Gemini through the OpenAI-compatible API, keeping model configuration in environment variables. |
-| Prompt construction | A grounded prompt provides the user's question and retrieved passages as context. The model is instructed to answer using the supplied evidence and avoid unsupported claims. |
-| Response validation | Pydantic schemas validate the generated response structure and ensure references correspond to retrieved chunks. |
-| Citation verification | References are checked against the retrieved chunk IDs to prevent invalid citations. |
-| Abstention | When the retrieved evidence is insufficient, the system returns a `not_found` response rather than inventing an answer. |
-| Evaluation | Created reusable no-context and RAG evaluation workflows, JSONL result files, and manual-review tools to assess answer quality. |
+
+| Decision              | Choice and reason                                                                                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM integration       | Google Gemini through the OpenAI-compatible API, keeping model configuration in environment variables.                                                                        |
+| Prompt construction   | A grounded prompt provides the user's question and retrieved passages as context. The model is instructed to answer using the supplied evidence and avoid unsupported claims. |
+| Response validation   | Pydantic schemas validate the generated response structure and ensure references correspond to retrieved chunks.                                                              |
+| Citation verification | References are checked against the retrieved chunk IDs to prevent invalid citations.                                                                                          |
+| Abstention            | When the retrieved evidence is insufficient, the system returns a `not_found` response rather than inventing an answer.                                                       |
+| Evaluation            | Created reusable no-context and RAG evaluation workflows, JSONL result files, and manual-review tools to assess answer quality.                                               |
 
 ### Peushi — Known Limitations
 
@@ -83,10 +87,20 @@ python -m backend.evaluation
 - **Context limitations:** Missing or incomplete evidence can lead to an abstention even when the answer exists elsewhere in the corpus.
 - **Citation limitations:** Valid citation IDs do not automatically guarantee that the cited passage fully supports the answer
 
+### Aleksandra — Integration and UI
 
-### Sasha — Integration and UI
+The V1 integration connects the React client to the FastAPI backend through a
+shared JSON API contract. Pydantic request and response models validate the
+main retrieval and answer payloads, including answer references to retrieved
+chunk IDs.
 
-
+| Area                  | Implementation                                                                                                                                                                                                                                                                                           |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ask flow              | The Ask view accepts a question, lets users select documents and configure chunk size, overlap, and top-k, then displays the generated answer, abstention, or an actionable error state.                                                                                                                 |
+| Evidence display      | Retrieved evidence is shown with its source, position, and quote so users can check the answer against the indexed notes.                                                                                                                                                                                |
+| Document management   | The document library lists available notes and supports uploading UTF-8 `.md` and `.txt` files and removing documents. Upload, delete, and validation failures are surfaced in the UI.                                                                                                                   |
+| API integration       | `GET /api/documents`, `POST /api/documents`, `DELETE /api/documents/{document_id}`, and `PUT /api/settings` support the library and search settings. `POST /api/retrieve` returns retrieved chunks; `POST /api/ask` runs retrieval and answer generation; `GET /api/chunks/{chunk_id}` looks up a chunk. |
+| Errors and validation | Invalid requests return explicit API errors, and the frontend displays request failures rather than silently presenting them as empty or successful results.                                                                                                                                             |
 
 ## V2 — Retrieval Evaluation and Words Analytics
 
@@ -100,24 +114,24 @@ We evaluated two corpora, Baking and Kestrel KB, using the same question sets an
 
 #### Decision Log
 
-| Decision | Alternatives considered | Choice and justification |
-|---|---|---|
-| Relevance measurement | Source-level matching vs. supporting-passage matching | We moved to source-and-quote matching because retrieving the correct document does not guarantee that the answer is retrieved. |
-| Metrics | A single HitRate@5 vs. multiple retrieval measurements | We measure HitRate and Recall at k = 1, 3, 5, and 10, including results per question type. Recall also captures incomplete evidence retrieval. |
-| Configurations | Keep 800/80 vs. experiment with smaller chunks | We compared 800/80 and 400/40 to measure how chunk size affects retrieval. |
-| Evaluation | Generate answers for every question vs. retrieval-only evaluation | Retrieval-only is the default to evaluate retrieval independently without unnecessary Gemini calls. |
-| Evidence matching | Allow partial quotations vs. require a complete supporting quote | We require the complete quote within one chunk, with whitespace normalization. Split quotations are flagged as a limitation. |
+| Decision              | Alternatives considered                                           | Choice and justification                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Relevance measurement | Source-level matching vs. supporting-passage matching             | We moved to source-and-quote matching because retrieving the correct document does not guarantee that the answer is retrieved.                 |
+| Metrics               | A single HitRate@5 vs. multiple retrieval measurements            | We measure HitRate and Recall at k = 1, 3, 5, and 10, including results per question type. Recall also captures incomplete evidence retrieval. |
+| Configurations        | Keep 800/80 vs. experiment with smaller chunks                    | We compared 800/80 and 400/40 to measure how chunk size affects retrieval.                                                                     |
+| Evaluation            | Generate answers for every question vs. retrieval-only evaluation | Retrieval-only is the default to evaluate retrieval independently without unnecessary Gemini calls.                                            |
+| Evidence matching     | Allow partial quotations vs. require a complete supporting quote  | We require the complete quote within one chunk, with whitespace normalization. Split quotations are flagged as a limitation.                   |
 
 #### Retrieval Results
 
 Both corpora were evaluated using `all-MiniLM-L6-v2`, cosine distance, unchanged question sets, and no relevance threshold.
 
-| Corpus | Configuration | HitRate@5 | Recall@5 |
-|---|---|---:|---:|
-| Baking | 800/80 | 100% | 79.2% |
-| Baking | 400/40 | 70% | 44.2% |
-| Kestrel | 800/80 | 87.5% | 81.3% |
-| Kestrel | 400/40 | 75% | 71.9% |
+| Corpus  | Configuration | HitRate@5 | Recall@5 |
+| ------- | ------------- | --------: | -------: |
+| Baking  | 800/80        |      100% |    79.2% |
+| Baking  | 400/40        |       70% |    44.2% |
+| Kestrel | 800/80        |     87.5% |    81.3% |
+| Kestrel | 400/40        |       75% |    71.9% |
 
 **HitRate@k** measures the proportion of answerable questions for which at least one expected supporting passage is retrieved in the top k.
 
@@ -210,4 +224,27 @@ Overall, the evaluation showed that RAG improves answer quality compared with ge
 
 ### Aleksandra — Words Analytics and Frontend Integration
 
-*To be completed by Aleksandra.*
+#### Decisions and Implementation
+
+| Area                 | Decision and implementation                                                                                                                                                                                                                                                                                                                                           |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Corpus selection     | Words Analytics uses the shared `baking` and professor-provided `kestrel` corpora. It reuses the backend document loader rather than maintaining a separate corpus copy or index.                                                                                                                                                                                     |
+| Chunk consistency    | The service calls the same `chunk_text()` implementation and chunk-ID helper used by retrieval. The default is 800/80; users can select other valid chunk sizes and overlaps, including the 400/40 comparison setting.                                                                                                                                                |
+| Word matching        | Matching is case-insensitive and uses Unicode word/number tokens, with punctuation as a separator. For example, `KST-2044` becomes `kst` and `2044`. The same tokenizer is applied to source text, chunks, and questions.                                                                                                                                             |
+| Count semantics      | Corpus occurrence totals are counted once from source documents. Distinct chunk counts and per-chunk occurrences are reported separately; because chunks overlap, summing per-chunk occurrences can exceed the source total.                                                                                                                                          |
+| Frontend integration | The React application provides Ask, Words, and Evaluation views. Words supports corpus vocabulary search and pagination, selected-word chunk inspection, fixed question sets, and freeform or saved-question analysis. Evaluation retains the asynchronous answer-generation runner and displays the separate retrieval comparison.                                   |
+| API contracts        | FastAPI response models validate the Words and retrieval-comparison payloads. The frontend also checks response shapes and presents request failures instead of treating invalid responses as successful results.                                                                                                                                                     |
+| Retrieval comparison | A dedicated endpoint serves precomputed retrieval-only results, separate from answer-generation runs: `/api/evaluations/retrieval/retrieval-v2-baking/results` and `/api/evaluations/retrieval/retrieval-v2-kestrel/results`. It includes both configurations, aggregate metrics, question-type breakdowns, and per-question evidence and ranked evaluation passages. |
+
+#### Verification
+
+- Words Analytics tests cover source-versus-chunk counts, overlapping chunks, case and punctuation normalization, and identifiers such as `KST-2044`.
+- Retrieval-comparison tests check both datasets and chunk configurations, aggregate metrics, question-type results, per-question ranks, null metrics for unanswerable questions, and unknown experiment handling.
+- The focused backend test set passed (26 tests), and the frontend passed TypeScript typechecking and a production build.
+
+#### Limitations
+
+- Words Analytics reloads and rechunks the selected corpus for requests rather than maintaining a separate cached index. This keeps its chunks aligned with retrieval; larger corpora may benefit from measured caching later.
+- Vocabulary matching is exact after normalization; it does not perform stemming, synonym matching, or semantic search.
+- The retrieval-comparison endpoint serves the committed, precomputed experiment files. It does not calculate new passage-level comparisons for arbitrary configurations.
+- Evidence labels and retrieval metrics describe recovery of the supplied expected quotes. They do not measure generated-answer correctness or establish that a retrieved passage supports every part of an answer.
