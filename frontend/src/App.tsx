@@ -11,24 +11,12 @@ import { useDocumentSelection } from "./hooks/useDocumentSelection";
 import { useDocuments } from "./hooks/useDocuments";
 import { useRetrievalSettings } from "./hooks/useRetrievalSettings";
 import type { EvaluationDataset } from "./types/evaluations";
+import "../styles/base.css";
 import "../styles/option-1.css";
-import "../styles/option-2.css";
-import "../styles/option-3.css";
-import "../styles/preview.css";
 
-const DESIGN_OPTIONS = ["1", "2", "3"] as const;
-type DesignOption = (typeof DESIGN_OPTIONS)[number];
 type AppTab = "ask" | "words" | "evaluation";
 
-function getInitialDesignOption(): DesignOption {
-  const saved = window.localStorage.getItem("bakefix-design-option");
-  return DESIGN_OPTIONS.find((option) => option === saved) ?? "1";
-}
-
 export default function App() {
-  const [designOption, setDesignOption] = useState<DesignOption>(
-    getInitialDesignOption,
-  );
   const [activeTab, setActiveTab] = useState<AppTab>("ask");
   const [selectedCorpus, setSelectedCorpus] =
     useState<EvaluationDataset>("baking");
@@ -75,11 +63,6 @@ export default function App() {
     });
   }, [documents]);
 
-  useEffect(() => {
-    document.documentElement.dataset.design = designOption;
-    window.localStorage.setItem("bakefix-design-option", designOption);
-  }, [designOption]);
-
   const status = questionStatus || documentStatus;
 
   return (
@@ -92,23 +75,6 @@ export default function App() {
           <span className="brand-name">BakeFix</span>
         </a>
         <span className="header-note">A calm corner for baking questions</span>
-        <div
-          className="design-switcher"
-          role="group"
-          aria-label="Preview design options"
-        >
-          {DESIGN_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`design-option${designOption === option ? " active" : ""}`}
-              aria-pressed={designOption === option}
-              onClick={() => setDesignOption(option)}
-            >
-              Option {option}
-            </button>
-          ))}
-        </div>
       </header>
 
       <section className="intro" aria-labelledby="page-title">

@@ -1,0 +1,79 @@
+.retrieval-settings {
+  margin-top: 24px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--paper-warm);
+}
+
+.retrieval-settings .section-heading {
+  margin-bottom: 18px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-grid label {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.settings-grid input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+.settings-grid input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--terracotta) 40%, transparent);
+  outline-offset: 2px;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.settings-actions .button {
+  flex: 0 0 auto;
+}
+
+.settings-actions .button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.settings-message {
+  margin: 0;
+  color: #56644e;
+  font-size: 0.9rem;
+}
+
+.settings-message.error {
+  color: var(--terracotta-dark);
+}
+
+@media (max-width: 520px) {
+  .retrieval-settings {
+    padding: 18px;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
