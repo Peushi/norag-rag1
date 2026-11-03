@@ -81,7 +81,7 @@ python -m backend.evaluation
 - **Retrieval dependency:** Answer quality depends on whether the retriever provides the correct evidence.
 - **LLM variability:** Generated responses may vary between runs.
 - **Context limitations:** Missing or incomplete evidence can lead to an abstention even when the answer exists elsewhere in the corpus.
-- **Citation limitations:** Valid citation IDs do not automatically guarantee that the cited passage fully supports the answer.
+- **Citation limitations:** Valid citation IDs do not automatically guarantee that the cited passage fully supports the answer
 
 
 ### Sasha — Integration and UI
