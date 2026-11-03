@@ -1,5 +1,5 @@
 import { useState } from "react";
-import "../../styles/words.css";
+import "../../styles/evaluation.css";
 import { useRetrievalComparison } from "../hooks/useRetrievalComparison";
 import type { EvaluationDataset } from "../types/evaluations";
 import type {
