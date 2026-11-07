@@ -380,7 +380,7 @@
     {
       "subject": {
         "name": "Payments Core",
-        "entity_type": "SERVICE"
+        "entity_type": "TEAM"
       },
       "relation": "HAS_CHANNEL",
       "object": {
