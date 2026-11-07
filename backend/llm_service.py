@@ -42,8 +42,13 @@ class LLMResponseError(ValueError):
     """Raised when the upstream LLM returns unusable output."""
 
 
-def build_prompt(question: str, chunks: list[dict]) -> str:
-    """Build a prompt using only the retrieved chunks as evidence."""
+def build_prompt(
+    question: str,
+    chunks: list[dict],
+    graph_paths: list[dict] | None = None,
+) -> str:
+    """Build a prompt using retrieved chunks and optional graph paths."""
+
     context_parts = []
 
     for chunk in chunks:
@@ -55,6 +60,52 @@ def build_prompt(question: str, chunks: list[dict]) -> str:
         )
 
     context = "\n\n---\n\n".join(context_parts)
+
+    # Only include graph edges supported by chunks supplied to Gemini.
+    available_chunk_ids = {str(chunk["id"]) for chunk in chunks}
+    graph_context_parts = []
+
+    for path in graph_paths or []:
+        edge_lines = []
+
+        for edge in path.get("edges", []):
+            chunk_id = str(edge.get("chunk_id", ""))
+
+            if chunk_id not in available_chunk_ids:
+                continue
+
+            subject = edge["subject"]
+            obj = edge["object"]
+
+            edge_lines.append(
+                f"{subject['name']} ({subject['entity_type']}) "
+                f"--{edge['relation']}--> "
+                f"{obj['name']} ({obj['entity_type']})\n"
+                f"Evidence: {edge['evidence_quote']}\n"
+                f"Supporting chunk ID: {chunk_id}"
+            )
+
+        if edge_lines:
+            graph_context_parts.append(
+                f"PATH ({path.get('hop_count', len(edge_lines))} hops):\n"
+                + "\n".join(edge_lines)
+            )
+
+    graph_context = "\n\n".join(graph_context_parts)
+
+    graph_section = ""
+
+    if graph_context:
+        graph_section = f"""
+GRAPH PATHS:
+Use these paths to understand relationships between entities.
+They are navigation aids, not independent evidence.
+Verify each relationship against its supporting retrieved chunk.
+Do not use a graph relationship if its supporting evidence does not
+establish that relationship.
+
+{graph_context}
+"""
 
     return f"""
 You are a knowledge-base assistant.
@@ -97,12 +148,16 @@ For status "not_found", cited_chunk_ids must be an empty list.
 
 RETRIEVED CHUNKS:
 {context}
-
+{graph_section}
 QUESTION:
 {question}
 """.strip()
 
-def generate_answer(question: str, chunks: list[dict]) -> AskResponse:
+def generate_answer(
+    question: str,
+    chunks: list[dict],
+    graph_paths: list[dict] | None = None,
+) -> AskResponse:
     """
     Generate and validate an answer from retrieved chunks.
 
@@ -122,7 +177,7 @@ def generate_answer(question: str, chunks: list[dict]) -> AskResponse:
     if len(retrieved_by_id) != len(chunks):
         raise LLMResponseError("Retrieved chunks contain duplicate IDs.")
 
-    prompt = build_prompt(question, chunks)
+    prompt = build_prompt(question, chunks, graph_paths)
 
     if client is None:
         raise LLMServiceUnavailable(
