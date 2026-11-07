@@ -248,3 +248,85 @@ Overall, the evaluation showed that RAG improves answer quality compared with ge
 - Vocabulary matching is exact after normalization; it does not perform stemming, synonym matching, or semantic search.
 - The retrieval-comparison endpoint serves the committed, precomputed experiment files. It does not calculate new passage-level comparisons for arbitrary configurations.
 - Evidence labels and retrieval metrics describe recovery of the supplied expected quotes. They do not measure generated-answer correctness or establish that a retrieved passage supports every part of an answer.
+
+## V3 — Hybrid Retrieval and Knowledge Graph
+
+### Peushi — Knowledge Graph Construction and Path as Context
+
+#### Graph Extraction and Build Statistics
+
+A knowledge graph was constructed for the Kestrel knowledge base using Gemini-based graph extraction. The extraction process used the existing document chunking configuration (800 characters per chunk, with an overlap of 80 characters).
+
+The graph extraction process produced the following results:
+
+| Metric | Result |
+|---|---:|
+| Documents processed | 5 |
+| Chunks processed | 43 |
+| Successful Gemini calls | 43 |
+| Failed chunks | 0 |
+| Valid graph triples | 32 |
+| Invalid triples | 3 |
+| Prompt tokens | 21,857 |
+| Completion tokens | 4,438 |
+| Total tokens | 26,295 |
+| Total build time | 297.23 seconds |
+| Retry time | 109.79 seconds |
+
+All 43 chunks were processed successfully. Three extracted triples were recorded as invalid because their evidence quotes did not pass the validation checks. Valid triples were stored with their supporting chunk references so that graph relationships could be traced back to the original documentation.
+
+#### Graph Quality Review
+
+A deterministic random sample of 10 extracted triples (seed 42) was manually reviewed. Each triple was classified as correct, incorrect, or unsupported based on its supporting evidence.
+
+| Classification | Count | Percentage |
+|---|---:|---:|
+| Correct | 6 | 60% |
+| Incorrect | 1 | 10% |
+| Unsupported | 3 | 30% |
+
+The review showed that most sampled relationships were correct, but some extracted relationships were not sufficiently supported by their evidence. For example, the extracted relationship identifying Payments Core as a SERVICE was incorrect: Payments Core represents a TEAM. This entity type was subsequently corrected in the graph.
+
+Some SUPPORTS relationships were also classified as unsupported because the source text described which plans a policy applied to without explicitly establishing the claimed support relationship.
+
+These results represent a sample of 10 triples, not a complete evaluation of all 32 graph triples.
+
+#### Entity Resolution
+
+Entity resolution was implemented to handle historical aliases and prevent incorrect entity merges.
+
+One confirmed resolution maps the historical SERVICE alias `mailman` to the current SERVICE entity `postroom`. The service catalogue indicates that postroom replaced mailman and that older references should be interpreted as referring to postroom.
+
+A potentially incorrect merge was also explicitly rejected: `Identity` as a SERVICE was kept separate from `Identity` as a TEAM. Although the names are identical, their entity types represent different concepts.
+
+This helps preserve graph consistency and avoids combining entities simply because they share the same name.
+
+#### Path as Context Evaluation
+
+The Path as Context approach was implemented to provide Gemini with relevant graph paths alongside their supporting document chunks. Graph paths are used as additional navigation context, while the original document chunks remain the source of evidence for generated answers.
+
+Two Kestrel questions were tested by comparing Gemini responses with and without graph paths.
+
+| Question | Without graph | With graph |
+|---|---|---|
+| Which team owns the service responsible for KST-5031? | Correct answer | Correct answer |
+| If more than three customers are affected by KST-6010 on the same day, which team should support escalate to, and which channel should they use? | Correct answer | Correct answer |
+
+For the KST-5031 question, both configurations returned the correct team and supporting references. The measured response times were 0.96 seconds without graph context and 0.98 seconds with graph context.
+
+For KST-6010, the graph initially failed to connect the escalation target to its on-call channel because Payments Core had an inconsistent entity type across the extracted triples. After correcting Payments Core to the TEAM entity type, graph retrieval successfully returned the two-hop path:
+
+`KST-6010 → Payments Core → #oncall-payments`
+
+Both configurations then produced the correct answer and cited the supporting runbook and service catalogue. The response time was 2.28 seconds without graph context and 2.00 seconds with graph context.
+
+The results show that graph paths can make multi-hop relationships explicit. However, they did not improve answer correctness in these two experiments because the retrieved document chunks already contained the necessary information. The measured latency differences are based on individual runs and are not sufficient to establish a performance improvement.
+
+#### Limitations
+
+- The manual graph quality review covered only 10 of the 32 valid triples. A larger review would be needed to estimate overall graph quality reliably.
+- Three extracted triples failed evidence-quote validation, showing that graph extraction is not completely reliable.
+- Entity resolution currently relies on explicit mappings and entity-type checks. More complex aliases and ambiguous entities may require additional review.
+- The Path as Context experiment covered only two questions. More two-hop questions and repeated runs are needed before drawing conclusions about answer quality or latency.
+- Gemini output and response times may vary between runs.
+- Graph paths do not replace source evidence. Their supporting document chunks must remain available to the answer-generation process.
