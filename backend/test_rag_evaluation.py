@@ -51,12 +51,12 @@ class EvaluationModeTests(unittest.TestCase):
 
     def test_unregistered_retrievers_fail_before_loading_questions(self):
         for dataset, retrievers in [
-            ("kestrel", ["dense", "graph"]),
-            ("kestrel", ["dense", "bm25", "graph"]),
+            ("kestrel", ["dense", "unknown"]),
+            ("kestrel", ["dense", "bm25", "unknown"]),
         ]:
             with self.subTest(dataset=dataset, retrievers=retrievers):
                 with patch.object(runner, "load_questions") as load:
-                    with self.assertRaisesRegex(ValueError, "not registered"):
+                    with self.assertRaisesRegex(ValueError, "supported retriever names"):
                         runner.run_evaluation(
                             dataset=dataset,
                             output_path="unused.jsonl",

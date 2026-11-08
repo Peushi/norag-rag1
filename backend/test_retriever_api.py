@@ -116,13 +116,17 @@ class RetrieverSelectionApiTests(unittest.TestCase):
         )
         self.assertEqual(ask.call_args.kwargs["dataset"], "kestrel")
 
-    def test_ask_endpoint_reports_unimplemented_graph(self):
+    def test_ask_endpoint_rejects_graph_for_baking(self):
         response = self.client.post(
             "/api/ask",
-            json={"question": "What happened?", "retrievers": ["graph"]},
+            json={
+                "question": "What happened?",
+                "dataset": "baking",
+                "retrievers": ["graph"],
+            },
         )
-        self.assertEqual(response.status_code, 501)
-        self.assertIn("graph", response.json()["error"]["message"])
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("graph", response.text.lower())
 
 
 class DenseRetrieverAdapterTests(unittest.TestCase):
@@ -171,6 +175,49 @@ class DenseRetrieverAdapterTests(unittest.TestCase):
                 }
             ],
         )
+
+class GraphRetrieverAdapterTests(unittest.TestCase):
+    def test_graph_retriever_is_called_and_paths_are_preserved(self):
+        graph_chunk = {
+            "id": "graph-chunk-1",
+            "text": "Payments Core owns KST-6010.",
+            "source": "payments.md",
+            "position": 0,
+            "rank": 1,
+            "retriever": "graph",
+            "graph_score": 1.0,
+        }
+        graph_path = {
+            "hop_count": 1,
+            "entities": [],
+            "edges": [],
+            "supporting_chunk_ids": ["graph-chunk-1"],
+        }
+
+        with patch(
+            "backend.rag_service.retrieve_graph",
+            return_value={
+                "chunks": [graph_chunk],
+                "paths": [graph_path],
+                "matched_entities": [],
+            },
+        ) as retrieve:
+            result = retrieve_selected_chunks(
+                "What team owns KST-6010?",
+                retrievers=["graph"],
+                top_k=3,
+                dataset="kestrel",
+            )
+
+        retrieve.assert_called_once()
+        self.assertEqual(
+            retrieve.call_args.kwargs["question"],
+            "What team owns KST-6010?",
+        )
+        self.assertEqual(result.retrievers, ("graph",))
+        self.assertEqual(len(result.graph_paths), 1)
+        self.assertEqual(result.graph_paths[0], graph_path)
+        self.assertEqual(result.graph_chunks[0]["id"], "graph-chunk-1")
 
 
 if __name__ == "__main__":
