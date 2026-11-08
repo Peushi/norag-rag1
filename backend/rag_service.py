@@ -13,7 +13,19 @@ from backend.retrieval import (
     retrieve_chunks as search_chunks,
     update_index_settings,
 )
-from backend.schemas import AskResponse, RetrievedChunk, SourceChunk
+from backend.retrieval_orchestrator import (
+    OrchestratedRetrieval,
+    RetrievalQuery,
+    RetrieverOutput,
+    orchestrate_retrieval,
+)
+from backend.schemas import (
+    AskResponse,
+    RetrieveResponse,
+    RetrievedChunk,
+    RetrieverName,
+    SourceChunk,
+)
 from backend.vector_store import get_collection
 
 DEFAULT_TOP_K = 3
@@ -88,16 +100,78 @@ def retrieve_chunks(
     return [RetrievedChunk.model_validate(chunk) for chunk in chunks]
 
 
+def retrieve_selected_chunks(
+    question: str,
+    *,
+    retrievers: list[RetrieverName] | None = None,
+    document_ids: list[str] | None = None,
+    top_k: int | None = None,
+) -> OrchestratedRetrieval:
+    """Dispatch selected retrievers and fuse their ranked chunk results."""
+    selected_retrievers = tuple(["dense"] if retrievers is None else retrievers)
+    result_limit = APP_SETTINGS.top_k if top_k is None else top_k
+
+    def retrieve_dense(query: RetrievalQuery) -> RetrieverOutput:
+        chunks = retrieve_chunks(
+            question=query.question,
+            document_ids=list(query.document_ids) if query.document_ids is not None else None,
+            top_k=query.top_k,
+        )
+        return RetrieverOutput(
+            chunks=[
+                {
+                    **chunk.model_dump(exclude={"distance"}),
+                    "rank": rank,
+                    "retriever": "dense",
+                    "score": chunk.distance,
+                    "score_type": "cosine_distance",
+                }
+                for rank, chunk in enumerate(chunks, start=1)
+            ]
+        )
+
+    query = RetrievalQuery(
+        question=question,
+        dataset="baking",
+        top_k=result_limit,
+        document_ids=tuple(document_ids) if document_ids is not None else None,
+        chunk_size=APP_SETTINGS.chunk_size,
+        overlap=APP_SETTINGS.overlap,
+    )
+    result = orchestrate_retrieval(
+        query,
+        selected_retrievers,
+        {"dense": retrieve_dense},
+        final_top_k=result_limit,
+    )
+    return result
+
+
 def ask_question(
     question: str,
     document_ids: list[str] | None = None,
     top_k: int | None = None,
+    retrievers: list[RetrieverName] | None = None,
 ) -> AskResponse:
-    """Retrieve supporting chunks and delegate grounded answer generation."""
-    chunks = retrieve_chunks(question, document_ids=document_ids, top_k=top_k)
-    return generate_answer(
+    """Retrieve through selected methods and delegate grounded answer generation."""
+    retrieval = retrieve_selected_chunks(
         question,
-        [chunk.model_dump() for chunk in chunks],
+        retrievers=retrievers,
+        document_ids=document_ids,
+        top_k=top_k,
+    )
+    answer = generate_answer(
+        question,
+        retrieval.chunks,
+    )
+    return answer.model_copy(
+        update={
+            "retrieval": RetrieveResponse(
+                chunks=retrieval.chunks,
+                retrievers=list(retrieval.retrievers),
+                graph_paths=retrieval.graph_paths,
+            )
+        }
     )
 
 

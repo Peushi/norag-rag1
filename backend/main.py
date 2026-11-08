@@ -25,9 +25,10 @@ from backend.rag_service import (
     delete_document,
     get_chunk_by_id,
     list_documents,
-    retrieve_chunks,
+    retrieve_selected_chunks,
     update_settings as update_rag_settings,
 )
+from backend.retrieval_orchestrator import RetrieverUnavailableError
 from backend.retrieval_comparison import (
     RetrievalComparisonDataError,
     RetrievalComparisonNotFoundError,
@@ -380,14 +381,21 @@ async def update_settings(payload: SettingsRequest):
 @app.post("/api/retrieve", response_model=RetrieveResponse)
 async def retrieve_endpoint(payload: RetrieveRequest):
     try:
-        chunks = retrieve_chunks(
+        retrieval = retrieve_selected_chunks(
             question=payload.question,
+            retrievers=payload.retrievers,
             document_ids=payload.document_ids,
             top_k=payload.top_k,
         )
+    except RetrieverUnavailableError as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return RetrieveResponse(chunks=chunks)
+    return RetrieveResponse(
+        chunks=retrieval.chunks,
+        retrievers=list(retrieval.retrievers),
+        graph_paths=retrieval.graph_paths,
+    )
 
 
 
@@ -398,9 +406,12 @@ async def ask_endpoint(payload: AskRequest):
     try:
         result = ask_question(
             question=payload.question,
+            retrievers=payload.retrievers,
             document_ids=payload.document_ids,
             top_k=payload.top_k,
         )
+    except RetrieverUnavailableError as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
     except LLMServiceUnavailable:
         raise
     except LLMResponseError:

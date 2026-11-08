@@ -36,6 +36,10 @@ class OrchestratedRetrieval:
 Retriever = Callable[[RetrievalQuery], RetrieverOutput]
 
 
+class RetrieverUnavailableError(ValueError):
+    """A selected retrieval method has no registered implementation."""
+
+
 def orchestrate_retrieval(
     query: RetrievalQuery,
     enabled_retrievers: Sequence[str],
@@ -60,7 +64,9 @@ def orchestrate_retrieval(
 
     unknown = [name for name in selected if name not in retrievers]
     if unknown:
-        raise ValueError(f"No implementation registered for: {', '.join(unknown)}")
+        raise RetrieverUnavailableError(
+            f"No implementation registered for: {', '.join(unknown)}"
+        )
     if GRAPH_RETRIEVER in selected and query.dataset != KESTREL_DATASET:
         raise ValueError("Graph retrieval is only available for the kestrel dataset")
 

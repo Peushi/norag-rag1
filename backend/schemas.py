@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+RetrieverName = Literal["dense", "bm25", "graph"]
+
 
 class RetrievedChunk(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -21,16 +23,57 @@ class RetrieveRequest(BaseModel):
     question: str = Field(min_length=1)
     document_ids: list[str] | None = None
     top_k: int = Field(default=3, ge=1, le=20)
+    retrievers: list[RetrieverName] = Field(
+        default_factory=lambda: ["dense"],
+        min_length=1,
+    )
+
+    @model_validator(mode="after")
+    def validate_retrievers(self):
+        if len(set(self.retrievers)) != len(self.retrievers):
+            raise ValueError("retrievers cannot contain duplicates")
+        return self
 
 
 class AskRequest(RetrieveRequest):
     pass
 
 
+class RetrieverContribution(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    retriever: RetrieverName
+    rank: int = Field(ge=1)
+    score: float | None = None
+    score_type: str | None = None
+
+    @model_validator(mode="after")
+    def validate_typed_score(self):
+        if (self.score is None) != (self.score_type is None):
+            raise ValueError("score and score_type must be provided together")
+        if self.score_type is not None and not self.score_type.strip():
+            raise ValueError("score_type cannot be empty")
+        return self
+
+
+class FusedRetrievedChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    text: str
+    source: str
+    position: int = Field(ge=0)
+    final_rank: int = Field(ge=1)
+    final_score: float
+    retrievers: list[RetrieverContribution]
+
+
 class RetrieveResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    chunks: list[RetrievedChunk]
+    chunks: list[FusedRetrievedChunk]
+    retrievers: list[RetrieverName]
+    graph_paths: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class Reference(BaseModel):
@@ -51,6 +94,7 @@ class AskResponse(BaseModel):
     status: Literal["answered", "not_found"]
     answer: str
     references: list[Reference] = Field(default_factory=list)
+    retrieval: RetrieveResponse | None = None
 
     @model_validator(mode="after")
     def validate_references(self):
