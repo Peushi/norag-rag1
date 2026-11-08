@@ -81,6 +81,21 @@ the CLI result files. Run metadata is persisted, but the job registry and
 per-dataset concurrency guard are in-process; use one backend process for this
 local V2 workflow.
 
+The Evaluation tab also exposes the V3 retriever configurations (Dense, BM25,
+Dense + BM25, Graph, Dense + Graph, and Dense + BM25 + Graph), the `800/80`
+and `400/40` chunking presets, and a Graph-only Path as Context comparison
+option. Graph configurations are restricted to Kestrel. Run results display
+HitRate@k and macro evidence Recall@k overall and by question type for
+k = 1, 3, 5, and 10. Dense, BM25, and Graph adapters are available; Graph is
+Kestrel-only. Optional Path as Context comparison makes paired answer-generation
+calls using the same retrieved evidence, and marks questions with no graph paths
+as unavailable for that comparison. These provider calls are opt-in.
+
+Each result records per-adapter wall-clock latency, total retrieval/orchestration
+latency, and generation latency for each comparison arm. The summary JSONL
+reports the mean and median in milliseconds. These are local observed timings,
+not controlled benchmark results; provider latency includes network/model time.
+
 Run the evaluation run-service checks with:
 
 ```bash

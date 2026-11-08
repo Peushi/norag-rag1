@@ -87,11 +87,11 @@ class EvaluationModeTests(unittest.TestCase):
 
     def test_default_paths_separate_threshold_limit_and_generation(self):
         paths = []
-        for changes in [{}, {"top_k": 3}, {"limit": 1}, {"max_distance": 0.5}, {"generate_answers": True}, {"retrievers": ["dense", "bm25"]}]:
+        for changes in [{}, {"top_k": 3}, {"limit": 1}, {"max_distance": 0.5}, {"generate_answers": True}, {"retrievers": ["dense", "bm25"]}, {"generate_answers": True, "compare_path_context": True}]:
             args = SimpleNamespace(**{
                 "dataset": "baking", "top_k": 5, "chunk_size": 800,
                 "overlap": 80, "limit": None, "max_distance": None,
-                "generate_answers": False, **changes,
+                "generate_answers": False, "compare_path_context": False, **changes,
             })
             with patch.object(runner, "run_evaluation") as run:
                 runner.evaluate(args)
@@ -135,11 +135,158 @@ class EvaluationModeTests(unittest.TestCase):
                 self.assertEqual(row["status"], "not_found" if generate else "retrieval_only")
                 self.assertEqual(len(row["retrieved_chunks"]), 3)
                 self.assertEqual(row["retrieval_metrics"]["10"]["recall"], 1)
+                self.assertGreaterEqual(
+                    row["latency_ms"]["retrievers"]["dense"],
+                    0,
+                )
+                self.assertGreaterEqual(row["latency_ms"]["retrieval_total"], 0)
+                self.assertEqual(
+                    row["latency_ms"]["generation_without_path_context"] is not None,
+                    generate,
+                )
                 summary = json.loads(output.with_name("results_summary.jsonl").read_text())
                 self.assertEqual(summary["generate_answers"], generate)
+                self.assertEqual(
+                    summary["latency_summary_ms"]["retrieval_total"]["samples"],
+                    1,
+                )
                 if not generate:
                     self.assertIsNone(row["model_answer"])
                     self.assertIsNone(row["model"])
+
+    def test_path_context_comparison_generates_paired_answers(self):
+        question = {
+            "id": "test",
+            "question": "When is the launch window?",
+            "type": "lookup",
+            "answerable": True,
+            "evidence": [{
+                "source": "guide.md",
+                "quote": "The Kestrel launch window is 2025.",
+            }],
+        }
+        graph_chunk = {
+            "id": "kestrel-1",
+            "text": "The Kestrel launch window is 2025.",
+            "source": "guide.md",
+            "position": 0,
+            "rank": 1,
+            "retriever": "graph",
+        }
+        graph_path = {
+            "hop_count": 1,
+            "supporting_chunk_ids": ["kestrel-1"],
+        }
+        answers = [
+            SimpleNamespace(status="answered", answer="2025.", references=[]),
+            SimpleNamespace(status="answered", answer="2025, via graph.", references=[]),
+        ]
+        with tempfile.TemporaryDirectory() as temp, contextlib.ExitStack() as stack:
+            output = Path(temp) / "path-context.jsonl"
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(patch.object(runner, "load_questions", return_value=[question]))
+            stack.enter_context(patch.object(runner, "load_documents", return_value=[
+                {"source": "guide.md", "text": "The Kestrel launch window is 2025."},
+            ]))
+            stack.enter_context(patch.object(
+                runner,
+                "retrieve_graph",
+                return_value={"chunks": [graph_chunk], "paths": [graph_path]},
+            ))
+            provider = stack.enter_context(patch.object(
+                runner,
+                "generate_answer",
+                side_effect=answers,
+            ))
+
+            runner.run_evaluation(
+                dataset="kestrel",
+                retrievers=["graph"],
+                generate_answers=True,
+                compare_path_context=True,
+                output_path=output,
+            )
+
+            row = json.loads(output.read_text())
+            summary = json.loads(
+                output.with_name("path-context_summary.jsonl").read_text()
+            )
+
+        self.assertEqual(provider.call_count, 2)
+        self.assertEqual(provider.call_args_list[0].args[1], provider.call_args_list[1].args[1])
+        self.assertNotIn("path_context", provider.call_args_list[0].kwargs)
+        from backend.schemas import PathContext
+
+        self.assertIsInstance(
+            provider.call_args_list[1].kwargs["path_context"],
+            PathContext,
+        )
+        self.assertEqual(
+            row["path_context_comparison"]["without_path_context"]["model_answer"],
+            "2025.",
+        )
+        self.assertEqual(
+            row["path_context_comparison"]["with_path_context"]["model_answer"],
+            "2025, via graph.",
+        )
+        self.assertGreaterEqual(
+            row["latency_ms"]["generation_without_path_context"],
+            0,
+        )
+        self.assertGreaterEqual(
+            row["latency_ms"]["generation_with_path_context"],
+            0,
+        )
+        self.assertEqual(
+            summary["latency_summary_ms"]["generation_with_path_context"]["samples"],
+            1,
+        )
+
+    def test_path_context_comparison_marks_missing_paths_unavailable(self):
+        question = {
+            "id": "test",
+            "question": "When is the launch window?",
+            "type": "lookup",
+            "answerable": False,
+            "evidence": [],
+        }
+        answer = SimpleNamespace(status="not_found", answer="No answer.", references=[])
+        with tempfile.TemporaryDirectory() as temp, contextlib.ExitStack() as stack:
+            output = Path(temp) / "no-path.jsonl"
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(patch.object(runner, "load_questions", return_value=[question]))
+            stack.enter_context(patch.object(runner, "load_documents", return_value=[
+                {"source": "guide.md", "text": "Some unrelated document."},
+            ]))
+            stack.enter_context(patch.object(
+                runner,
+                "retrieve_graph",
+                return_value={"chunks": [], "paths": []},
+            ))
+            provider = stack.enter_context(patch.object(
+                runner,
+                "generate_answer",
+                return_value=answer,
+            ))
+
+            runner.run_evaluation(
+                dataset="kestrel",
+                retrievers=["graph"],
+                generate_answers=True,
+                compare_path_context=True,
+                output_path=output,
+            )
+
+            row = json.loads(output.read_text())
+
+        provider.assert_called_once()
+        self.assertEqual(
+            row["path_context_comparison"]["with_path_context"]["status"],
+            "not_available",
+        )
+        self.assertIsNone(
+            row["latency_ms"]["generation_with_path_context"]
+        )
 
 
 if __name__ == "__main__":
