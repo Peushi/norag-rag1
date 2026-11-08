@@ -5,6 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 RetrieverName = Literal["dense", "bm25", "graph"]
+EvaluationDataset = Literal["baking", "kestrel"]
 
 
 class RetrievedChunk(BaseModel):
@@ -21,6 +22,7 @@ class RetrieveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     question: str = Field(min_length=1)
+    dataset: EvaluationDataset = "baking"
     document_ids: list[str] | None = None
     top_k: int = Field(default=3, ge=1, le=20)
     retrievers: list[RetrieverName] = Field(
@@ -61,6 +63,19 @@ class PathContext(BaseModel):
     supporting_chunks: list[PathSupportingChunk]
 
 
+class GraphSupportingChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    text: str
+    source: str
+    position: int = Field(ge=0)
+    rank: int = Field(ge=1)
+    retriever: Literal["graph"]
+    score: float | None = None
+    score_type: str | None = None
+
+
 class RetrieverContribution(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -96,6 +111,7 @@ class RetrieveResponse(BaseModel):
     chunks: list[FusedRetrievedChunk]
     retrievers: list[RetrieverName]
     graph_paths: list[dict[str, Any]] = Field(default_factory=list)
+    graph_supporting_chunks: list[GraphSupportingChunk] = Field(default_factory=list)
     path_context: PathContext | None = None
 
 
@@ -195,7 +211,6 @@ class SettingsRequest(BaseModel):
         return self
 
 
-EvaluationDataset = Literal["baking", "kestrel"]
 EvaluationRunStatus = Literal["queued", "running", "completed", "failed"]
 
 
@@ -208,11 +223,27 @@ class EvaluationRunRequest(BaseModel):
     overlap: int = Field(default=80, ge=0, le=1000)
     max_distance: float | None = Field(default=None, ge=0.0, le=2.0)
     limit: int | None = Field(default=None, ge=1, le=1000)
+    retrievers: list[RetrieverName] = Field(
+        default_factory=lambda: ["dense"],
+        min_length=1,
+    )
+    compare_path_context: bool = False
+    generate_answers: bool = False
 
     @model_validator(mode="after")
-    def validate_chunk_overlap(self):
+    def validate_evaluation_options(self):
         if self.overlap >= self.chunk_size:
             raise ValueError("overlap must be smaller than chunk_size")
+        if len(set(self.retrievers)) != len(self.retrievers):
+            raise ValueError("retrievers cannot contain duplicates")
+        if "graph" in self.retrievers and self.dataset != "kestrel":
+            raise ValueError("Graph retrieval is only available for the kestrel dataset")
+        if self.compare_path_context and "graph" not in self.retrievers:
+            raise ValueError("Path as Context comparison requires graph retrieval")
+        if self.compare_path_context and not self.generate_answers:
+            raise ValueError(
+                "Path as Context comparison requires answer generation"
+            )
         return self
 
 
@@ -227,6 +258,9 @@ class EvaluationRunResponse(BaseModel):
     overlap: int
     max_distance: float | None
     limit: int | None
+    retrievers: list[RetrieverName] = Field(default_factory=lambda: ["dense"])
+    compare_path_context: bool = False
+    generate_answers: bool = False
     created_at: str
     started_at: str | None = None
     completed_at: str | None = None

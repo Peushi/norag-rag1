@@ -101,6 +101,7 @@ class RetrieverSelectionApiTests(unittest.TestCase):
                 "/api/ask",
                 json={
                     "question": "What happened?",
+                    "dataset": "kestrel",
                     "retrievers": ["dense", "graph"],
                 },
             )
@@ -110,6 +111,7 @@ class RetrieverSelectionApiTests(unittest.TestCase):
             ask.call_args.kwargs["retrievers"],
             ["dense", "graph"],
         )
+        self.assertEqual(ask.call_args.kwargs["dataset"], "kestrel")
 
     def test_ask_endpoint_reports_unimplemented_graph(self):
         response = self.client.post(
@@ -131,14 +133,19 @@ class DenseRetrieverAdapterTests(unittest.TestCase):
                 distance=0.15,
             )
         ]
-        with patch("backend.rag_service.retrieve_chunks", return_value=chunks):
+        with patch(
+            "backend.rag_service.retrieve_chunks",
+            return_value=chunks,
+        ) as retrieve:
             retrieval = retrieve_selected_chunks(
                 "What happened?",
                 retrievers=["dense"],
                 document_ids=["guide.md"],
                 top_k=4,
+                dataset="kestrel",
             )
 
+        self.assertEqual(retrieve.call_args.kwargs["dataset"], "kestrel")
         self.assertEqual(retrieval.retrievers, ("dense",))
         self.assertEqual(
             retrieval.chunks,

@@ -383,6 +383,7 @@ async def retrieve_endpoint(payload: RetrieveRequest):
     try:
         retrieval = retrieve_selected_chunks(
             question=payload.question,
+            dataset=payload.dataset,
             retrievers=payload.retrievers,
             document_ids=payload.document_ids,
             top_k=payload.top_k,
@@ -395,6 +396,7 @@ async def retrieve_endpoint(payload: RetrieveRequest):
         chunks=retrieval.chunks,
         retrievers=list(retrieval.retrievers),
         graph_paths=retrieval.graph_paths,
+        graph_supporting_chunks=retrieval.graph_chunks,
     )
 
 
@@ -406,6 +408,7 @@ async def ask_endpoint(payload: AskRequest):
     try:
         result = ask_question(
             question=payload.question,
+            dataset=payload.dataset,
             retrievers=payload.retrievers,
             document_ids=payload.document_ids,
             top_k=payload.top_k,

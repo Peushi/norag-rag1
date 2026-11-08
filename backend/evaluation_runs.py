@@ -76,6 +76,9 @@ def create_run(request: EvaluationRunRequest) -> EvaluationRunResponse:
             "overlap": request.overlap,
             "max_distance": request.max_distance,
             "limit": request.limit,
+            "retrievers": request.retrievers,
+            "compare_path_context": request.compare_path_context,
+            "generate_answers": request.generate_answers,
             "created_at": _now(),
             "started_at": None,
             "completed_at": None,
@@ -109,6 +112,9 @@ def execute_run(run_id: str, request: EvaluationRunRequest) -> None:
             max_distance=request.max_distance,
             output_path=run_directory / "results.jsonl",
             limit=request.limit,
+            retrievers=request.retrievers,
+            compare_path_context=request.compare_path_context,
+            generate_answers=request.generate_answers,
         )
         metadata["status"] = "completed"
     except Exception as exc:

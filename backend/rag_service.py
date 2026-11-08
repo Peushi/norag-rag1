@@ -3,10 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from backend.documents import CORPUS_DIR, list_documents as list_document_paths
+from backend.documents import (
+    CORPUS_DIR,
+    list_documents as list_corpus_documents,
+    list_documents as list_document_paths,
+)
 from backend.index_settings import load_settings
 from backend.llm_service import generate_answer
 from backend.retrieval import (
+    DATASET_DIRECTORIES,
     filter_by_relevance,
     get_chunk,
     rebuild_index,
@@ -24,6 +29,7 @@ from backend.schemas import (
     PathContext,
     PathSupportingChunk,
     RetrieveResponse,
+    EvaluationDataset,
     RetrievedChunk,
     RetrieverName,
     SourceChunk,
@@ -88,15 +94,22 @@ def retrieve_chunks(
     question: str,
     document_ids: list[str] | None = None,
     top_k: int | None = None,
+    dataset: EvaluationDataset = "baking",
 ) -> list[RetrievedChunk]:
     """Search the Chroma index and apply the configured cosine-distance limit."""
-    if get_collection().count() == 0 and list_document_paths():
-        index_all_documents()
+    collection = get_collection(dataset)
+    if collection.count() == 0 and list_corpus_documents(DATASET_DIRECTORIES[dataset]):
+        rebuild_index(
+            chunk_size=APP_SETTINGS.chunk_size,
+            overlap=APP_SETTINGS.overlap,
+            dataset=dataset,
+        )
 
     chunks = search_chunks(
         question=question,
         top_k=APP_SETTINGS.top_k if top_k is None else top_k,
         selected_documents=document_ids,
+        dataset=dataset,
     )
     chunks = filter_by_relevance(chunks, APP_SETTINGS.relevance_threshold)
     return [RetrievedChunk.model_validate(chunk) for chunk in chunks]
@@ -108,6 +121,7 @@ def retrieve_selected_chunks(
     retrievers: list[RetrieverName] | None = None,
     document_ids: list[str] | None = None,
     top_k: int | None = None,
+    dataset: EvaluationDataset = "baking",
 ) -> OrchestratedRetrieval:
     """Dispatch selected retrievers and fuse their ranked chunk results."""
     selected_retrievers = tuple(["dense"] if retrievers is None else retrievers)
@@ -122,6 +136,7 @@ def retrieve_selected_chunks(
                 else None
             ),
             top_k=query.top_k,
+            dataset=query.dataset,
         )
         return RetrieverOutput(
             chunks=[
@@ -138,7 +153,7 @@ def retrieve_selected_chunks(
 
     query = RetrievalQuery(
         question=question,
-        dataset="baking",
+        dataset=dataset,
         top_k=result_limit,
         document_ids=tuple(document_ids) if document_ids is not None else None,
         chunk_size=APP_SETTINGS.chunk_size,
@@ -159,6 +174,7 @@ def ask_question(
     top_k: int | None = None,
     retrievers: list[RetrieverName] | None = None,
     include_path_context: bool = False,
+    dataset: EvaluationDataset = "baking",
 ) -> AskResponse:
     """Retrieve through selected methods and delegate grounded answer generation."""
     selected_retrievers = ["dense"] if retrievers is None else retrievers
@@ -170,6 +186,7 @@ def ask_question(
         retrievers=selected_retrievers,
         document_ids=document_ids,
         top_k=top_k,
+        dataset=dataset,
     )
     path_context = (
         _build_path_context(retrieval.graph_paths, retrieval.graph_chunks)
@@ -187,6 +204,7 @@ def ask_question(
                 chunks=retrieval.chunks,
                 retrievers=list(retrieval.retrievers),
                 graph_paths=retrieval.graph_paths,
+                graph_supporting_chunks=retrieval.graph_chunks,
                 path_context=path_context,
             )
         }

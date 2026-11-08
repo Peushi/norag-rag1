@@ -11,6 +11,22 @@ from evaluation import rag_evaluation as runner
 
 
 class EvaluationModeTests(unittest.TestCase):
+    def test_unregistered_retrievers_fail_before_loading_questions(self):
+        for dataset, retrievers in [
+            ("baking", ["bm25"]),
+            ("kestrel", ["dense", "graph"]),
+            ("kestrel", ["dense", "bm25", "graph"]),
+        ]:
+            with self.subTest(dataset=dataset, retrievers=retrievers):
+                with patch.object(runner, "load_questions") as load:
+                    with self.assertRaisesRegex(ValueError, "not registered"):
+                        runner.run_evaluation(
+                            dataset=dataset,
+                            output_path="unused.jsonl",
+                            retrievers=retrievers,
+                        )
+                load.assert_not_called()
+
     def test_invalid_settings_fail_before_loading_or_indexing(self):
         for options in [{"dataset": "unknown"}, {"top_k": 0}, {"top_k": 1.5},
                         {"top_k": True}, {"chunk_size": 1.5}, {"chunk_size": 0},
@@ -77,6 +93,8 @@ class EvaluationModeTests(unittest.TestCase):
                     self.assertEqual(retrieve.call_args.args[2], 10)
                 row = json.loads(output.read_text())
                 self.assertEqual(row["generate_answers"], generate)
+                self.assertEqual(row["retrievers"], ["dense"])
+                self.assertFalse(row["compare_path_context"])
                 self.assertEqual(row["status"], "not_found" if generate else "retrieval_only")
                 self.assertEqual(len(row["retrieved_chunks"]), 3)
                 self.assertEqual(row["retrieval_metrics"]["10"]["recall"], 1)
