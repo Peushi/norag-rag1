@@ -11,6 +11,59 @@ from evaluation import rag_evaluation as runner
 
 
 class EvaluationModeTests(unittest.TestCase):
+    def test_hybrid_uses_real_rrf_with_typed_bm25_contributions(self):
+        from backend.bm25 import BM25Index
+        documents = [{"source": "guide.md", "text": "A rare fact."}]
+        chunk = BM25Index(documents).chunks[0]
+        question = {"id": "test", "question": "rare", "type": "other", "answerable": True,
+                    "evidence": [{"source": "guide.md", "quote": "A rare fact."}]}
+        with tempfile.TemporaryDirectory() as temp, contextlib.ExitStack() as stack:
+            output = Path(temp) / "hybrid.jsonl"
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(patch.object(runner, "load_questions", return_value=[question]))
+            stack.enter_context(patch.object(runner, "load_documents", return_value=documents))
+            stack.enter_context(patch.object(runner, "build_isolated_index", return_value=(object(), 1)))
+            stack.enter_context(patch.object(runner, "retrieve", return_value=[{**chunk, "distance": 0.2}]))
+            generate = stack.enter_context(patch.object(runner, "generate_answer"))
+            runner.run_evaluation(dataset="baking", retrievers=["dense", "bm25"], output_path=output)
+            row = json.loads(output.read_text())
+            self.assertAlmostEqual(row["fused_chunks"][0]["final_score"], 2 / 61)
+            self.assertEqual([c["retriever"] for c in row["fused_chunks"][0]["retrievers"]], ["bm25", "dense"])
+            self.assertEqual(row["retrieval_metrics"]["1"]["recall"], 1)
+            generate.assert_not_called()
+
+    def test_bm25_only_skips_dense_index_and_generation(self):
+        question = {"id": "test", "question": "bread", "type": "other", "answerable": True,
+                    "evidence": [{"source": "guide.md", "quote": "bread"}]}
+        with tempfile.TemporaryDirectory() as temp, contextlib.ExitStack() as stack:
+            output = Path(temp) / "bm25.jsonl"
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            stack.enter_context(patch.object(runner, "load_questions", return_value=[question]))
+            stack.enter_context(patch.object(runner, "load_documents", return_value=[{"source": "guide.md", "text": "bread"}]))
+            build = stack.enter_context(patch.object(runner, "build_isolated_index"))
+            generate = stack.enter_context(patch.object(runner, "generate_answer"))
+            runner.run_evaluation(dataset="baking", retrievers=["bm25"], output_path=output)
+            row = json.loads(output.read_text())
+            self.assertIsNone(row["evaluation_chunks"][0]["distance"])
+            self.assertEqual(row["retrieval_metrics"]["1"]["recall"], 1)
+            build.assert_not_called()
+            generate.assert_not_called()
+
+    def test_unregistered_retrievers_fail_before_loading_questions(self):
+        for dataset, retrievers in [
+            ("kestrel", ["dense", "graph"]),
+            ("kestrel", ["dense", "bm25", "graph"]),
+        ]:
+            with self.subTest(dataset=dataset, retrievers=retrievers):
+                with patch.object(runner, "load_questions") as load:
+                    with self.assertRaisesRegex(ValueError, "not registered"):
+                        runner.run_evaluation(
+                            dataset=dataset,
+                            output_path="unused.jsonl",
+                            retrievers=retrievers,
+                        )
+                load.assert_not_called()
+
     def test_invalid_settings_fail_before_loading_or_indexing(self):
         for options in [{"dataset": "unknown"}, {"top_k": 0}, {"top_k": 1.5},
                         {"top_k": True}, {"chunk_size": 1.5}, {"chunk_size": 0},
@@ -34,7 +87,7 @@ class EvaluationModeTests(unittest.TestCase):
 
     def test_default_paths_separate_threshold_limit_and_generation(self):
         paths = []
-        for changes in [{}, {"top_k": 3}, {"limit": 1}, {"max_distance": 0.5}, {"generate_answers": True}]:
+        for changes in [{}, {"top_k": 3}, {"limit": 1}, {"max_distance": 0.5}, {"generate_answers": True}, {"retrievers": ["dense", "bm25"]}]:
             args = SimpleNamespace(**{
                 "dataset": "baking", "top_k": 5, "chunk_size": 800,
                 "overlap": 80, "limit": None, "max_distance": None,
@@ -77,6 +130,8 @@ class EvaluationModeTests(unittest.TestCase):
                     self.assertEqual(retrieve.call_args.args[2], 10)
                 row = json.loads(output.read_text())
                 self.assertEqual(row["generate_answers"], generate)
+                self.assertEqual(row["retrievers"], ["dense"])
+                self.assertFalse(row["compare_path_context"])
                 self.assertEqual(row["status"], "not_found" if generate else "retrieval_only")
                 self.assertEqual(len(row["retrieved_chunks"]), 3)
                 self.assertEqual(row["retrieval_metrics"]["10"]["recall"], 1)

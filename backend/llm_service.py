@@ -1,11 +1,13 @@
-﻿import json
+﻿
+import json
 import os
 
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
 
-from backend.schemas import AskResponse, LLMAnswer, Reference
+from backend.schemas import AskResponse, LLMAnswer, PathContext, Reference
+
 
 class LLMServiceUnavailable(RuntimeError):
     """The LLM service cannot be reached or configured."""
@@ -13,6 +15,7 @@ class LLMServiceUnavailable(RuntimeError):
 
 class LLMResponseError(ValueError):
     """The LLM returned an invalid or unusable response."""
+
 
 load_dotenv()
 
@@ -34,20 +37,29 @@ NOT_FOUND_ANSWER = (
 )
 
 
-class LLMServiceUnavailable(RuntimeError):
-    """Raised when the upstream LLM service cannot be used."""
-
-
-class LLMResponseError(ValueError):
-    """Raised when the upstream LLM returns unusable output."""
-
-
 def build_prompt(
     question: str,
     chunks: list[dict],
-    graph_paths: list[dict] | None = None,
+    graph_paths: list[dict] | PathContext | None = None,
+    *,
+    path_context: PathContext | None = None,
 ) -> str:
-    """Build a prompt using retrieved chunks and optional graph paths."""
+    """
+    Build a prompt using retrieved chunks and optional graph path context.
+
+    Supports both the original graph_paths argument and the newer
+    PathContext interface.
+    """
+    if isinstance(graph_paths, PathContext):
+        if path_context is not None:
+            raise ValueError(
+                "Provide either graph_paths or path_context, not both."
+            )
+        path_context = graph_paths
+        graph_paths = None
+
+    if path_context is not None:
+        graph_paths = path_context.paths
 
     context_parts = []
 
@@ -61,43 +73,63 @@ def build_prompt(
 
     context = "\n\n---\n\n".join(context_parts)
 
-    # Only include graph edges supported by chunks supplied to Gemini.
+        # Only include graph paths whose supporting chunks are supplied to Gemini.
     available_chunk_ids = {str(chunk["id"]) for chunk in chunks}
     graph_context_parts = []
 
-    for path in graph_paths or []:
-        edge_lines = []
+    if path_context is not None:
+        # PathContext stores supporting chunk IDs at path level.
+        for path in path_context.paths:
+            supporting_ids = {
+                str(chunk_id)
+                for chunk_id in path.get("supporting_chunk_ids", [])
+            }
 
-        for edge in path.get("edges", []):
-            chunk_id = str(edge.get("chunk_id", ""))
-
-            if chunk_id not in available_chunk_ids:
+            if not supporting_ids:
                 continue
 
-            subject = edge["subject"]
-            obj = edge["object"]
+            if not supporting_ids.issubset(available_chunk_ids):
+                continue
 
-            edge_lines.append(
-                f"{subject['name']} ({subject['entity_type']}) "
-                f"--{edge['relation']}--> "
-                f"{obj['name']} ({obj['entity_type']})\n"
-                f"Evidence: {edge['evidence_quote']}\n"
-                f"Supporting chunk ID: {chunk_id}"
-            )
-
-        if edge_lines:
             graph_context_parts.append(
-                f"PATH ({path.get('hop_count', len(edge_lines))} hops):\n"
-                + "\n".join(edge_lines)
+                "PATH:\n" + json.dumps(path, ensure_ascii=False, indent=2)
             )
+
+    else:
+        # Preserve the original graph_paths format and evidence filtering.
+        for path in graph_paths or []:
+            edge_lines = []
+
+            for edge in path.get("edges", []):
+                chunk_id = str(edge.get("chunk_id", ""))
+
+                if chunk_id not in available_chunk_ids:
+                    continue
+
+                subject = edge["subject"]
+                obj = edge["object"]
+
+                edge_lines.append(
+                    f"{subject['name']} ({subject['entity_type']}) "
+                    f"--{edge['relation']}--> "
+                    f"{obj['name']} ({obj['entity_type']})\n"
+                    f"Evidence: {edge['evidence_quote']}\n"
+                    f"Supporting chunk ID: {chunk_id}"
+                )
+
+            if edge_lines:
+                graph_context_parts.append(
+                    f"PATH ({path.get('hop_count', len(edge_lines))} hops):\n"
+                    + "\n".join(edge_lines)
+                )
 
     graph_context = "\n\n".join(graph_context_parts)
-
     graph_section = ""
 
     if graph_context:
         graph_section = f"""
 GRAPH PATHS:
+Graph paths are extracted claims, not authoritative evidence.
 Use these paths to understand relationships between entities.
 They are navigation aids, not independent evidence.
 Verify each relationship against its supporting retrieved chunk.
@@ -138,6 +170,8 @@ ANSWERING:
 - If there is not enough evidence to answer the question reliably,
   return status "not_found".
 - Only cite chunk IDs that directly support the answer.
+- Graph paths are extracted claims, not authoritative evidence. Use them only
+  when the supporting retrieved chunks validate the relationships.
 
 Return ONLY a valid JSON object with these fields:
 - status: "answered" or "not_found"
@@ -148,41 +182,86 @@ For status "not_found", cited_chunk_ids must be an empty list.
 
 RETRIEVED CHUNKS:
 {context}
+
 {graph_section}
+
 QUESTION:
 {question}
 """.strip()
+
 
 def generate_answer(
     question: str,
     chunks: list[dict],
     graph_paths: list[dict] | None = None,
+    *,
+    path_context: PathContext | None = None,
 ) -> AskResponse:
     """
     Generate and validate an answer from retrieved chunks.
 
-    Each chunk must contain: id, text, source, position, distance.
+    Each chunk must contain: id, text, source, and position. Retriever scores
+    are not used in answer generation.
     The caller should perform the configured relevance-threshold check
     before calling this function.
     """
-    if not question.strip() or not chunks:
+    if not question.strip():
         return AskResponse(
             status="not_found",
             answer=NOT_FOUND_ANSWER,
             references=[],
         )
 
+    prompt_chunks = list(chunks)
     retrieved_by_id = {str(chunk["id"]): chunk for chunk in chunks}
 
     if len(retrieved_by_id) != len(chunks):
         raise LLMResponseError("Retrieved chunks contain duplicate IDs.")
 
-    prompt = build_prompt(question, chunks, graph_paths)
+    # Add graph supporting chunks so Gemini can use and cite them.
+    if path_context is not None:
+        for supporting_chunk in path_context.supporting_chunks:
+            chunk_id = supporting_chunk.chunk_id
+            chunk = {
+                "id": chunk_id,
+                "source": supporting_chunk.source,
+                "position": supporting_chunk.position,
+                "text": supporting_chunk.text,
+            }
+
+            existing = retrieved_by_id.get(chunk_id)
+
+            if existing is not None and any(
+                existing[field] != chunk[field]
+                for field in ("source", "position", "text")
+            ):
+                raise LLMResponseError(
+                    f"Graph path chunk '{chunk_id}' conflicts with retrieved evidence."
+                )
+
+            if existing is None:
+                retrieved_by_id[chunk_id] = chunk
+                prompt_chunks.append(chunk)
+
+    # Keep compatibility with the original behaviour.
+    if not prompt_chunks:
+        return AskResponse(
+            status="not_found",
+            answer=NOT_FOUND_ANSWER,
+            references=[],
+        )
+
+    prompt = build_prompt(
+        question,
+        prompt_chunks,
+        graph_paths=graph_paths,
+        path_context=path_context,
+    )
 
     if client is None:
         raise LLMServiceUnavailable(
             "GOOGLE_API_KEY is missing. Configure it in your local .env file."
-    )
+        )
 
     try:
         response = client.chat.completions.create(
@@ -227,7 +306,7 @@ def generate_answer(
         )
 
     # Never trust source details or quotes invented by the model.
-    # Build references only from the chunks actually retrieved.
+    # Build references only from chunks actually supplied as evidence.
     references = []
     seen_ids = set()
 
