@@ -1,0 +1,485 @@
+{
+  "triples": [
+    {
+      "subject": {
+        "name": "Starter",
+        "entity_type": "PLAN"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "Kestrel Analytics",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "d6d5fe300b8f::chunk_0000",
+      "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+    },
+    {
+      "subject": {
+        "name": "Team",
+        "entity_type": "PLAN"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "Kestrel Analytics",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "d6d5fe300b8f::chunk_0000",
+      "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+    },
+    {
+      "subject": {
+        "name": "Business",
+        "entity_type": "PLAN"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "Kestrel Analytics",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "d6d5fe300b8f::chunk_0000",
+      "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+    },
+    {
+      "subject": {
+        "name": "Enterprise",
+        "entity_type": "PLAN"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "Kestrel Analytics",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "d6d5fe300b8f::chunk_0000",
+      "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+    },
+    {
+      "subject": {
+        "name": "Billing and Refund Policy",
+        "entity_type": "POLICY"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Finance",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "5802397173f6::chunk_0000",
+      "evidence_quote": "Effective date: 1 March 2026 · Policy owner: Finance · Audience: customers and support staff"
+    },
+    {
+      "subject": {
+        "name": "Billing and Refund Policy 2026",
+        "entity_type": "POLICY"
+      },
+      "relation": "REPLACES",
+      "object": {
+        "name": "Billing and Refund Policy 2025",
+        "entity_type": "POLICY"
+      },
+      "chunk_id": "5802397173f6::chunk_0000",
+      "evidence_quote": "This policy replaces the Billing and Refund Policy effective 1 January 2025."
+    },
+    {
+      "subject": {
+        "name": "Billing and Refund Policy",
+        "entity_type": "POLICY"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "Starter",
+        "entity_type": "PLAN"
+      },
+      "chunk_id": "5802397173f6::chunk_0000",
+      "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+    },
+    {
+      "subject": {
+        "name": "Billing and Refund Policy",
+        "entity_type": "POLICY"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "Team",
+        "entity_type": "PLAN"
+      },
+      "chunk_id": "5802397173f6::chunk_0000",
+      "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+    },
+    {
+      "subject": {
+        "name": "Billing and Refund Policy",
+        "entity_type": "POLICY"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "Business",
+        "entity_type": "PLAN"
+      },
+      "chunk_id": "5802397173f6::chunk_0000",
+      "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+    },
+    {
+      "subject": {
+        "name": "Billing and Refund Policy",
+        "entity_type": "POLICY"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "Enterprise",
+        "entity_type": "PLAN"
+      },
+      "chunk_id": "5802397173f6::chunk_0000",
+      "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+    },
+    {
+      "subject": {
+        "name": "Owner",
+        "entity_type": "ROLE"
+      },
+      "relation": "GOVERNED_BY",
+      "object": {
+        "name": "Plan",
+        "entity_type": "PLAN"
+      },
+      "chunk_id": "5802397173f6::chunk_0002",
+      "evidence_quote": "The payment method can be updated by the workspace Owner from **Settings → Plan → Payment method**."
+    },
+    {
+      "subject": {
+        "name": "Business",
+        "entity_type": "PLAN"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "single sign-on",
+        "entity_type": "FEATURE"
+      },
+      "chunk_id": "1382412bce5f::chunk_0005",
+      "evidence_quote": "On the Business and Enterprise plans, workspaces can use single sign-on with any SAML 2.0 identity provider."
+    },
+    {
+      "subject": {
+        "name": "Enterprise",
+        "entity_type": "PLAN"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "single sign-on",
+        "entity_type": "FEATURE"
+      },
+      "chunk_id": "1382412bce5f::chunk_0005",
+      "evidence_quote": "On the Business and Enterprise plans, workspaces can use single sign-on with any SAML 2.0 identity provider."
+    },
+    {
+      "subject": {
+        "name": "Kestrel",
+        "entity_type": "PRODUCT"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "PostgreSQL",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "1382412bce5f::chunk_0007",
+      "evidence_quote": "Kestrel supports PostgreSQL, MySQL, Google BigQuery, Snowflake, Google Sheets and CSV upload."
+    },
+    {
+      "subject": {
+        "name": "Kestrel",
+        "entity_type": "PRODUCT"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "MySQL",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "1382412bce5f::chunk_0007",
+      "evidence_quote": "Kestrel supports PostgreSQL, MySQL, Google BigQuery, Snowflake, Google Sheets and CSV upload."
+    },
+    {
+      "subject": {
+        "name": "Kestrel",
+        "entity_type": "PRODUCT"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "Google BigQuery",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "1382412bce5f::chunk_0007",
+      "evidence_quote": "Kestrel supports PostgreSQL, MySQL, Google BigQuery, Snowflake, Google Sheets and CSV upload."
+    },
+    {
+      "subject": {
+        "name": "Kestrel",
+        "entity_type": "PRODUCT"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "Snowflake",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "1382412bce5f::chunk_0007",
+      "evidence_quote": "Kestrel supports PostgreSQL, MySQL, Google BigQuery, Snowflake, Google Sheets and CSV upload."
+    },
+    {
+      "subject": {
+        "name": "Kestrel",
+        "entity_type": "PRODUCT"
+      },
+      "relation": "SUPPORTS",
+      "object": {
+        "name": "Google Sheets",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "1382412bce5f::chunk_0007",
+      "evidence_quote": "Kestrel supports PostgreSQL, MySQL, Google BigQuery, Snowflake, Google Sheets and CSV upload."
+    },
+    {
+      "subject": {
+        "name": "KST-5031",
+        "entity_type": "ERROR_CODE"
+      },
+      "relation": "HAS_CAUSE",
+      "object": {
+        "name": "postroom",
+        "entity_type": "SERVICE"
+      },
+      "chunk_id": "b748a9c48e16::chunk_0008",
+      "evidence_quote": "This error is raised by postroom, the service that sends all Kestrel e-mails."
+    },
+    {
+      "subject": {
+        "name": "gateway",
+        "entity_type": "SERVICE"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Platform",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "2490e5184d68::chunk_0000",
+      "evidence_quote": "Owner: **Platform**."
+    },
+    {
+      "subject": {
+        "name": "connector-hub",
+        "entity_type": "SERVICE"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Data Integrations",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "2490e5184d68::chunk_0001",
+      "evidence_quote": "Owner: **Data Integrations**."
+    },
+    {
+      "subject": {
+        "name": "query-engine",
+        "entity_type": "SERVICE"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Analytics Engine",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "2490e5184d68::chunk_0001",
+      "evidence_quote": "Owner: **Analytics Engine**."
+    },
+    {
+      "subject": {
+        "name": "scheduler",
+        "entity_type": "SERVICE"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Analytics Engine",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "2490e5184d68::chunk_0001",
+      "evidence_quote": "Owner: **Analytics Engine**."
+    },
+    {
+      "subject": {
+        "name": "postroom",
+        "entity_type": "SERVICE"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Messaging",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "2490e5184d68::chunk_0002",
+      "evidence_quote": "Owner: **Messaging**."
+    },
+    {
+      "subject": {
+        "name": "postroom",
+        "entity_type": "SERVICE"
+      },
+      "relation": "REPLACES",
+      "object": {
+        "name": "mailman",
+        "entity_type": "SERVICE"
+      },
+      "chunk_id": "2490e5184d68::chunk_0002",
+      "evidence_quote": "postroom replaced the older mailman service in November 2025."
+    },
+    {
+      "subject": {
+        "name": "embed-svc",
+        "entity_type": "SERVICE"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Platform",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "2490e5184d68::chunk_0002",
+      "evidence_quote": "Owner: **Platform**."
+    },
+    {
+      "subject": {
+        "name": "ledger",
+        "entity_type": "SERVICE"
+      },
+      "relation": "GOVERNED_BY",
+      "object": {
+        "name": "Billing and Refund Policy",
+        "entity_type": "POLICY"
+      },
+      "chunk_id": "2490e5184d68::chunk_0002",
+      "evidence_quote": "applies the grace period and read-only rules of the Billing and Refund Policy."
+    },
+    {
+      "subject": {
+        "name": "Identity",
+        "entity_type": "SERVICE"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Identity",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "2490e5184d68::chunk_0003",
+      "evidence_quote": "Owner: **Identity**."
+    },
+    {
+      "subject": {
+        "name": "Payments Core",
+        "entity_type": "SERVICE"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Jonas Berg",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "2490e5184d68::chunk_0004",
+      "evidence_quote": "| Payments Core | Jonas Berg | #oncall-payments | 24/7 rotation |"
+    },
+    {
+      "subject": {
+        "name": "Payments Core",
+        "entity_type": "TEAM"
+      },
+      "relation": "HAS_CHANNEL",
+      "object": {
+        "name": "#oncall-payments",
+        "entity_type": "CHANNEL"
+      },
+      "chunk_id": "2490e5184d68::chunk_0004",
+      "evidence_quote": "| Payments Core | Jonas Berg | #oncall-payments | 24/7 rotation |"
+    },
+    {
+      "subject": {
+        "name": "Kestrel",
+        "entity_type": "PRODUCT"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "Service Catalog",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "b748a9c48e16::chunk_0001",
+      "evidence_quote": "The owning team of each service and its on-call channel are listed in the Service Catalog."
+    },
+    {
+      "subject": {
+        "name": "KST-6010",
+        "entity_type": "ERROR_CODE"
+      },
+      "relation": "ESCALATES_TO",
+      "object": {
+        "name": "Payments Core",
+        "entity_type": "TEAM"
+      },
+      "chunk_id": "b748a9c48e16::chunk_0010",
+      "evidence_quote": "**Escalate:** to Payments Core if more than three customers are affected on the same day (possible incident)."
+    }
+  ],
+  "statistics": {
+    "documents": 5,
+    "chunks": 43,
+    "successful_calls": 43,
+    "failed_chunks": 0,
+    "triples": 32,
+    "prompt_tokens": 21857,
+    "completion_tokens": 4438,
+    "total_tokens": 26295,
+    "build_time_seconds": 297.23,
+    "chunk_size": 800,
+    "overlap": 80,
+    "retry_time_seconds": 109.79
+  },
+  "failed_chunks": [],
+  "invalid_triples": [
+    {
+      "subject": {
+        "name": "KST-1007",
+        "entity_type": "ERROR_CODE"
+      },
+      "relation": "HAS_CAUSE",
+      "object": {
+        "name": "clock of the device running the authenticator app is wrong",
+        "entity_type": "FEATURE"
+      },
+      "evidence_quote": "Cause: in most cases the clock of the device running the authenticator app is wrong",
+      "reason": "Evidence quote not found exactly in original chunk.",
+      "chunk_id": "b748a9c48e16::chunk_0002",
+      "source": "support-runbook-errors.md",
+      "position": 2
+    },
+    {
+      "subject": {
+        "name": "KST-1012",
+        "entity_type": "ERROR_CODE"
+      },
+      "relation": "ESCALATES_TO",
+      "object": {
+        "name": "Identity",
+        "entity_type": "TEAM"
+      },
+      "evidence_quote": "Escalate: to Identity if the metadata is correct and the error persists.",
+      "reason": "Evidence quote not found exactly in original chunk.",
+      "chunk_id": "b748a9c48e16::chunk_0003",
+      "source": "support-runbook-errors.md",
+      "position": 3
+    },
+    {
+      "subject": {
+        "name": "KST-2044",
+        "entity_type": "ERROR_CODE"
+      },
+      "relation": "HAS_CAUSE",
+      "object": {
+        "name": "the database only accepts connections from an allowlist of IP addresses, and the Kestrel addresses are missing from it",
+        "entity_type": "ERROR_CODE"
+      },
+      "evidence_quote": "Cause: the database only accepts connections from an allowlist of IP addresses, and the Kestrel addresses are missing from it.",
+      "reason": "Evidence quote not found exactly in original chunk.",
+      "chunk_id": "b748a9c48e16::chunk_0004",
+      "source": "support-runbook-errors.md",
+      "position": 4
+    }
+  ]
+}

@@ -35,6 +35,7 @@ from backend.schemas import (
     SourceChunk,
 )
 from backend.vector_store import get_collection
+from backend.graph_retrieval import retrieve_graph
 
 DEFAULT_TOP_K = 3
 MIN_FUSION_CANDIDATES = 10
@@ -146,6 +147,21 @@ def retrieve_selected_chunks(
             ]
         )
 
+    def retrieve_graph_results(query: RetrievalQuery) -> RetrieverOutput:
+        result = retrieve_graph(
+            question=query.question,
+            top_k=query.top_k,
+            selected_documents=(
+                list(query.document_ids)
+                if query.document_ids is not None
+                else None
+            ),
+        )
+        return RetrieverOutput(
+            chunks=result["chunks"],
+            graph_paths=result["paths"],
+        )
+
     query = RetrievalQuery(
         question=question,
         dataset=dataset,
@@ -158,7 +174,11 @@ def retrieve_selected_chunks(
     result = orchestrate_retrieval(
         query,
         selected_retrievers,
-        {"dense": retrieve_dense, "bm25": retrieve_bm25},
+        {
+            "dense": retrieve_dense,
+            "bm25": retrieve_bm25,
+            "graph": retrieve_graph_results,
+        },
         final_top_k=result_limit,
     )
     return result

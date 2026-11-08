@@ -103,7 +103,7 @@ Each cell is Dense Recall% → Dense+BM25 Recall%. Unanswerable rows remain in r
 ## Concrete diagnoses
 
 - **Kestrel q01:** the complete cause-and-two-IP passage moves from Dense rank 7 to BM25 rank 3 and fused rank 4. Thus Recall@5 improves 0% → 100%. It is still not first: generic runbook chunks match several query terms, and there is no identifier-specific boost.
-- **Kestrel q08:** both methods together still recover only the runbook quote; catalog evidence remains absent in the final top 10. Recall stays 50%. Keywords alone do not supply the missing postroom → Messaging → channel hop. Graph results are unavailable, so no graph improvement is claimed.
+- **Kestrel q08:** both methods together still recover only the runbook quote; catalog evidence remains absent in the final top 10. Recall stays 50%. Keywords alone do not supply the missing postroom → Messaging → channel hop. The expanded Graph evaluation also fails to retrieve the expected Service Catalog quote for q08 within the top 10.
 - **Baking B04:** at 800/80, the two instructions move from Dense rank 3 to fused rank 4. Recall@3 drops 100% → 0%, while @5 remains 100%. The previous V2 400/40 ranks 6/7 remain historical; this main V3 experiment uses 800/80.
 - **Baking B07:** the explanation quote moves from rank 1 to fused rank 3 (a Hit@1 regression), but the gravity-method quote enters at rank 9. Recall@10 improves 1/3 → 2/3. The chilling quote remains missing.
 - **Kestrel q07:** current-policy evidence remains recovered within top 5. No prompt or policy labels were changed.
@@ -127,13 +127,66 @@ Baking B02 is another regression: Dense’s position-2 chunk has rank 5 but no B
 
 ## Recommendation and dependencies
 
-Keep Dense as the unchanged application default for now: it gives better Recall@3 on both corpora and better baking Recall@5. Dense+BM25 is available as an explicit option: it improves Kestrel @5 identifier coverage and baking @10 evidence recall, but introduces the q03/B02/B04 regressions. No universal hybrid improvement is claimed; these are small fixed datasets.
+For the original eight-question Kestrel and original baking comparisons, keep Dense as the unchanged application default for now: it gives better Recall@3 on both corpora and better baking Recall@5. The expanded Kestrel comparison below is a separate experiment and shows a different result at intermediate cut-offs. Dense+BM25 is available as an explicit option: it improves Kestrel @5 identifier coverage and baking @10 evidence recall, but introduces the q03/B02/B04 regressions. No universal hybrid improvement is claimed; these are small fixed datasets.
 
-Pending Person B: a real Graph retriever returning shared chunks/paths, plus the expanded Kestrel set containing q08 and two more provenance-labeled two-hop questions. Only original q08 currently has the two_hop type. Original V2 questions/evidence were left untouched. Dense+BM25+Graph was not run or mocked. Once available, evaluate the unchanged V2 subset separately from added questions. Path as Context experiments were left unchanged.
+Person B's Graph retriever and expanded Kestrel evaluation are now implemented and measured. The original V2 questions and evidence were left unchanged; q11 and q12 were added as provenance-labeled two-hop questions. The expanded set contains 10 answerable questions and 2 unanswerable questions. The original eight-question results above remain the historical Dense/BM25 comparison; the separate expanded results below include all 12 questions.
 
 For Sasha: BM25 is registered behind existing /api/retrieve, /api/ask, and evaluation-run controls. Ranked BM25 results include id/text/source/position/rank/retriever/score/score_type. Hybrid responses use her unchanged fused schema and retain original ranks and score types. Candidate depth is at least 10 for hybrid fusion. Shared latency collection remains her responsibility.
 
 The existing precomputed V2 comparison endpoint still serves its original V2 files. This V3 folder is separate and is not silently substituted into that endpoint. No schema/frontend changes were made.
+
+
+## Expanded Kestrel evaluation: Graph retrieval
+
+This is a separate 12-question evaluation at 800-character chunks and 80-character overlap. It includes the original eight Kestrel questions, the two unanswerable questions, and the added q11/q12 two-hop questions. There are 10 answerable questions and 2 excluded unanswerable questions. Dense, Dense+BM25, and Dense+BM25+Graph use the same expanded question set. The graph configuration uses equal-weight RRF with k=60 and the same candidate/fusion evaluation approach. Metrics below are percentages.
+
+### Overall expanded Kestrel metrics
+
+| Method | k | HitRate | Recall |
+|---|---:|---:|---:|
+| Dense | 1 | 50.00 | 32.50 |
+| Dense | 3 | 90.00 | 75.00 |
+| Dense | 5 | 90.00 | 80.00 |
+| Dense | 10 | 100.00 | 95.00 |
+| Dense + BM25 | 1 | 50.00 | 22.50 |
+| Dense + BM25 | 3 | 90.00 | 72.50 |
+| Dense + BM25 | 5 | 100.00 | 82.50 |
+| Dense + BM25 | 10 | 100.00 | 95.00 |
+| Dense + BM25 + Graph | 1 | 60.00 | 27.50 |
+| Dense + BM25 + Graph | 3 | 90.00 | 77.50 |
+| Dense + BM25 + Graph | 5 | 100.00 | 87.50 |
+| Dense + BM25 + Graph | 10 | 100.00 | 95.00 |
+
+Graph gives the best overall Recall@3 and Recall@5 in this expanded Kestrel evaluation. Dense alone has the best Recall@1. All three configurations reach the same Recall@10. Therefore, Graph improves evidence coverage at intermediate cut-offs but is not uniformly best at every k.
+
+### Two-hop question results
+
+| Question | Dense Recall@3 / @5 | Dense + BM25 Recall@3 / @5 | Dense + BM25 + Graph Recall@3 / @5 |
+|---|---:|---:|---:|
+| q08 — KST-5031 escalation | 50% / 50% | 50% / 50% | 50% / 50% |
+| q11 — ledger policy owner | 50% / 50% | 50% / 50% | 100% / 100% |
+| q12 — KST-6010 escalation channel | 50% / 100% | 100% / 100% | 100% / 100% |
+
+- **q08:** Every configuration retrieves the runbook evidence at rank 1, but none retrieves the expected Service Catalog quote within the top 10. Recall remains 50%. Graph does not solve this missing second-hop evidence.
+- **q11:** Dense retrieves the two evidence quotes at ranks 3 and 7; Dense+BM25 at ranks 1 and 9; Graph at ranks 1 and 3. Graph is the only configuration to recover both quotes by k=3.
+- **q12:** Dense retrieves the runbook and Service Catalog evidence at ranks 5 and 2. Dense+BM25 retrieves them at ranks 2 and 3. Graph retrieves them at ranks 1 and 2. Both hybrid configurations recover all evidence by k=3.
+
+Across the three two-hop questions, Graph achieves HitRate@1 = 100% and Recall@3 = 83.33%, compared with Dense+BM25's HitRate@1 = 66.67% and Recall@3 = 66.67%, and Dense's HitRate@1 = 33.33% and Recall@3 = 50.00%. This is a small three-question subset, so it should be treated as evidence from this evaluation rather than a general guarantee for multi-hop queries.
+
+### Graph interpretation and limitations
+
+Graph contributes useful entity-relation paths for questions where the relevant information is spread across documents. The q11 and q12 results show improved ranking of the second-hop evidence. However, q08 remains unresolved: retrieving the postroom runbook passage does not guarantee retrieval of the Messaging contact details. The graph configuration should therefore be described as an improvement on two of the three tested two-hop questions, not as a complete solution to multi-hop retrieval.
+
+The expanded results do not replace the original eight-question Dense/BM25 tables above. They are a separate comparison using the larger question set, so the two sets of aggregate figures should not be mixed.
+
+The expanded raw results and summaries are:
+
+- `kestrel_dense_800_80_12q.jsonl`
+- `kestrel_dense_800_80_12q_summary.jsonl`
+- `kestrel_dense_bm25_800_80_12q.jsonl`
+- `kestrel_dense_bm25_800_80_12q_summary.jsonl`
+- `kestrel_dense_bm25_graph_800_80_12q.jsonl`
+- `kestrel_dense_bm25_graph_800_80_12q_summary.jsonl`
 
 ## Output fields and reproducibility
 

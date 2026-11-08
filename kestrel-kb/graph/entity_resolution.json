@@ -1,0 +1,31 @@
+
+{
+  "correct_resolutions": [
+    {
+      "alias": {
+        "name": "mailman",
+        "entity_type": "SERVICE"
+      },
+      "canonical": {
+        "name": "postroom",
+        "entity_type": "SERVICE"
+      },
+      "resolution_type": "historical_alias",
+      "reason": "The service catalog states that postroom replaced mailman and that old references to mailman refer to postroom today.",
+      "source": "service-catalog.md"
+    }
+  ],
+  "rejected_merges": [
+    {
+      "first": {
+        "name": "Identity",
+        "entity_type": "SERVICE"
+      },
+      "second": {
+        "name": "Identity",
+        "entity_type": "TEAM"
+      },
+      "reason": "They have the same name but different entity types and represent different concepts."
+    }
+  ]
+}

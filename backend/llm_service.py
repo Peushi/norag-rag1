@@ -1,4 +1,5 @@
-﻿import json
+﻿
+import json
 import os
 
 from dotenv import load_dotenv
@@ -7,12 +8,14 @@ from pydantic import ValidationError
 
 from backend.schemas import AskResponse, LLMAnswer, PathContext, Reference
 
+
 class LLMServiceUnavailable(RuntimeError):
     """The LLM service cannot be reached or configured."""
 
 
 class LLMResponseError(ValueError):
     """The LLM returned an invalid or unusable response."""
+
 
 load_dotenv()
 
@@ -34,20 +37,30 @@ NOT_FOUND_ANSWER = (
 )
 
 
-class LLMServiceUnavailable(RuntimeError):
-    """Raised when the upstream LLM service cannot be used."""
-
-
-class LLMResponseError(ValueError):
-    """Raised when the upstream LLM returns unusable output."""
-
-
 def build_prompt(
     question: str,
     chunks: list[dict],
+    graph_paths: list[dict] | PathContext | None = None,
+    *,
     path_context: PathContext | None = None,
 ) -> str:
-    """Build a prompt from retrieved chunks and optional graph path context."""
+    """
+    Build a prompt using retrieved chunks and optional graph path context.
+
+    Supports both the original graph_paths argument and the newer
+    PathContext interface.
+    """
+    if isinstance(graph_paths, PathContext):
+        if path_context is not None:
+            raise ValueError(
+                "Provide either graph_paths or path_context, not both."
+            )
+        path_context = graph_paths
+        graph_paths = None
+
+    if path_context is not None:
+        graph_paths = path_context.paths
+
     context_parts = []
 
     for chunk in chunks:
@@ -59,12 +72,72 @@ def build_prompt(
         )
 
     context = "\n\n---\n\n".join(context_parts)
-    graph_path_section = ""
+
+        # Only include graph paths whose supporting chunks are supplied to Gemini.
+    available_chunk_ids = {str(chunk["id"]) for chunk in chunks}
+    graph_context_parts = []
+
     if path_context is not None:
-        graph_path_section = f"""
-GRAPH PATHS (extracted claims; verify them against the supporting retrieved chunks):
-{json.dumps([path for path in path_context.paths], ensure_ascii=False, indent=2)}
-""".strip()
+        # PathContext stores supporting chunk IDs at path level.
+        for path in path_context.paths:
+            supporting_ids = {
+                str(chunk_id)
+                for chunk_id in path.get("supporting_chunk_ids", [])
+            }
+
+            if not supporting_ids:
+                continue
+
+            if not supporting_ids.issubset(available_chunk_ids):
+                continue
+
+            graph_context_parts.append(
+                "PATH:\n" + json.dumps(path, ensure_ascii=False, indent=2)
+            )
+
+    else:
+        # Preserve the original graph_paths format and evidence filtering.
+        for path in graph_paths or []:
+            edge_lines = []
+
+            for edge in path.get("edges", []):
+                chunk_id = str(edge.get("chunk_id", ""))
+
+                if chunk_id not in available_chunk_ids:
+                    continue
+
+                subject = edge["subject"]
+                obj = edge["object"]
+
+                edge_lines.append(
+                    f"{subject['name']} ({subject['entity_type']}) "
+                    f"--{edge['relation']}--> "
+                    f"{obj['name']} ({obj['entity_type']})\n"
+                    f"Evidence: {edge['evidence_quote']}\n"
+                    f"Supporting chunk ID: {chunk_id}"
+                )
+
+            if edge_lines:
+                graph_context_parts.append(
+                    f"PATH ({path.get('hop_count', len(edge_lines))} hops):\n"
+                    + "\n".join(edge_lines)
+                )
+
+    graph_context = "\n\n".join(graph_context_parts)
+    graph_section = ""
+
+    if graph_context:
+        graph_section = f"""
+GRAPH PATHS:
+Graph paths are extracted claims, not authoritative evidence.
+Use these paths to understand relationships between entities.
+They are navigation aids, not independent evidence.
+Verify each relationship against its supporting retrieved chunk.
+Do not use a graph relationship if its supporting evidence does not
+establish that relationship.
+
+{graph_context}
+"""
 
     return f"""
 You are a knowledge-base assistant.
@@ -110,7 +183,7 @@ For status "not_found", cited_chunk_ids must be an empty list.
 RETRIEVED CHUNKS:
 {context}
 
-{graph_path_section}
+{graph_section}
 
 QUESTION:
 {question}
@@ -120,6 +193,7 @@ QUESTION:
 def generate_answer(
     question: str,
     chunks: list[dict],
+    graph_paths: list[dict] | None = None,
     *,
     path_context: PathContext | None = None,
 ) -> AskResponse:
@@ -131,7 +205,7 @@ def generate_answer(
     The caller should perform the configured relevance-threshold check
     before calling this function.
     """
-    if not question.strip() or not chunks:
+    if not question.strip():
         return AskResponse(
             status="not_found",
             answer=NOT_FOUND_ANSWER,
@@ -144,6 +218,7 @@ def generate_answer(
     if len(retrieved_by_id) != len(chunks):
         raise LLMResponseError("Retrieved chunks contain duplicate IDs.")
 
+    # Add graph supporting chunks so Gemini can use and cite them.
     if path_context is not None:
         for supporting_chunk in path_context.supporting_chunks:
             chunk_id = supporting_chunk.chunk_id
@@ -153,7 +228,9 @@ def generate_answer(
                 "position": supporting_chunk.position,
                 "text": supporting_chunk.text,
             }
+
             existing = retrieved_by_id.get(chunk_id)
+
             if existing is not None and any(
                 existing[field] != chunk[field]
                 for field in ("source", "position", "text")
@@ -161,16 +238,30 @@ def generate_answer(
                 raise LLMResponseError(
                     f"Graph path chunk '{chunk_id}' conflicts with retrieved evidence."
                 )
+
             if existing is None:
                 retrieved_by_id[chunk_id] = chunk
                 prompt_chunks.append(chunk)
 
-    prompt = build_prompt(question, prompt_chunks, path_context)
+    # Keep compatibility with the original behaviour.
+    if not prompt_chunks:
+        return AskResponse(
+            status="not_found",
+            answer=NOT_FOUND_ANSWER,
+            references=[],
+        )
+
+    prompt = build_prompt(
+        question,
+        prompt_chunks,
+        graph_paths=graph_paths,
+        path_context=path_context,
+    )
 
     if client is None:
         raise LLMServiceUnavailable(
             "GOOGLE_API_KEY is missing. Configure it in your local .env file."
-    )
+        )
 
     try:
         response = client.chat.completions.create(
@@ -215,7 +306,7 @@ def generate_answer(
         )
 
     # Never trust source details or quotes invented by the model.
-    # Build references only from the chunks actually retrieved.
+    # Build references only from chunks actually supplied as evidence.
     references = []
     seen_ids = set()
 

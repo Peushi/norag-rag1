@@ -1,0 +1,191 @@
+{
+  "sampling_method": "Deterministic random sample, seed 42",
+  "sample_size": 10,
+  "results": [
+    {
+      "sample_number": 1,
+      "triple": {
+        "subject": {
+          "name": "Billing and Refund Policy",
+          "entity_type": "POLICY"
+        },
+        "relation": "INCLUDES",
+        "object": {
+          "name": "Team",
+          "entity_type": "PLAN"
+        },
+        "chunk_id": "5802397173f6::chunk_0000",
+        "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+      },
+      "review": "correct",
+      "reason": "Team is explicitly listed as a paid plan."
+    },
+    {
+      "sample_number": 2,
+      "triple": {
+        "subject": {
+          "name": "Starter",
+          "entity_type": "PLAN"
+        },
+        "relation": "SUPPORTS",
+        "object": {
+          "name": "Kestrel Analytics",
+          "entity_type": "PRODUCT"
+        },
+        "chunk_id": "d6d5fe300b8f::chunk_0000",
+        "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+      },
+      "review": "unsupported",
+      "reason": "The evidence does not establish that Starter supports the product."
+    },
+    {
+      "sample_number": 3,
+      "triple": {
+        "subject": {
+          "name": "postroom",
+          "entity_type": "SERVICE"
+        },
+        "relation": "OWNED_BY",
+        "object": {
+          "name": "Messaging",
+          "entity_type": "TEAM"
+        },
+        "chunk_id": "2490e5184d68::chunk_0002",
+        "evidence_quote": "Owner: **Messaging**."
+      },
+      "review": "correct",
+      "reason": "The service catalog identifies Messaging as postroom's owner."
+    },
+    {
+      "sample_number": 4,
+      "triple": {
+        "subject": {
+          "name": "Billing and Refund Policy",
+          "entity_type": "POLICY"
+        },
+        "relation": "INCLUDES",
+        "object": {
+          "name": "Business",
+          "entity_type": "PLAN"
+        },
+        "chunk_id": "5802397173f6::chunk_0000",
+        "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+      },
+      "review": "correct",
+      "reason": "Business is explicitly listed as a paid plan."
+    },
+    {
+      "sample_number": 5,
+      "triple": {
+        "subject": {
+          "name": "KST-6010",
+          "entity_type": "ERROR_CODE"
+        },
+        "relation": "ESCALATES_TO",
+        "object": {
+          "name": "Payments Core",
+          "entity_type": "TEAM"
+        },
+        "chunk_id": "b748a9c48e16::chunk_0010",
+        "evidence_quote": "**Escalate:** to Payments Core if more than three customers are affected on the same day (possible incident)."
+      },
+      "review": "correct",
+      "reason": "The escalation instruction explicitly names Payments Core."
+    },
+    {
+      "sample_number": 6,
+      "triple": {
+        "subject": {
+          "name": "Identity",
+          "entity_type": "SERVICE"
+        },
+        "relation": "OWNED_BY",
+        "object": {
+          "name": "Identity",
+          "entity_type": "TEAM"
+        },
+        "chunk_id": "2490e5184d68::chunk_0003",
+        "evidence_quote": "Owner: **Identity**."
+      },
+      "review": "unsupported",
+      "reason": "The evidence identifies an owner but does not establish Identity as the service subject."
+    },
+    {
+      "sample_number": 7,
+      "triple": {
+        "subject": {
+          "name": "Billing and Refund Policy",
+          "entity_type": "POLICY"
+        },
+        "relation": "OWNED_BY",
+        "object": {
+          "name": "Finance",
+          "entity_type": "TEAM"
+        },
+        "chunk_id": "5802397173f6::chunk_0000",
+        "evidence_quote": "Effective date: 1 March 2026 · Policy owner: Finance · Audience: customers and support staff"
+      },
+      "review": "correct",
+      "reason": "The policy explicitly identifies Finance as its owner."
+    },
+    {
+      "sample_number": 8,
+      "triple": {
+        "subject": {
+          "name": "Payments Core",
+          "entity_type": "SERVICE"
+        },
+        "relation": "HAS_CHANNEL",
+        "object": {
+          "name": "#oncall-payments",
+          "entity_type": "CHANNEL"
+        },
+        "chunk_id": "2490e5184d68::chunk_0004",
+        "evidence_quote": "| Payments Core | Jonas Berg | #oncall-payments | 24/7 rotation |"
+      },
+      "review": "wrong",
+      "reason": "Payments Core is a team, not a service."
+    },
+    {
+      "sample_number": 9,
+      "triple": {
+        "subject": {
+          "name": "Enterprise",
+          "entity_type": "PLAN"
+        },
+        "relation": "SUPPORTS",
+        "object": {
+          "name": "Kestrel Analytics",
+          "entity_type": "PRODUCT"
+        },
+        "chunk_id": "d6d5fe300b8f::chunk_0000",
+        "evidence_quote": "It applies to all paid plans: Starter, Team, Business and Enterprise."
+      },
+      "review": "unsupported",
+      "reason": "The evidence lists Enterprise as a plan but does not establish this relationship."
+    },
+    {
+      "sample_number": 10,
+      "triple": {
+        "subject": {
+          "name": "query-engine",
+          "entity_type": "SERVICE"
+        },
+        "relation": "OWNED_BY",
+        "object": {
+          "name": "Analytics Engine",
+          "entity_type": "TEAM"
+        },
+        "chunk_id": "2490e5184d68::chunk_0001",
+        "evidence_quote": "Owner: **Analytics Engine**."
+      },
+      "review": "correct",
+      "reason": "The service catalog identifies Analytics Engine as query-engine's owner."
+    }
+  ],
+  "summary": {
+    "correct": 6,
+    "wrong": 1,
+    "unsupported": 3
+  }
+}

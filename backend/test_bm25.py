@@ -92,62 +92,115 @@ class BM25IntegrationTests(unittest.TestCase):
     def test_real_dense_and_bm25_follow_documents_and_chunk_settings(self):
         import chromadb
         from backend import documents, rag_service, vector_store
+
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "corpus"
             root.mkdir()
             (root / "a.md").write_text("bread flour " * 30)
+
             client = chromadb.PersistentClient(path=str(Path(temp) / "db"))
-            settings = SimpleNamespace(chunk_size=100, overlap=0, top_k=5, relevance_threshold=None)
-            with patch.object(vector_store, "_client", client), \
-                 patch.dict(DATASET_DIRECTORIES, {"baking": root}), \
-                 patch.object(documents, "CORPUS_DIR", root), \
-                 patch.object(rag_service, "APP_SETTINGS", settings):
-                def verify_snapshot():
-                    result = rag_service.retrieve_selected_chunks("bread", retrievers=["dense", "bm25"])
-                    stored = vector_store.get_collection().get(include=["documents"])
-                    fresh = BM25Index(documents.load_documents(root), settings.chunk_size, settings.overlap)
-                    self.assertEqual(dict(zip(stored["ids"], stored["documents"])),
-                                     {c["id"]: c["text"] for c in fresh.chunks})
-                    return result
-                self.assertTrue(verify_snapshot().chunks)
-                (root / "a.md").write_text("bread butter " * 40)
-                verify_snapshot()
-                settings.chunk_size, settings.overlap = 200, 20
-                verify_snapshot()
-                documents.add_document_and_reindex("new.txt", "bread new note", chunk_size=200, overlap=20)
-                verify_snapshot()
-                documents.delete_document_and_reindex("a.md", chunk_size=200, overlap=20)
-                verify_snapshot()
-                documents.delete_document_and_reindex("new.txt", chunk_size=200, overlap=20)
-                self.assertFalse(verify_snapshot().chunks)
+
+            try:
+                settings = SimpleNamespace(
+                    chunk_size=100,
+                    overlap=0,
+                    top_k=5,
+                    relevance_threshold=None,
+                )
+
+                with patch.object(vector_store, "_client", client), \
+                     patch.dict(DATASET_DIRECTORIES, {"baking": root}), \
+                     patch.object(documents, "CORPUS_DIR", root), \
+                     patch.object(rag_service, "APP_SETTINGS", settings):
+
+                    def verify_snapshot():
+                        result = rag_service.retrieve_selected_chunks(
+                            "bread",
+                            retrievers=["dense", "bm25"],
+                        )
+                        stored = vector_store.get_collection().get(include=["documents"])
+                        fresh = BM25Index(
+                            documents.load_documents(root),
+                            settings.chunk_size,
+                            settings.overlap,
+                        )
+                        self.assertEqual(
+                            dict(zip(stored["ids"], stored["documents"])),
+                            {c["id"]: c["text"] for c in fresh.chunks},
+                        )
+                        return result
+
+                    self.assertTrue(verify_snapshot().chunks)
+
+                    (root / "a.md").write_text("bread butter " * 40)
+                    verify_snapshot()
+
+                    settings.chunk_size, settings.overlap = 200, 20
+                    verify_snapshot()
+
+                    documents.add_document_and_reindex(
+                        "new.txt",
+                        "bread new note",
+                        chunk_size=200,
+                        overlap=20,
+                    )
+                    verify_snapshot()
+
+                    documents.delete_document_and_reindex(
+                        "a.md",
+                        chunk_size=200,
+                        overlap=20,
+                    )
+                    verify_snapshot()
+
+                    documents.delete_document_and_reindex(
+                        "new.txt",
+                        chunk_size=200,
+                        overlap=20,
+                    )
+                    self.assertFalse(verify_snapshot().chunks)
+
+            finally:
+                client.close()
 
     def test_fresh_indexes_follow_corpus_edits_and_keep_corpora_separate(self):
         with tempfile.TemporaryDirectory() as temp:
             baking = Path(temp) / "baking"
             kestrel = Path(temp) / "kestrel"
-            baking.mkdir(); kestrel.mkdir()
+            baking.mkdir()
+            kestrel.mkdir()
+
             path = baking / "a.md"
             path.write_text("bread " * 30)
             (kestrel / "a.md").write_text("KST-2044 allowlist")
+
             with patch.dict(DATASET_DIRECTORIES, {"baking": baking, "kestrel": kestrel}):
                 def search(dataset="baking", question="bread", size=100):
-                    return retrieve_bm25(RetrievalQuery(question, dataset, 100, chunk_size=size, overlap=0)).chunks
+                    return retrieve_bm25(
+                        RetrievalQuery(question, dataset, 100, chunk_size=size, overlap=0)
+                    ).chunks
+
                 self.assertTrue(search())
                 self.assertFalse(search("kestrel"))
                 self.assertTrue(search("kestrel", "2044"))
                 self.assertNotEqual(len(search(size=100)), len(search(size=200)))
+
                 path.write_text("butter")
                 self.assertFalse(search())
+
                 (baking / "new.txt").write_text("bread")
                 self.assertEqual(search()[0]["source"], "new.txt")
+
                 (baking / "new.txt").unlink()
                 self.assertFalse(search())
 
     def test_api_accepts_bm25_and_returns_existing_fused_contract(self):
         with patch("backend.bm25.load_documents", return_value=[doc("a.md", "bread flour")]):
             response = TestClient(app).post("/api/retrieve", json={
-                "question": "bread", "retrievers": ["bm25"],
+                "question": "bread",
+                "retrievers": ["bm25"],
             })
+
         self.assertEqual(response.status_code, 200, response.text)
         chunk = FusedRetrievedChunk.model_validate(response.json()["chunks"][0])
         self.assertEqual(chunk.retrievers[0].score_type, "bm25")
