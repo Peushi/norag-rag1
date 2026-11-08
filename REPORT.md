@@ -83,7 +83,7 @@ python -m backend.evaluation
 - **Retrieval dependency:** Answer quality depends on whether the retriever provides the correct evidence.
 - **LLM variability:** Generated responses may vary between runs.
 - **Context limitations:** Missing or incomplete evidence can lead to an abstention even when the answer exists elsewhere in the corpus.
-- **Citation limitations:** Valid citation IDs do not automatically guarantee that the cited passage fully supports the answer
+- **Citation limitations:** Valid citation IDs do not automatically guarantee that the cited passage fully supports the answer.
 
 ### Aleksandra — Integration and UI
 
@@ -187,38 +187,7 @@ These findings provide directions for future retrieval improvements.
 
 ### Peushi — LLM Evaluation and Answer Quality
 
-#### Objective
-
-My work focused on evaluating Gemini's answer quality with and without retrieved context, checking whether answers were correct, grounded, and properly supported by references.
-
-#### Implementation Decisions
-
-- **LLM integration:** Integrated Google Gemini through the OpenAI-compatible API.
-- **Prompt engineering:** Created prompts that instruct Gemini to answer using retrieved evidence and avoid unsupported claims.
-- **Validation:** Used Pydantic to validate response structures and verify that citation IDs match retrieved chunks.
-- **Abstention:** Implemented `not_found` responses when the available evidence is insufficient.
-- **Evaluation:** Created reusable RAG and no-context evaluation scripts, JSONL result files, and manual-review tools.
-
-#### Evaluation Results
-
-| Corpus | Evaluation | Correct | Partial | Wrong |
-|---|---|---:|---:|---:|
-| Baking | RAG | 10 + 2 correct refusals | 0 | 0 |
-| Baking | No-context | 6 | 6 | 0 |
-| Kestrel | RAG | 7 | 1 | 2 |
-| Kestrel | No-context | 1 | 1 | 8 |
-
-The results show that providing retrieved context improved answer quality, especially for the Kestrel knowledge base.
-
-#### Observed Failures and Limitations
-
-- **Missing evidence:** Kestrel q01 and q08 demonstrated that missing or incomplete retrieved passages can lead to incorrect or incomplete answers.
-- **Prompt improvement:** Refining the prompt resolved an initial Kestrel q07 billing-policy interpretation issue; the retest correctly identified the 20% annual discount.
-- **LLM variability:** Answers may vary between runs.
-- **Evaluation limitations:** Manual assessment involves some subjectivity, and the datasets are relatively small.
-- **Citation limitations:** Valid citation IDs do not necessarily guarantee that the cited passages fully support the generated answer.
-
-Overall, the evaluation showed that RAG improves answer quality compared with generation without context, but reliable answers still depend on retrieving sufficient evidence.
+_To be completed by Peushi._
 
 ### Aleksandra — Words Analytics and Frontend Integration
 
@@ -384,14 +353,18 @@ sets and exact-quote labels limit generalization.
 
 ### Verification and remaining dependencies
 
-All **84 tests passed**, with no failures or skips. Real hybrid API checks matched
-the evaluation's top-five IDs on both corpora. Index edits, chunk-setting changes,
-selection, empty results, and citation compatibility were checked; provider calls
-were mocked only for generation checks. No live Gemini calls were made.
+The earlier integration checkpoint passed all **84 tests**, with no failures or
+skips. Final validation after the evaluation changes passed all **90 tests**.
+Real hybrid API checks matched the evaluation's top-five IDs on both corpora.
+Index edits, chunk-setting changes, selection, empty results, and citation
+compatibility were checked; provider calls were mocked for generation checks.
+No live Gemini calls were made. Frontend typechecking and production build also
+passed.
 
-Graph retrieval is not registered, so Dense + BM25 + Graph measurements remain
-pending Person B. Kestrel still has only original q08 labeled `two_hop`; the two
-additional questions need team coordination with evidence for every hop. Original
-questions, Person B's prompt/Path as Context work, and Person C's RRF/UI were
-preserved. Shared latency collection remains Person C's responsibility. The hidden
-`/bm25` page is absent and was not implemented or changed.
+Graph retrieval and the expanded 12-question Kestrel evaluation are now
+implemented and measured; q11 and q12 add two provenance-labeled `two_hop`
+questions. The evaluation runner now records per-adapter, retrieval/orchestration,
+and generation latency, and supports paired answer generation with and without
+Path as Context. Existing comparison results predate those additions, so rerun the
+evaluation before reporting latency or Path-as-Context comparison results. The
+hidden `/bm25` page is absent and was not implemented or changed.

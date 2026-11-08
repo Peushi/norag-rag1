@@ -42,6 +42,24 @@ export type EvaluationResult = {
   model_answer?: string | null;
   error?: string | null;
   manual_review?: string | { grade?: string; reason?: string };
+  path_context_comparison?: {
+    without_path_context?: {
+      status: string;
+      model_answer?: string;
+    };
+    with_path_context?: {
+      status: string;
+      model_answer?: string;
+      reason?: string;
+    };
+  } | null;
+  latency_ms?: {
+    retrievers?: Record<string, number>;
+    retrieval_total?: number;
+    fusion_and_orchestration?: number;
+    generation_without_path_context?: number | null;
+    generation_with_path_context?: number | null;
+  };
 };
 
 export type EvaluationResults = {

@@ -1,6 +1,8 @@
 import argparse
 import json
+import statistics
 import sys
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -15,6 +17,7 @@ from backend.graph_retrieval import retrieve_graph
 from backend.documents import PROJECT_ROOT, load_documents
 from backend.index_settings import validate_settings
 from backend.llm_service import MODEL, generate_answer
+from backend.rag_service import _build_path_context
 from backend.retrieval import make_chunk_id, filter_by_relevance
 from backend.retrieval_orchestrator import (
     RetrievalQuery,
@@ -218,12 +221,6 @@ def run_evaluation(
             "Path as Context comparison requires graph retrieval"
         )
 
-    if compare_path_context:
-        raise ValueError(
-            "Path as Context answer comparison is not implemented "
-            "in this evaluation runner yet."
-        )
-
     config = DATASETS[dataset]
 
     questions = load_questions(config["questions"])
@@ -307,16 +304,23 @@ def run_evaluation(
 
             dense_chunks = []
             retriever_results = {}
+            retriever_latency_ms = {}
 
             def dense_adapter(query):
                 nonlocal dense_chunks
 
-                dense_chunks = retrieve(
-                    collection,
-                    query.question,
-                    query.top_k,
-                    max_distance,
-                )
+                started = time.perf_counter()
+                try:
+                    dense_chunks = retrieve(
+                        collection,
+                        query.question,
+                        query.top_k,
+                        max_distance,
+                    )
+                finally:
+                    retriever_latency_ms["dense"] = (
+                        time.perf_counter() - started
+                    ) * 1000
 
                 ranked = [
                     {
@@ -338,25 +342,37 @@ def run_evaluation(
                 return RetrieverOutput(chunks=ranked)
 
             def bm25_adapter(query):
-                ranked = bm25_index.search(
-                    query.question,
-                    query.top_k,
-                )
+                started = time.perf_counter()
+                try:
+                    ranked = bm25_index.search(
+                        query.question,
+                        query.top_k,
+                    )
+                finally:
+                    retriever_latency_ms["bm25"] = (
+                        time.perf_counter() - started
+                    ) * 1000
 
                 retriever_results["bm25"] = ranked
 
                 return RetrieverOutput(chunks=ranked)
 
             def graph_adapter(query):
-                graph_result = retrieve_graph(
-                    question=query.question,
-                    top_k=query.top_k,
-                    selected_documents=(
-                        list(query.document_ids)
-                        if query.document_ids is not None
-                        else None
-                    ),
-                )
+                started = time.perf_counter()
+                try:
+                    graph_result = retrieve_graph(
+                        question=query.question,
+                        top_k=query.top_k,
+                        selected_documents=(
+                            list(query.document_ids)
+                            if query.document_ids is not None
+                            else None
+                        ),
+                    )
+                finally:
+                    retriever_latency_ms["graph"] = (
+                        time.perf_counter() - started
+                    ) * 1000
 
                 ranked = graph_result["chunks"]
 
@@ -374,6 +390,7 @@ def run_evaluation(
                 "graph": graph_adapter,
             }
 
+            retrieval_started = time.perf_counter()
             retrieval = orchestrate_retrieval(
                 RetrievalQuery(
                     question,
@@ -385,6 +402,13 @@ def run_evaluation(
                 selected_retrievers,
                 adapters,
                 final_top_k=candidate_top_k,
+            )
+            retrieval_total_ms = (
+                time.perf_counter() - retrieval_started
+            ) * 1000
+            fusion_and_orchestration_ms = max(
+                0.0,
+                retrieval_total_ms - sum(retriever_latency_ms.values()),
             )
 
             distances = {
@@ -430,12 +454,72 @@ def run_evaluation(
                 overlap=overlap,
             )
 
+            generation_latency_ms = {
+                "without_path_context": None,
+                "with_path_context": None,
+            }
+            path_context_comparison = None
+
             try:
-                response = (
-                    generate_answer(question, retrieved)
-                    if generate_answers
-                    else None
-                )
+                if compare_path_context:
+                    path_context = _build_path_context(
+                        retrieval.graph_paths,
+                        retrieval.graph_chunks,
+                    )
+                    started = time.perf_counter()
+                    try:
+                        response = generate_answer(question, retrieved)
+                    finally:
+                        generation_latency_ms["without_path_context"] = (
+                            time.perf_counter() - started
+                        ) * 1000
+
+                    path_context_comparison = {
+                        "without_path_context": {
+                            "status": response.status,
+                            "model_answer": response.answer,
+                            "references": [
+                                reference.model_dump()
+                                for reference in response.references
+                            ],
+                        },
+                    }
+
+                    if path_context is None:
+                        path_context_comparison["with_path_context"] = {
+                            "status": "not_available",
+                            "reason": "Graph retrieval returned no paths.",
+                        }
+                    else:
+                        started = time.perf_counter()
+                        try:
+                            path_context_response = generate_answer(
+                                question,
+                                retrieved,
+                                path_context=path_context,
+                            )
+                        finally:
+                            generation_latency_ms["with_path_context"] = (
+                                time.perf_counter() - started
+                            ) * 1000
+                        path_context_comparison["with_path_context"] = {
+                            "status": path_context_response.status,
+                            "model_answer": path_context_response.answer,
+                            "references": [
+                                reference.model_dump()
+                                for reference in path_context_response.references
+                            ],
+                        }
+                else:
+                    response = None
+                    if generate_answers:
+                        started = time.perf_counter()
+                        try:
+                            response = generate_answer(question, retrieved)
+                        finally:
+                            generation_latency_ms["without_path_context"] = (
+                                time.perf_counter() - started
+                            ) * 1000
 
                 result = {
                     **item,
@@ -455,6 +539,7 @@ def run_evaluation(
                     "model_answer": (
                         response.answer if response else None
                     ),
+                    "path_context_comparison": path_context_comparison,
                     "references": [
                         reference.model_dump()
                         for reference in (
@@ -463,6 +548,17 @@ def run_evaluation(
                     ],
                     "manual_review": "pending",
                     "error": None,
+                    "latency_ms": {
+                        "retrievers": retriever_latency_ms,
+                        "retrieval_total": retrieval_total_ms,
+                        "fusion_and_orchestration": fusion_and_orchestration_ms,
+                        "generation_without_path_context": (
+                            generation_latency_ms["without_path_context"]
+                        ),
+                        "generation_with_path_context": (
+                            generation_latency_ms["with_path_context"]
+                        ),
+                    },
                 }
 
                 completed += 1
@@ -483,9 +579,21 @@ def run_evaluation(
                     "retrieved_sources": found_sources,
                     "status": "error",
                     "model_answer": None,
+                    "path_context_comparison": path_context_comparison,
                     "references": [],
                     "manual_review": "pending",
                     "error": str(exc),
+                    "latency_ms": {
+                        "retrievers": retriever_latency_ms,
+                        "retrieval_total": retrieval_total_ms,
+                        "fusion_and_orchestration": fusion_and_orchestration_ms,
+                        "generation_without_path_context": (
+                            generation_latency_ms["without_path_context"]
+                        ),
+                        "generation_with_path_context": (
+                            generation_latency_ms["with_path_context"]
+                        ),
+                    },
                 }
 
                 errors += 1
@@ -565,6 +673,13 @@ def run_evaluation(
             "expected source and full quote in one chunk; "
             "whitespace normalized"
         ),
+        "latency_methodology": (
+            "wall-clock perf_counter milliseconds per question; retriever "
+            "times cover adapter calls, retrieval total covers orchestration, "
+            "fusion_and_orchestration is the residual, and generation times "
+            "cover individual provider calls"
+        ),
+        "latency_summary_ms": _summarize_latency(results_for_summary),
         **summarize_metrics(results_for_summary),
     }
 
@@ -589,6 +704,41 @@ def run_evaluation(
     return output_path
 
 
+def _summarize_latency(results: list[dict]) -> dict:
+    samples: dict[str, list[float]] = {
+        "retrieval_total": [],
+        "fusion_and_orchestration": [],
+        "generation_without_path_context": [],
+        "generation_with_path_context": [],
+    }
+    retriever_samples: dict[str, list[float]] = {}
+
+    for result in results:
+        latency = result.get("latency_ms", {})
+        for key in samples:
+            value = latency.get(key)
+            if isinstance(value, (int, float)):
+                samples[key].append(float(value))
+        for retriever, value in latency.get("retrievers", {}).items():
+            if isinstance(value, (int, float)):
+                retriever_samples.setdefault(retriever, []).append(float(value))
+
+    def summarize(values: list[float]) -> dict:
+        return {
+            "samples": len(values),
+            "mean": round(statistics.mean(values), 3) if values else None,
+            "median": round(statistics.median(values), 3) if values else None,
+        }
+
+    return {
+        **{key: summarize(values) for key, values in samples.items()},
+        "retrievers": {
+            retriever: summarize(values)
+            for retriever, values in sorted(retriever_samples.items())
+        },
+    }
+
+
 def evaluate(args, output_path=None):
     """CLI compatibility wrapper around the reusable evaluation function."""
 
@@ -604,6 +754,9 @@ def evaluate(args, output_path=None):
 
         if selected != ["dense"]:
             suffix += "_" + "_".join(sorted(selected))
+
+        if getattr(args, "compare_path_context", False):
+            suffix += "_path_context"
 
         if args.top_k != 5:
             suffix += f"_k{args.top_k}"

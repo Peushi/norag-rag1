@@ -166,9 +166,8 @@ export function EvaluationRunner({
           </select>
         </label>
         <p className="evaluation-config-note">
-          Multiple retrievers are fused with RRF. Current evaluation adapters
-          support Dense only; unregistered methods fail explicitly rather than
-          falling back.
+          Dense, BM25, and Graph adapters are available and selected methods
+          are fused with RRF. Graph retrieval is Kestrel-only.
         </p>
         <label>
           Chunking preset
@@ -298,6 +297,7 @@ export function EvaluationRunner({
             {run?.compare_path_context ? " · Path as Context comparison" : ""}
           </p>
           <EvaluationMetricSummary results={results.results} />
+          <EvaluationLatencySummary results={results.results} />
           <p>
             {results.results.length} questions · {hitCount}/
             {answerableResults.length} answerable questions had an expected
@@ -314,6 +314,24 @@ export function EvaluationRunner({
                   result.manual_review.grade &&
                   ` · grade: ${result.manual_review.grade}`}
                 {result.error && <span className="error"> · {result.error}</span>}
+                {result.path_context_comparison && (
+                  <div>
+                    <p>
+                      Without Path as Context:{" "}
+                      {result.path_context_comparison.without_path_context?.status}
+                      {result.path_context_comparison.without_path_context?.model_answer &&
+                        ` — ${result.path_context_comparison.without_path_context.model_answer}`}
+                    </p>
+                    <p>
+                      With Path as Context:{" "}
+                      {result.path_context_comparison.with_path_context?.status}
+                      {result.path_context_comparison.with_path_context?.model_answer &&
+                        ` — ${result.path_context_comparison.with_path_context.model_answer}`}
+                      {result.path_context_comparison.with_path_context?.reason &&
+                        ` (${result.path_context_comparison.with_path_context.reason})`}
+                    </p>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -400,6 +418,93 @@ function EvaluationMetricSummary({
               })}
             </tr>
           ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function EvaluationLatencySummary({
+  results,
+}: {
+  results: EvaluationResult[];
+}) {
+  const summary = [
+    {
+      label: "Retrieval total",
+      values: results
+        .map((result) => result.latency_ms?.retrieval_total)
+        .filter((value): value is number => typeof value === "number"),
+    },
+    {
+      label: "Fusion + orchestration",
+      values: results
+        .map((result) => result.latency_ms?.fusion_and_orchestration)
+        .filter((value): value is number => typeof value === "number"),
+    },
+    {
+      label: "Generation without Path as Context",
+      values: results
+        .map((result) => result.latency_ms?.generation_without_path_context)
+        .filter((value): value is number => typeof value === "number"),
+    },
+    {
+      label: "Generation with Path as Context",
+      values: results
+        .map((result) => result.latency_ms?.generation_with_path_context)
+        .filter((value): value is number => typeof value === "number"),
+    },
+  ];
+  const retrievers = [...new Set(
+    results.flatMap((result) =>
+      Object.keys(result.latency_ms?.retrievers ?? {}),
+    ),
+  )].sort();
+  for (const retriever of retrievers) {
+    summary.push({
+      label: `${retriever} retriever`,
+      values: results
+        .map((result) => result.latency_ms?.retrievers?.[retriever])
+        .filter((value): value is number => typeof value === "number"),
+    });
+  }
+
+  if (!summary.some((metric) => metric.values.length > 0)) {
+    return null;
+  }
+
+  return (
+    <div className="evaluation-metrics-wrap">
+      <table className="evaluation-metrics">
+        <caption>Observed latency per question (milliseconds)</caption>
+        <thead>
+          <tr>
+            <th scope="col">Stage</th>
+            <th scope="col">Samples</th>
+            <th scope="col">Mean</th>
+            <th scope="col">Median</th>
+          </tr>
+        </thead>
+        <tbody>
+          {summary.filter((metric) => metric.values.length > 0).map((metric) => {
+            const sorted = [...metric.values].sort((a, b) => a - b);
+            const middle = Math.floor(sorted.length / 2);
+            const median =
+              sorted.length % 2 === 0
+                ? (sorted[middle - 1] + sorted[middle]) / 2
+                : sorted[middle];
+            const mean =
+              metric.values.reduce((total, value) => total + value, 0) /
+              metric.values.length;
+            return (
+              <tr key={metric.label}>
+                <th scope="row">{metric.label}</th>
+                <td>{metric.values.length}</td>
+                <td>{mean.toFixed(2)}</td>
+                <td>{median.toFixed(2)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

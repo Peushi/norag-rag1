@@ -131,7 +131,7 @@ For the original eight-question Kestrel and original baking comparisons, keep De
 
 Person B's Graph retriever and expanded Kestrel evaluation are now implemented and measured. The original V2 questions and evidence were left unchanged; q11 and q12 were added as provenance-labeled two-hop questions. The expanded set contains 10 answerable questions and 2 unanswerable questions. The original eight-question results above remain the historical Dense/BM25 comparison; the separate expanded results below include all 12 questions.
 
-For Sasha: BM25 is registered behind existing /api/retrieve, /api/ask, and evaluation-run controls. Ranked BM25 results include id/text/source/position/rank/retriever/score/score_type. Hybrid responses use her unchanged fused schema and retain original ranks and score types. Candidate depth is at least 10 for hybrid fusion. Shared latency collection remains her responsibility.
+For Sasha: BM25 is registered behind existing /api/retrieve, /api/ask, and evaluation-run controls. Ranked BM25 results include id/text/source/position/rank/retriever/score/score_type. Hybrid responses use her unchanged fused schema and retain original ranks and score types. Candidate depth is at least 10 for hybrid fusion. The final evaluation runner now records per-adapter, retrieval/orchestration, and answer-generation latency. The existing precomputed results predate that instrumentation; rerun the evaluations before reporting latency values.
 
 The existing precomputed V2 comparison endpoint still serves its original V2 files. This V3 folder is separate and is not silently substituted into that endpoint. No schema/frontend changes were made.
 
