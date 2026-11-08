@@ -1,4 +1,5 @@
 import hashlib
+import json
 from pathlib import Path
 
 from .documents import PROJECT_ROOT, load_documents
@@ -19,7 +20,29 @@ def make_chunk_id(source, position):
     return f"{source_hash}::chunk_{position:04d}"
 
 
-def rebuild_index(chunk_size=None, overlap=None, dataset: EvaluationDataset = "baking"):
+def _index_metadata(documents, chunk_size, overlap):
+    """Fingerprint source content and settings so Dense/BM25 cannot mix indexes."""
+    content = json.dumps(documents, ensure_ascii=False, sort_keys=True)
+    return {
+        "corpus_sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+        "chunk_size": chunk_size,
+        "overlap": overlap,
+    }
+
+
+def ensure_index_current(dataset, chunk_size, overlap):
+    """Rebuild legacy/stale Dense indexes before retrieval or fusion."""
+    validate_settings(chunk_size, overlap)
+    if dataset not in DATASET_DIRECTORIES:
+        raise ValueError(f"Unknown retrieval dataset: {dataset}")
+    documents = load_documents(DATASET_DIRECTORIES[dataset])
+    expected = _index_metadata(documents, chunk_size, overlap)
+    collection = get_collection(dataset)
+    if any((collection.metadata or {}).get(key) != value for key, value in expected.items()):
+        rebuild_index(chunk_size, overlap, dataset, documents=documents)
+
+
+def rebuild_index(chunk_size=None, overlap=None, dataset: EvaluationDataset = "baking", *, documents=None):
     """Read the selected corpus and rebuild its vector index."""
     if dataset not in DATASET_DIRECTORIES:
         raise ValueError(f"Unknown retrieval dataset: {dataset}")
@@ -34,7 +57,8 @@ def rebuild_index(chunk_size=None, overlap=None, dataset: EvaluationDataset = "b
 
     validate_settings(chunk_size, overlap)
 
-    documents = load_documents(DATASET_DIRECTORIES[dataset])
+    if documents is None:
+        documents = load_documents(DATASET_DIRECTORIES[dataset])
     collection = reset_collection(dataset)
     total_chunks = 0
 
@@ -77,6 +101,8 @@ def rebuild_index(chunk_size=None, overlap=None, dataset: EvaluationDataset = "b
 
         total_chunks += len(chunks)
 
+    # Publish the fingerprint only once the full build succeeds.
+    collection.modify(metadata=_index_metadata(documents, chunk_size, overlap))
     return {
         "documents": len(documents),
         "chunks": total_chunks,

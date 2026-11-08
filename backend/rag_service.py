@@ -5,13 +5,13 @@ from typing import Any
 
 from backend.documents import (
     CORPUS_DIR,
-    list_documents as list_corpus_documents,
     list_documents as list_document_paths,
 )
 from backend.index_settings import load_settings
 from backend.llm_service import generate_answer
+from backend.bm25 import retrieve_bm25
 from backend.retrieval import (
-    DATASET_DIRECTORIES,
+    ensure_index_current,
     filter_by_relevance,
     get_chunk,
     rebuild_index,
@@ -37,6 +37,7 @@ from backend.schemas import (
 from backend.vector_store import get_collection
 
 DEFAULT_TOP_K = 3
+MIN_FUSION_CANDIDATES = 10
 
 
 @dataclass
@@ -97,13 +98,7 @@ def retrieve_chunks(
     dataset: EvaluationDataset = "baking",
 ) -> list[RetrievedChunk]:
     """Search the Chroma index and apply the configured cosine-distance limit."""
-    collection = get_collection(dataset)
-    if collection.count() == 0 and list_corpus_documents(DATASET_DIRECTORIES[dataset]):
-        rebuild_index(
-            chunk_size=APP_SETTINGS.chunk_size,
-            overlap=APP_SETTINGS.overlap,
-            dataset=dataset,
-        )
+    ensure_index_current(dataset, APP_SETTINGS.chunk_size, APP_SETTINGS.overlap)
 
     chunks = search_chunks(
         question=question,
@@ -154,7 +149,8 @@ def retrieve_selected_chunks(
     query = RetrievalQuery(
         question=question,
         dataset=dataset,
-        top_k=result_limit,
+        # Match evaluation's top-10 candidate pool when combining methods.
+        top_k=max(result_limit, MIN_FUSION_CANDIDATES) if len(selected_retrievers) > 1 else result_limit,
         document_ids=tuple(document_ids) if document_ids is not None else None,
         chunk_size=APP_SETTINGS.chunk_size,
         overlap=APP_SETTINGS.overlap,
@@ -162,7 +158,7 @@ def retrieve_selected_chunks(
     result = orchestrate_retrieval(
         query,
         selected_retrievers,
-        {"dense": retrieve_dense},
+        {"dense": retrieve_dense, "bm25": retrieve_bm25},
         final_top_k=result_limit,
     )
     return result

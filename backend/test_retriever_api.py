@@ -82,13 +82,16 @@ class RetrieverSelectionApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 422)
 
-    def test_retrieve_endpoint_reports_unimplemented_bm25(self):
-        response = self.client.post(
-            "/api/retrieve",
-            json={"question": "What happened?", "retrievers": ["bm25"]},
-        )
-        self.assertEqual(response.status_code, 501)
-        self.assertIn("bm25", response.json()["error"]["message"])
+    def test_retrieve_endpoint_supports_bm25(self):
+        with patch("backend.bm25.load_documents", return_value=[
+            {"source": "guide.md", "text": "What happened?"},
+        ]):
+            response = self.client.post(
+                "/api/retrieve",
+                json={"question": "What happened?", "retrievers": ["bm25"]},
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["chunks"][0]["retrievers"][0]["score_type"], "bm25")
 
     def test_ask_endpoint_passes_selected_retrievers(self):
         answer = AskResponse(

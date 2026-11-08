@@ -10,10 +10,12 @@ import chromadb
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 from backend.chunking import chunk_text
+from backend.bm25 import BM25Index, K1, B
 from backend.documents import PROJECT_ROOT, load_documents
 from backend.index_settings import validate_settings
 from backend.llm_service import MODEL, generate_answer
 from backend.retrieval import make_chunk_id, filter_by_relevance
+from backend.retrieval_orchestrator import RetrievalQuery, RetrieverOutput, orchestrate_retrieval
 from evaluation.retrieval_metrics import K_VALUES, match_evidence, score_at_k, summarize_metrics
 
 
@@ -169,10 +171,9 @@ def run_evaluation(
         raise ValueError("Graph retrieval is only available for the kestrel dataset")
     if compare_path_context and "graph" not in selected_retrievers:
         raise ValueError("Path as Context comparison requires graph retrieval")
-    if selected_retrievers != ["dense"]:
-        unregistered = [retriever for retriever in selected_retrievers if retriever != "dense"]
+    if "graph" in selected_retrievers:
         raise ValueError(
-            "Evaluation retrievers are not registered: " + ", ".join(unregistered)
+            "Evaluation retrievers are not registered: graph"
         )
     if compare_path_context:
         raise ValueError(
@@ -208,12 +209,12 @@ def run_evaluation(
     print(f"Path as Context comparison: {compare_path_context}")
     print(f"Generate answers: {generate_answers}")
 
-    collection, total_chunks = build_isolated_index(
-        dataset,
-        documents,
-        chunk_size,
-        overlap,
-    )
+    collection = None
+    bm25_index = BM25Index(documents, chunk_size, overlap) if "bm25" in selected_retrievers else None
+    if "dense" in selected_retrievers:
+        collection, total_chunks = build_isolated_index(dataset, documents, chunk_size, overlap)
+    else:
+        total_chunks = len(bm25_index.chunks)
 
     print(f"Indexed chunks: {total_chunks}")
 
@@ -229,12 +230,38 @@ def run_evaluation(
             question = item["question"]
             print(f"\n[{index}/{len(questions)}] {item['id']}: {question}")
 
-            evaluation_chunks = retrieve(
-                collection,
-                question,
-                max(top_k, max(K_VALUES)),
-                max_distance,
+            candidate_top_k = max(top_k, max(K_VALUES))
+            dense_chunks = []
+            retriever_results = {}
+
+            def dense_adapter(query):
+                nonlocal dense_chunks
+                dense_chunks = retrieve(collection, query.question, query.top_k, max_distance)
+                ranked = [
+                    {**{key: value for key, value in chunk.items() if key != "distance"},
+                     "rank": rank, "retriever": "dense", "score": chunk["distance"],
+                     "score_type": "cosine_distance"}
+                    for rank, chunk in enumerate(dense_chunks, 1)
+                ]
+                retriever_results["dense"] = ranked
+                return RetrieverOutput(chunks=ranked)
+
+            def bm25_adapter(query):
+                ranked = bm25_index.search(query.question, query.top_k)
+                retriever_results["bm25"] = ranked
+                return RetrieverOutput(chunks=ranked)
+
+            # Use Person C's real orchestrator/RRF, not a second fusion algorithm.
+            retrieval = orchestrate_retrieval(
+                RetrievalQuery(question, dataset, candidate_top_k, chunk_size=chunk_size, overlap=overlap),
+                selected_retrievers,
+                {"dense": dense_adapter, "bm25": bm25_adapter},
+                final_top_k=candidate_top_k,
             )
+            distances = {chunk["id"]: chunk["distance"] for chunk in dense_chunks}
+            evaluation_chunks = dense_chunks if selected_retrievers == ["dense"] else [
+                {**chunk, "distance": distances.get(chunk["id"])} for chunk in retrieval.chunks
+            ]
             # Preserve the configured generation context and legacy output.
             retrieved = evaluation_chunks[:top_k]
 
@@ -314,16 +341,22 @@ def run_evaluation(
             result["compare_path_context"] = compare_path_context
             result["retrieval_metrics"] = score_at_k(evidence_matches)
             result["evaluation_chunks"] = evaluation_chunks
+            result["retriever_results"] = retriever_results
+            result["fused_chunks"] = retrieval.chunks
             result["evaluation_config"] = {
                 "dataset": dataset,
                 "retrievers": selected_retrievers,
                 "compare_path_context": compare_path_context,
-                "configuration_id": f"minilm_{chunk_size}_{overlap}",
+                "configuration_id": f"{'_'.join(selected_retrievers)}_minilm_{chunk_size}_{overlap}",
                 "embedding_model": "all-MiniLM-L6-v2",
                 "distance_metric": "cosine",
                 "k_values": list(K_VALUES),
                 "max_distance": max_distance,
                 "limit": limit,
+                "candidate_top_k": candidate_top_k,
+                "bm25_parameters": {"k1": K1, "b": B} if bm25_index is not None else None,
+                "fusion": "RRF k=60; equal weights; ties by chunk ID",
+                "threshold_scope": "dense candidates only",
             }
             results_for_summary.append(result)
             output.write(json.dumps(result, ensure_ascii=False) + "\n")
@@ -341,7 +374,13 @@ def run_evaluation(
         "limit": limit,
         "embedding_model": "all-MiniLM-L6-v2",
         "distance_metric": "cosine",
-        "configuration_id": f"minilm_{chunk_size}_{overlap}",
+        "configuration_id": f"{'_'.join(selected_retrievers)}_minilm_{chunk_size}_{overlap}",
+        "candidate_top_k": max(top_k, max(K_VALUES)),
+        "bm25_parameters": {"k1": K1, "b": B} if bm25_index is not None else None,
+        "fusion": "RRF k=60; equal weights; ties by chunk ID",
+        "threshold_scope": "dense candidates only",
+        "indexed_documents": len(documents),
+        "indexed_chunks": total_chunks,
         "k_values": list(K_VALUES),
         "recall_averaging": "macro: mean of per-question evidence recall",
         "relevance_rule": "expected source and full quote in one chunk; whitespace normalized",
@@ -364,6 +403,9 @@ def evaluate(args, output_path=None):
     if output_path is None:
         mode = "rag" if getattr(args, "generate_answers", False) else "retrieval"
         suffix = ""
+        selected = getattr(args, "retrievers", ["dense"])
+        if selected != ["dense"]:
+            suffix += "_" + "_".join(sorted(selected))
         if args.top_k != 5:
             suffix += f"_k{args.top_k}"
         if args.max_distance is not None:
