@@ -21,6 +21,8 @@ from backend.retrieval_orchestrator import (
 )
 from backend.schemas import (
     AskResponse,
+    PathContext,
+    PathSupportingChunk,
     RetrieveResponse,
     RetrievedChunk,
     RetrieverName,
@@ -114,7 +116,11 @@ def retrieve_selected_chunks(
     def retrieve_dense(query: RetrievalQuery) -> RetrieverOutput:
         chunks = retrieve_chunks(
             question=query.question,
-            document_ids=list(query.document_ids) if query.document_ids is not None else None,
+            document_ids=(
+                list(query.document_ids)
+                if query.document_ids is not None
+                else None
+            ),
             top_k=query.top_k,
         )
         return RetrieverOutput(
@@ -152,17 +158,28 @@ def ask_question(
     document_ids: list[str] | None = None,
     top_k: int | None = None,
     retrievers: list[RetrieverName] | None = None,
+    include_path_context: bool = False,
 ) -> AskResponse:
     """Retrieve through selected methods and delegate grounded answer generation."""
+    selected_retrievers = ["dense"] if retrievers is None else retrievers
+    if include_path_context and "graph" not in selected_retrievers:
+        raise ValueError("include_path_context requires graph retrieval")
+
     retrieval = retrieve_selected_chunks(
         question,
-        retrievers=retrievers,
+        retrievers=selected_retrievers,
         document_ids=document_ids,
         top_k=top_k,
+    )
+    path_context = (
+        _build_path_context(retrieval.graph_paths, retrieval.graph_chunks)
+        if include_path_context
+        else None
     )
     answer = generate_answer(
         question,
         retrieval.chunks,
+        path_context=path_context,
     )
     return answer.model_copy(
         update={
@@ -170,8 +187,56 @@ def ask_question(
                 chunks=retrieval.chunks,
                 retrievers=list(retrieval.retrievers),
                 graph_paths=retrieval.graph_paths,
+                path_context=path_context,
             )
         }
+    )
+
+
+def _build_path_context(
+    graph_paths: list[dict[str, Any]],
+    graph_chunks: list[dict[str, Any]],
+) -> PathContext | None:
+    if not graph_paths:
+        return None
+
+    chunks_by_id: dict[str, dict[str, Any]] = {}
+    for chunk in graph_chunks:
+        chunk_id = chunk.get("id")
+        if not isinstance(chunk_id, str) or not chunk_id:
+            raise ValueError("Graph result chunks must have a valid id")
+        chunks_by_id[chunk_id] = chunk
+    supporting_ids: list[str] = []
+    seen_ids: set[str] = set()
+
+    for path in graph_paths:
+        chunk_ids = path.get("supporting_chunk_ids")
+        if not isinstance(chunk_ids, list) or not chunk_ids:
+            raise ValueError("Every graph path must list supporting_chunk_ids")
+        for chunk_id in chunk_ids:
+            if not isinstance(chunk_id, str) or not chunk_id:
+                raise ValueError(
+                    "Graph path supporting chunk IDs must be non-empty strings"
+                )
+            if chunk_id not in chunks_by_id:
+                raise ValueError(
+                    f"Graph path references unavailable supporting chunk '{chunk_id}'"
+                )
+            if chunk_id not in seen_ids:
+                seen_ids.add(chunk_id)
+                supporting_ids.append(chunk_id)
+
+    return PathContext(
+        paths=graph_paths,
+        supporting_chunks=[
+            PathSupportingChunk(
+                chunk_id=chunk_id,
+                source=chunks_by_id[chunk_id]["source"],
+                position=chunks_by_id[chunk_id]["position"],
+                text=chunks_by_id[chunk_id]["text"],
+            )
+            for chunk_id in supporting_ids
+        ],
     )
 
 

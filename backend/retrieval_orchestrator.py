@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from backend.rank_fusion import reciprocal_rank_fusion
@@ -31,6 +31,7 @@ class OrchestratedRetrieval:
     chunks: list[dict[str, Any]]
     graph_paths: list[dict[str, Any]]
     retrievers: tuple[str, ...]
+    graph_chunks: list[dict[str, Any]] = field(default_factory=list)
 
 
 Retriever = Callable[[RetrievalQuery], RetrieverOutput]
@@ -72,6 +73,7 @@ def orchestrate_retrieval(
 
     ranked_results: dict[str, Sequence[Mapping[str, Any]]] = {}
     graph_paths: list[dict[str, Any]] = []
+    graph_chunks: list[dict[str, Any]] = []
     for retriever_name in selected:
         output = retrievers[retriever_name](query)
         if not isinstance(output, RetrieverOutput):
@@ -81,6 +83,7 @@ def orchestrate_retrieval(
         ranked_results[retriever_name] = output.chunks
         if retriever_name == GRAPH_RETRIEVER:
             graph_paths = [dict(path) for path in output.graph_paths]
+            graph_chunks = [dict(chunk) for chunk in output.chunks]
 
     chunks = reciprocal_rank_fusion(
         ranked_results,
@@ -90,6 +93,7 @@ def orchestrate_retrieval(
         chunks=chunks,
         graph_paths=graph_paths,
         retrievers=selected,
+        graph_chunks=graph_chunks,
     )
 
 

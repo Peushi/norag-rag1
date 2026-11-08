@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
 
-from backend.schemas import AskResponse, LLMAnswer, Reference
+from backend.schemas import AskResponse, LLMAnswer, PathContext, Reference
 
 class LLMServiceUnavailable(RuntimeError):
     """The LLM service cannot be reached or configured."""
@@ -42,8 +42,12 @@ class LLMResponseError(ValueError):
     """Raised when the upstream LLM returns unusable output."""
 
 
-def build_prompt(question: str, chunks: list[dict]) -> str:
-    """Build a prompt using only the retrieved chunks as evidence."""
+def build_prompt(
+    question: str,
+    chunks: list[dict],
+    path_context: PathContext | None = None,
+) -> str:
+    """Build a prompt from retrieved chunks and optional graph path context."""
     context_parts = []
 
     for chunk in chunks:
@@ -55,6 +59,12 @@ def build_prompt(question: str, chunks: list[dict]) -> str:
         )
 
     context = "\n\n---\n\n".join(context_parts)
+    graph_path_section = ""
+    if path_context is not None:
+        graph_path_section = f"""
+GRAPH PATHS (extracted claims; verify them against the supporting retrieved chunks):
+{json.dumps([path for path in path_context.paths], ensure_ascii=False, indent=2)}
+""".strip()
 
     return f"""
 You are a knowledge-base assistant.
@@ -87,6 +97,8 @@ ANSWERING:
 - If there is not enough evidence to answer the question reliably,
   return status "not_found".
 - Only cite chunk IDs that directly support the answer.
+- Graph paths are extracted claims, not authoritative evidence. Use them only
+  when the supporting retrieved chunks validate the relationships.
 
 Return ONLY a valid JSON object with these fields:
 - status: "answered" or "not_found"
@@ -98,15 +110,24 @@ For status "not_found", cited_chunk_ids must be an empty list.
 RETRIEVED CHUNKS:
 {context}
 
+{graph_path_section}
+
 QUESTION:
 {question}
 """.strip()
 
-def generate_answer(question: str, chunks: list[dict]) -> AskResponse:
+
+def generate_answer(
+    question: str,
+    chunks: list[dict],
+    *,
+    path_context: PathContext | None = None,
+) -> AskResponse:
     """
     Generate and validate an answer from retrieved chunks.
 
-    Each chunk must contain: id, text, source, position, distance.
+    Each chunk must contain: id, text, source, and position. Retriever scores
+    are not used in answer generation.
     The caller should perform the configured relevance-threshold check
     before calling this function.
     """
@@ -117,12 +138,34 @@ def generate_answer(question: str, chunks: list[dict]) -> AskResponse:
             references=[],
         )
 
+    prompt_chunks = list(chunks)
     retrieved_by_id = {str(chunk["id"]): chunk for chunk in chunks}
 
     if len(retrieved_by_id) != len(chunks):
         raise LLMResponseError("Retrieved chunks contain duplicate IDs.")
 
-    prompt = build_prompt(question, chunks)
+    if path_context is not None:
+        for supporting_chunk in path_context.supporting_chunks:
+            chunk_id = supporting_chunk.chunk_id
+            chunk = {
+                "id": chunk_id,
+                "source": supporting_chunk.source,
+                "position": supporting_chunk.position,
+                "text": supporting_chunk.text,
+            }
+            existing = retrieved_by_id.get(chunk_id)
+            if existing is not None and any(
+                existing[field] != chunk[field]
+                for field in ("source", "position", "text")
+            ):
+                raise LLMResponseError(
+                    f"Graph path chunk '{chunk_id}' conflicts with retrieved evidence."
+                )
+            if existing is None:
+                retrieved_by_id[chunk_id] = chunk
+                prompt_chunks.append(chunk)
+
+    prompt = build_prompt(question, prompt_chunks, path_context)
 
     if client is None:
         raise LLMServiceUnavailable(

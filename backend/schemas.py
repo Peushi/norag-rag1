@@ -36,7 +36,29 @@ class RetrieveRequest(BaseModel):
 
 
 class AskRequest(RetrieveRequest):
-    pass
+    include_path_context: bool = False
+
+    @model_validator(mode="after")
+    def validate_path_context_selection(self):
+        if self.include_path_context and "graph" not in self.retrievers:
+            raise ValueError("include_path_context requires graph retrieval")
+        return self
+
+
+class PathSupportingChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    chunk_id: str
+    source: str
+    position: int = Field(ge=0)
+    text: str
+
+
+class PathContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    paths: list[dict[str, Any]]
+    supporting_chunks: list[PathSupportingChunk]
 
 
 class RetrieverContribution(BaseModel):
@@ -74,6 +96,7 @@ class RetrieveResponse(BaseModel):
     chunks: list[FusedRetrievedChunk]
     retrievers: list[RetrieverName]
     graph_paths: list[dict[str, Any]] = Field(default_factory=list)
+    path_context: PathContext | None = None
 
 
 class Reference(BaseModel):

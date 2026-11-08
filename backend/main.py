@@ -409,6 +409,7 @@ async def ask_endpoint(payload: AskRequest):
             retrievers=payload.retrievers,
             document_ids=payload.document_ids,
             top_k=payload.top_k,
+            include_path_context=payload.include_path_context,
         )
     except RetrieverUnavailableError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
