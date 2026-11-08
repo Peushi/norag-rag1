@@ -1,3 +1,5 @@
+import type { RetrieverName } from "./api";
+
 export type EvaluationDataset = "baking" | "kestrel";
 
 export type EvaluationRunRequest = {
@@ -7,6 +9,9 @@ export type EvaluationRunRequest = {
   overlap: number;
   max_distance: number | null;
   limit: number | null;
+  retrievers: RetrieverName[];
+  compare_path_context: boolean;
+  generate_answers: boolean;
 };
 
 export type EvaluationRun = EvaluationRunRequest & {
@@ -21,8 +26,18 @@ export type EvaluationRun = EvaluationRunRequest & {
 export type EvaluationResult = {
   id: string;
   question: string;
+  type?: string;
   answerable?: boolean;
   retrieval_hit?: boolean | null;
+  retrieval_metrics?: Record<
+    string,
+    {
+      hit: boolean;
+      recall: number;
+      matched_evidence: number;
+      expected_evidence: number;
+    } | null
+  > | null;
   status?: string;
   model_answer?: string | null;
   error?: string | null;
@@ -54,7 +69,17 @@ export function isEvaluationRun(value: unknown): value is EvaluationRun {
     "chunk_size" in value &&
     typeof value.chunk_size === "number" &&
     "overlap" in value &&
-    typeof value.overlap === "number"
+    typeof value.overlap === "number" &&
+    "retrievers" in value &&
+    Array.isArray(value.retrievers) &&
+    value.retrievers.every(
+      (retriever) =>
+        retriever === "dense" || retriever === "bm25" || retriever === "graph",
+    ) &&
+    "compare_path_context" in value &&
+    typeof value.compare_path_context === "boolean" &&
+    "generate_answers" in value &&
+    typeof value.generate_answers === "boolean"
   );
 }
 

@@ -1,9 +1,17 @@
 import hashlib
+from pathlib import Path
 
-from .documents import load_documents
+from .documents import PROJECT_ROOT, load_documents
 from .chunking import chunk_text
 from .vector_store import get_collection, reset_collection
 from .index_settings import load_settings, save_settings, validate_settings
+from .schemas import EvaluationDataset
+
+DATASET_DIRECTORIES: dict[EvaluationDataset, Path] = {
+    "baking": PROJECT_ROOT / "corpus",
+    "kestrel": PROJECT_ROOT / "kestrel-kb" / "docs",
+}
+
 
 def make_chunk_id(source, position):
     """generate a deterministic ID for a source and chunk position."""
@@ -11,8 +19,11 @@ def make_chunk_id(source, position):
     return f"{source_hash}::chunk_{position:04d}"
 
 
-def rebuild_index(chunk_size=None, overlap=None):
-    """read every document and rebuild the vector index."""
+def rebuild_index(chunk_size=None, overlap=None, dataset: EvaluationDataset = "baking"):
+    """Read the selected corpus and rebuild its vector index."""
+    if dataset not in DATASET_DIRECTORIES:
+        raise ValueError(f"Unknown retrieval dataset: {dataset}")
+
     settings = load_settings()
 
     if chunk_size is None:
@@ -23,8 +34,8 @@ def rebuild_index(chunk_size=None, overlap=None):
 
     validate_settings(chunk_size, overlap)
 
-    documents = load_documents()
-    collection = reset_collection()
+    documents = load_documents(DATASET_DIRECTORIES[dataset])
+    collection = reset_collection(dataset)
     total_chunks = 0
 
     for document in documents:
@@ -71,6 +82,7 @@ def rebuild_index(chunk_size=None, overlap=None):
         "chunks": total_chunks,
         "chunk_size": chunk_size,
         "overlap": overlap,
+        "dataset": dataset,
     }
 
 
@@ -84,7 +96,12 @@ def update_index_settings(chunk_size: int, overlap: int):
     return stats
 
 
-def retrieve_chunks(question, top_k=5, selected_documents=None):
+def retrieve_chunks(
+    question,
+    top_k=5,
+    selected_documents=None,
+    dataset: EvaluationDataset = "baking",
+):
     """retrieve the nearest chunks with IDs and source metadata."""
 
     if not question or not question.strip():
@@ -93,7 +110,10 @@ def retrieve_chunks(question, top_k=5, selected_documents=None):
     if top_k < 1:
         raise ValueError("top_k must be at least 1")
 
-    collection = get_collection()
+    if dataset not in DATASET_DIRECTORIES:
+        raise ValueError(f"Unknown retrieval dataset: {dataset}")
+
+    collection = get_collection(dataset)
 
     if collection.count() == 0:
         return []

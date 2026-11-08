@@ -5,12 +5,14 @@ import { DocumentSelector } from "./components/DocumentSelector";
 import { EvaluationRunner } from "./components/EvaluationRunner";
 import { RetrievalSettings } from "./components/RetrievalSettings";
 import { RetrievalComparison } from "./components/RetrievalComparison";
+import { RetrieverControls } from "./components/RetrieverControls";
 import { WordsExperience } from "./components/WordsExperience";
 import { useAskQuestion } from "./hooks/useAskQuestion";
 import { useDocumentSelection } from "./hooks/useDocumentSelection";
 import { useDocuments } from "./hooks/useDocuments";
 import { useRetrievalSettings } from "./hooks/useRetrievalSettings";
 import type { EvaluationDataset } from "./types/evaluations";
+import type { RetrieverName } from "./types/api";
 import "../styles/base.css";
 import "../styles/option-1.css";
 
@@ -20,6 +22,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<AppTab>("ask");
   const [selectedCorpus, setSelectedCorpus] =
     useState<EvaluationDataset>("baking");
+  const [askDataset, setAskDataset] = useState<EvaluationDataset>("baking");
+  const [selectedRetrievers, setSelectedRetrievers] =
+    useState<RetrieverName[]>(["dense"]);
+  const [includePathContext, setIncludePathContext] = useState(false);
   const {
     documents,
     isLoading: isLoadingDocuments,
@@ -45,10 +51,36 @@ export default function App() {
     askQuestion,
     handleQuestionKeyDown,
   } = useAskQuestion({
-    documentCount: documents.length,
+    documentCount: askDataset === "kestrel" ? 1 : documents.length,
     selectedDocumentIds,
     topK: activeTopK,
+    dataset: askDataset,
+    retrievers: selectedRetrievers,
+    includePathContext,
   });
+
+  function toggleRetriever(retriever: RetrieverName) {
+    if (selectedRetrievers.includes(retriever)) {
+      setSelectedRetrievers(
+        selectedRetrievers.filter((item) => item !== retriever),
+      );
+      if (retriever === "graph") {
+        setIncludePathContext(false);
+      }
+      return;
+    }
+    setSelectedRetrievers([...selectedRetrievers, retriever]);
+  }
+
+  function changeAskDataset(dataset: EvaluationDataset) {
+    setAskDataset(dataset);
+    if (dataset !== "kestrel") {
+      setSelectedRetrievers((current) =>
+        current.filter((retriever) => retriever !== "graph"),
+      );
+      setIncludePathContext(false);
+    }
+  }
 
   useEffect(() => {
     void loadDocuments().catch(() => {
@@ -63,7 +95,8 @@ export default function App() {
     });
   }, [documents]);
 
-  const status = questionStatus || documentStatus;
+  const status =
+    questionStatus || (askDataset === "baking" ? documentStatus : "");
 
   return (
     <div className="page-shell">
@@ -158,11 +191,13 @@ export default function App() {
         aria-labelledby="ask-tab"
         hidden={activeTab !== "ask"}
       >
-        <DocumentLibrary
-          documents={documents}
-          onDelete={(item) => void deleteDocument(item)}
-          onUploaded={loadDocuments}
-        />
+        {askDataset === "baking" && (
+          <DocumentLibrary
+            documents={documents}
+            onDelete={(item) => void deleteDocument(item)}
+            onUploaded={loadDocuments}
+          />
+        )}
 
         <main className="card question-card">
           <div className="section-heading">
@@ -171,9 +206,35 @@ export default function App() {
             </span>
             <div>
               <h2>What&apos;s happening in your kitchen?</h2>
-              <p>No question is too small. Start wherever you are.</p>
+              <p>
+                {askDataset === "baking"
+                  ? "No question is too small. Start wherever you are."
+                  : "Ask across the Kestrel knowledge base."}
+              </p>
             </div>
           </div>
+
+          <label className="ask-corpus-select" htmlFor="ask-dataset">
+            Knowledge base
+            <select
+              id="ask-dataset"
+              value={askDataset}
+              onChange={(event) =>
+                changeAskDataset(
+                  event.target.value === "kestrel" ? "kestrel" : "baking",
+                )
+              }
+            >
+              <option value="baking">Baking notes</option>
+              <option value="kestrel">Kestrel KB</option>
+            </select>
+          </label>
+          {askDataset === "kestrel" && (
+            <p className="ask-corpus-note">
+              Kestrel is searched as a read-only knowledge base; document
+              selection is unavailable.
+            </p>
+          )}
 
           <label className="question-label" htmlFor="question">
             Tell us what you&apos;d like to know
@@ -186,12 +247,14 @@ export default function App() {
             placeholder="For example: Why is my dough not rising?"
           />
 
-          <DocumentSelector
-            documents={documents}
-            isLoading={isLoadingDocuments}
-            selectedDocumentIds={selectedDocumentIds}
-            dispatch={selectionDispatch}
-          />
+          {askDataset === "baking" && (
+            <DocumentSelector
+              documents={documents}
+              isLoading={isLoadingDocuments}
+              selectedDocumentIds={selectedDocumentIds}
+              dispatch={selectionDispatch}
+            />
+          )}
 
           <RetrievalSettings
             settings={settings}
@@ -202,9 +265,19 @@ export default function App() {
             hasError={settingsHasError}
           />
 
+          <RetrieverControls
+            dataset={askDataset}
+            selectedRetrievers={selectedRetrievers}
+            onToggleRetriever={toggleRetriever}
+            includePathContext={includePathContext}
+            onPathContextChange={setIncludePathContext}
+          />
+
           <div className="question-actions">
             <span className="helper-copy">
-              Answers are based on the documents on your shelf.
+              {askDataset === "baking"
+                ? "Answers are based on the documents on your shelf."
+                : "Answers are based on the Kestrel knowledge base."}
             </span>
             <button
               className="button"
@@ -217,7 +290,11 @@ export default function App() {
           </div>
           <div id="status" role="status" aria-live="polite">
             {status}
-            {isLoadingDocuments && !status ? "Loading your notes..." : ""}
+            {askDataset === "baking" &&
+            isLoadingDocuments &&
+            !status
+              ? "Loading your notes..."
+              : ""}
           </div>
 
           <section

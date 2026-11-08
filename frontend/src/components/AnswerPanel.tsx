@@ -1,4 +1,10 @@
-import type { Answer } from "../types/api";
+import type {
+  Answer,
+  AskRetrieval,
+  GraphEntity,
+  GraphPath,
+} from "../types/api";
+import "../../styles/retriever-controls.css";
 
 type AnswerPanelProps = {
   answer: Answer;
@@ -35,20 +41,17 @@ export function AnswerPanel({ answer }: AnswerPanelProps) {
     );
   }
 
-  if (answer.kind === "not_found") {
-    return (
-      <>
-        <div className="answer-title">Not in your notes yet</div>
-        <p className="answer-copy not-found">{answer.text}</p>
-      </>
-    );
-  }
-
   return (
     <>
-      <div className="answer-title">A little guidance</div>
-      <p className="answer-copy">{answer.text}</p>
-      {answer.references.length > 0 && (
+      <div className="answer-title">
+        {answer.kind === "not_found" ? "Not in your notes yet" : "A little guidance"}
+      </div>
+      <p
+        className={`answer-copy${answer.kind === "not_found" ? " not-found" : ""}`}
+      >
+        {answer.text}
+      </p>
+      {answer.kind === "answered" && answer.references.length > 0 && (
         <div className="references">
           <h3>From your notes</h3>
           <ul>
@@ -63,6 +66,165 @@ export function AnswerPanel({ answer }: AnswerPanelProps) {
           </ul>
         </div>
       )}
+      {answer.retrieval && <RetrievalDetails retrieval={answer.retrieval} />}
     </>
   );
+}
+
+function RetrievalDetails({ retrieval }: { retrieval: AskRetrieval }) {
+  const graphChunksById = new Map(
+    retrieval.graph_supporting_chunks.map((chunk) => [chunk.id, chunk]),
+  );
+
+  return (
+    <section className="retrieval-details" aria-label="Retrieval details">
+      <h3>How the evidence was found</h3>
+      <ul className="retrieval-method-list">
+        {retrieval.retrievers.map((retriever) => (
+          <li key={retriever}>{retrieverLabel(retriever)}</li>
+        ))}
+      </ul>
+      {retrieval.chunks.length > 0 && (
+        <ol className="fused-chunk-list" aria-label="Fused retrieved chunks">
+          {retrieval.chunks.map((chunk) => (
+            <li className="fused-chunk" key={chunk.id}>
+              <div className="fused-chunk-heading">
+                <span>Fused rank {chunk.final_rank}</span>
+                <span>RRF score {chunk.final_score.toFixed(4)}</span>
+              </div>
+              <p className="fused-chunk-meta">
+                {chunk.source} · chunk {chunk.position + 1} · {chunk.id}
+              </p>
+              <p className="fused-contributions">
+                Found by{" "}
+                {chunk.retrievers
+                  .map((contribution) => {
+                    const score =
+                      typeof contribution.score === "number" &&
+                      contribution.score_type
+                        ? `, ${contribution.score_type}: ${contribution.score.toFixed(4)}`
+                        : "";
+                    return `${retrieverLabel(contribution.retriever)} rank ${contribution.rank}${score}`;
+                  })
+                  .join("; ")}
+              </p>
+              <span className="fused-chunk-text">{chunk.text}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {retrieval.graph_paths.length > 0 && (
+        <div className="graph-paths">
+          <h3>Concept graph paths</h3>
+          <ol className="graph-path-list">
+            {retrieval.graph_paths.map((path, index) => (
+              <GraphPathDetails
+                graphPath={path}
+                index={index}
+                graphChunksById={graphChunksById}
+                key={`${path.supporting_chunk_ids.join("-")}-${index}`}
+              />
+            ))}
+          </ol>
+          {retrieval.path_context && (
+            <p className="fused-chunk-meta">
+              These graph paths and supporting passages were included in the
+              answer-generation context.
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function GraphPathDetails({
+  graphPath,
+  index,
+  graphChunksById,
+}: {
+  graphPath: GraphPath;
+  index: number;
+  graphChunksById: Map<string, AskRetrieval["graph_supporting_chunks"][number]>;
+}) {
+  const entities = graphPath.entities.map(entityLabel);
+  const supportingIds = new Set(graphPath.supporting_chunk_ids);
+  const supportingChunks = [...supportingIds]
+    .map((id) => graphChunksById.get(id))
+    .filter((chunk) => chunk !== undefined);
+
+  return (
+    <li className="graph-path">
+      <h4>Path {index + 1}</h4>
+      <p className="graph-path-chain">{entities.join(" → ") || "Path details unavailable"}</p>
+      {graphPath.edges.length > 0 && (
+        <ol className="graph-path-edges">
+          {graphPath.edges.map((edge, edgeIndex) => (
+            <li key={`${edge.relation ?? edge.relation_type ?? "relation"}-${edgeIndex}`}>
+              {[
+                edgeEntityLabel(edge.source_entity ?? edge.source),
+                edge.relation ?? edge.relation_type ?? edge.type,
+                edgeEntityLabel(edge.target_entity ?? edge.target),
+              ]
+                .filter((part): part is string => Boolean(part))
+                .join(" — ") || "Relationship"}
+              {edge.evidence_quote && (
+                <span className="graph-evidence-quote">
+                  “{edge.evidence_quote}”
+                </span>
+              )}
+              {edge.evidence_quotes?.map((quote, quoteIndex) => (
+                <span
+                  className="graph-evidence-quote"
+                  key={`${edgeIndex}-quote-${quoteIndex}`}
+                >
+                  “{quote}”
+                </span>
+              ))}
+            </li>
+          ))}
+        </ol>
+      )}
+      {supportingChunks.length > 0 ? (
+        <details className="graph-supporting-chunks">
+          <summary>
+            Source passages ({supportingChunks.length})
+          </summary>
+          {supportingChunks.map((chunk) => (
+            <div className="graph-supporting-chunk" key={chunk.id}>
+              <span className="reference-meta">
+                {chunk.source} · chunk {chunk.position + 1} · {chunk.id}
+              </span>
+              <p>{chunk.text}</p>
+            </div>
+          ))}
+        </details>
+      ) : (
+        <p className="fused-chunk-meta">
+          Supporting chunk IDs: {[...supportingIds].join(", ") || "not provided"}
+        </p>
+      )}
+    </li>
+  );
+}
+
+function entityLabel(entity: GraphEntity): string {
+  if (typeof entity === "string") {
+    return entity;
+  }
+  return entity.name ?? entity.id ?? "Unknown entity";
+}
+
+function edgeEntityLabel(entity: GraphEntity | undefined): string | undefined {
+  return entity ? entityLabel(entity) : undefined;
+}
+
+function retrieverLabel(retriever: string): string {
+  if (retriever === "dense") {
+    return "Dense";
+  }
+  if (retriever === "bm25") {
+    return "BM25";
+  }
+  return "Graph";
 }

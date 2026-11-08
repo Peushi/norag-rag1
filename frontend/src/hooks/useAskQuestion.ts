@@ -1,5 +1,10 @@
 import { useState, type KeyboardEvent } from "react";
-import { getApiErrorMessage, isAskResponse, type Answer } from "../types/api";
+import {
+  getApiErrorMessage,
+  isAskResponse,
+  type Answer,
+  type RetrieverName,
+} from "../types/api";
 
 const EMPTY_ANSWER: Answer = {
   kind: "empty",
@@ -10,12 +15,18 @@ type UseAskQuestionOptions = {
   documentCount: number;
   selectedDocumentIds: string[] | null;
   topK: number;
+  dataset: "baking" | "kestrel";
+  retrievers: RetrieverName[];
+  includePathContext: boolean;
 };
 
 export function useAskQuestion({
   documentCount,
   selectedDocumentIds,
   topK,
+  dataset,
+  retrievers,
+  includePathContext,
 }: UseAskQuestionOptions) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer>(EMPTY_ANSWER);
@@ -33,7 +44,16 @@ export function useAskQuestion({
       return;
     }
 
-    if (selectedDocumentIds !== null && selectedDocumentIds.length === 0) {
+    if (retrievers.length === 0) {
+      setStatus("Select at least one retrieval method.");
+      return;
+    }
+
+    if (
+      dataset === "baking" &&
+      selectedDocumentIds !== null &&
+      selectedDocumentIds.length === 0
+    ) {
       setStatus("Select at least one document to search.");
       return;
     }
@@ -47,8 +67,11 @@ export function useAskQuestion({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: trimmedQuestion,
-          document_ids: selectedDocumentIds,
+          dataset,
+          document_ids: dataset === "baking" ? selectedDocumentIds : null,
           top_k: topK,
+          retrievers,
+          include_path_context: includePathContext,
         }),
       });
       const data: unknown = await response.json();
@@ -64,13 +87,18 @@ export function useAskQuestion({
       }
 
       if (data.status === "not_found") {
-        setAnswer({ kind: "not_found", text: data.answer });
+        setAnswer({
+          kind: "not_found",
+          text: data.answer,
+          retrieval: data.retrieval,
+        });
         setStatus("No matching note found.");
       } else {
         setAnswer({
           kind: "answered",
           text: data.answer,
           references: data.references,
+          retrieval: data.retrieval,
         });
         setStatus("Here’s what I found.");
       }

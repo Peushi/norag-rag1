@@ -135,6 +135,8 @@ def run_evaluation(
     output_path: str | Path,
     limit: int | None = None,
     generate_answers: bool = False,
+    retrievers: list[str] | None = None,
+    compare_path_context: bool = False,
 ) -> Path:
     if dataset not in DATASETS:
         raise ValueError(f"Unknown evaluation dataset: {dataset}")
@@ -149,6 +151,34 @@ def run_evaluation(
         raise ValueError("limit must be at least 1")
     if type(generate_answers) is not bool:
         raise ValueError("generate_answers must be a boolean")
+    if type(compare_path_context) is not bool:
+        raise ValueError("compare_path_context must be a boolean")
+    if compare_path_context and not generate_answers:
+        raise ValueError(
+            "Path as Context comparison requires answer generation"
+        )
+    selected_retrievers = ["dense"] if retrievers is None else retrievers
+    valid_retrievers = {"dense", "bm25", "graph"}
+    if (
+        not selected_retrievers
+        or len(set(selected_retrievers)) != len(selected_retrievers)
+        or any(retriever not in valid_retrievers for retriever in selected_retrievers)
+    ):
+        raise ValueError("retrievers must contain unique supported retriever names")
+    if "graph" in selected_retrievers and dataset != "kestrel":
+        raise ValueError("Graph retrieval is only available for the kestrel dataset")
+    if compare_path_context and "graph" not in selected_retrievers:
+        raise ValueError("Path as Context comparison requires graph retrieval")
+    if selected_retrievers != ["dense"]:
+        unregistered = [retriever for retriever in selected_retrievers if retriever != "dense"]
+        raise ValueError(
+            "Evaluation retrievers are not registered: " + ", ".join(unregistered)
+        )
+    if compare_path_context:
+        raise ValueError(
+            "Path as Context comparison requires the Graph evaluation adapter, "
+            "which is not registered."
+        )
 
     config = DATASETS[dataset]
 
@@ -174,6 +204,8 @@ def run_evaluation(
     print(f"Chunk size: {chunk_size}")
     print(f"Overlap: {overlap}")
     print(f"Top K: {top_k}")
+    print(f"Retrievers: {', '.join(selected_retrievers)}")
+    print(f"Path as Context comparison: {compare_path_context}")
     print(f"Generate answers: {generate_answers}")
 
     collection, total_chunks = build_isolated_index(
@@ -237,6 +269,7 @@ def run_evaluation(
                     "top_k": top_k,
                     "chunk_size": chunk_size,
                     "overlap": overlap,
+                    "retrievers": selected_retrievers,
                     "retrieval_hit": retrieval_hit,
                     "retrieved_chunks": retrieved,
                     "retrieved_sources": found_sources,
@@ -261,6 +294,7 @@ def run_evaluation(
                     "top_k": top_k,
                     "chunk_size": chunk_size,
                     "overlap": overlap,
+                    "retrievers": selected_retrievers,
                     "retrieval_hit": retrieval_hit,
                     "retrieved_chunks": retrieved,
                     "retrieved_sources": found_sources,
@@ -277,10 +311,13 @@ def run_evaluation(
             # Keep the existing source-based retrieval_hit for compatibility.
             result["evidence_matches"] = evidence_matches
             result["generate_answers"] = generate_answers
+            result["compare_path_context"] = compare_path_context
             result["retrieval_metrics"] = score_at_k(evidence_matches)
             result["evaluation_chunks"] = evaluation_chunks
             result["evaluation_config"] = {
                 "dataset": dataset,
+                "retrievers": selected_retrievers,
+                "compare_path_context": compare_path_context,
                 "configuration_id": f"minilm_{chunk_size}_{overlap}",
                 "embedding_model": "all-MiniLM-L6-v2",
                 "distance_metric": "cosine",
@@ -294,6 +331,8 @@ def run_evaluation(
 
     summary = {
         "dataset": dataset,
+        "retrievers": selected_retrievers,
+        "compare_path_context": compare_path_context,
         "generate_answers": generate_answers,
         "chunk_size": chunk_size,
         "overlap": overlap,
@@ -341,6 +380,8 @@ def evaluate(args, output_path=None):
         output_path=output_path,
         limit=args.limit,
         generate_answers=getattr(args, "generate_answers", False),
+        retrievers=getattr(args, "retrievers", ["dense"]),
+        compare_path_context=getattr(args, "compare_path_context", False),
     )
 
 
@@ -360,6 +401,17 @@ if __name__ == "__main__":
     parser.add_argument("--max-distance", type=float, default=None)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--generate-answers", action="store_true", help="Also call Gemini; default is retrieval only")
+    parser.add_argument(
+        "--retrievers",
+        nargs="+",
+        choices=["dense", "bm25", "graph"],
+        default=["dense"],
+    )
+    parser.add_argument(
+        "--compare-path-context",
+        action="store_true",
+        help="Compare generated answers with and without Graph Path as Context",
+    )
     parser.add_argument("--output", "--output-path", dest="output", type=Path, default=None, help="Results JSONL path")
 
     arguments = parser.parse_args()
