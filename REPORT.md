@@ -248,3 +248,70 @@ Overall, the evaluation showed that RAG improves answer quality compared with ge
 - Vocabulary matching is exact after normalization; it does not perform stemming, synonym matching, or semantic search.
 - The retrieval-comparison endpoint serves the committed, precomputed experiment files. It does not calculate new passage-level comparisons for arbitrary configurations.
 - Evidence labels and retrieval metrics describe recovery of the supplied expected quotes. They do not measure generated-answer correctness or establish that a retrieved passage supports every part of an answer.
+
+## V3 — Karma: BM25 and Retrieval Evaluation
+
+### Design decisions
+
+- BM25 uses the same documents, character chunks, IDs, and Words Analytics
+  tokenizer as Dense: casefolded Unicode words/numbers, punctuation separated
+  (`KST-2044` → `kst`, `2044`), no stemming or stopword removal.
+- Standard BM25 uses positive Robertson IDF, term-frequency saturation, and token
+  length normalization with **k1=1.5, b=0.75**. Query terms are deduplicated;
+  repeated document terms affect TF. Higher scores rank first; ties use chunk ID.
+  Zero-score chunks are omitted. No new dependencies were added.
+- The BM25 index lives in memory and is rebuilt from current sources per live
+  request, once per evaluation. This is cheap for these corpora and avoids stale
+  sparse indexes after additions, deletion, content edits, or setting changes.
+- Dense checks a corpus-content/settings fingerprint and rebuilds stale indexes
+  before search, keeping fusion consistent. Hybrid retrieval uses Person C's
+  unchanged, equally weighted RRF (constant 60), with at least 10 candidates per
+  method and then the requested final top-k. Scores retain their original types.
+
+### Measured results
+
+Four real retrieval-only runs used original V2 questions, MiniLM, cosine Dense,
+800/80 chunks, and no threshold. The Dense results reproduce V2 exactly.
+
+| Corpus | Method | HitRate@5 | Recall@5 | Recall@10 |
+|---|---|---:|---:|---:|
+| Baking | Dense | 100% | 79.17% | 84.17% |
+| Baking | Dense + BM25 | 100% | 72.50% | 90.83% |
+| Kestrel | Dense | 87.50% | 81.25% | 93.75% |
+| Kestrel | Dense + BM25 | 100% | 84.38% | 93.75% |
+
+Source-plus-complete-quote relevance, boundary handling, macro Recall, all four
+k values, and unanswerable exclusion remain unchanged. Raw per-question results,
+summaries, all-k/per-type tables, and reproduction commands are in
+[the V3 comparison](evaluation/results/v3/COMPARISON.md).
+
+### Improvements and regressions
+
+- **q01:** complete two-IP evidence moves from Dense rank 7 to BM25 rank 3 and
+  fused rank 4, fixing the top-5 miss.
+- **q08:** catalog evidence is still missing; Recall remains 50% at k=10.
+- **B07:** Recall@10 improves from 1/3 to 2/3, but its first evidence moves from
+  rank 1 to 3. **B04** moves from rank 3 to 4, worsening Hit@3.
+- **q03 regression:** the current-policy chunk is Dense rank 1 but absent from
+  BM25's top 10. Chunks returned by both methods gain two RRF contributions and
+  push it to rank 8; Recall@5 falls from 100% to 25%. **B02** similarly falls from
+  100% to 1/3 at k=5. Thus hybrid does not always improve evidence coverage.
+
+Keep Dense as the current default: Recall@3 is better on both corpora and baking
+Recall@5 is higher. Hybrid is available for explicit comparison and improves
+Kestrel identifier coverage at k=5 and baking coverage at k=10. Small question
+sets and exact-quote labels limit generalization.
+
+### Verification and remaining dependencies
+
+All **84 tests passed**, with no failures or skips. Real hybrid API checks matched
+the evaluation's top-five IDs on both corpora. Index edits, chunk-setting changes,
+selection, empty results, and citation compatibility were checked; provider calls
+were mocked only for generation checks. No live Gemini calls were made.
+
+Graph retrieval is not registered, so Dense + BM25 + Graph measurements remain
+pending Person B. Kestrel still has only original q08 labeled `two_hop`; the two
+additional questions need team coordination with evidence for every hop. Original
+questions, Person B's prompt/Path as Context work, and Person C's RRF/UI were
+preserved. Shared latency collection remains Person C's responsibility. The hidden
+`/bm25` page is absent and was not implemented or changed.
