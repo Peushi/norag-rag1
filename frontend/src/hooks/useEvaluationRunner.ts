@@ -39,7 +39,6 @@ export function useEvaluationRunner() {
           return;
         }
 
-        setRun(data);
         if (data.status === "completed") {
           const resultsResponse = await fetch(
             `/api/evaluations/${data.run_id}/results`,
@@ -58,10 +57,13 @@ export function useEvaluationRunner() {
           }
           if (!cancelled) {
             setResults(resultsData);
+            setRun(data);
           }
         } else if (data.status === "failed") {
+          setRun(data);
           setError(data.error || "The evaluation failed.");
         } else {
+          setRun(data);
           timeout = setTimeout(() => void refreshRun(), 1500);
         }
       } catch (requestError) {
