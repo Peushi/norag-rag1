@@ -17,7 +17,7 @@ from backend.graph_retrieval import retrieve_graph
 from backend.documents import PROJECT_ROOT, load_documents
 from backend.index_settings import validate_settings
 from backend.llm_service import MODEL, generate_answer
-from backend.rag_service import _build_path_context
+from backend.rag_service import _build_path_context, graph_retriever_output, validate_graph_chunking
 from backend.retrieval import make_chunk_id, filter_by_relevance
 from backend.retrieval_orchestrator import (
     RetrievalQuery,
@@ -221,6 +221,9 @@ def run_evaluation(
             "Path as Context comparison requires graph retrieval"
         )
 
+    if "graph" in selected_retrievers:
+        validate_graph_chunking(chunk_size, overlap)
+
     config = DATASETS[dataset]
 
     questions = load_questions(config["questions"])
@@ -374,14 +377,12 @@ def run_evaluation(
                         time.perf_counter() - started
                     ) * 1000
 
-                ranked = graph_result["chunks"]
+                output = graph_retriever_output(graph_result)
+                ranked = output.chunks
 
                 retriever_results["graph"] = ranked
 
-                return RetrieverOutput(
-                    chunks=ranked,
-                    graph_paths=graph_result["paths"],
-                )
+                return output
 
             # Use the shared orchestrator and its RRF implementation.
             adapters = {

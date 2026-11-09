@@ -11,6 +11,13 @@ from evaluation import rag_evaluation as runner
 
 
 class EvaluationModeTests(unittest.TestCase):
+    def test_graph_chunk_mismatch_fails_before_loading_questions(self):
+        with patch.object(runner, "load_questions") as load:
+            with self.assertRaisesRegex(ValueError, "matching settings"):
+                runner.run_evaluation(dataset="kestrel", retrievers=["dense", "graph"],
+                                      chunk_size=400, overlap=40, output_path="unused.jsonl")
+            load.assert_not_called()
+
     def test_hybrid_uses_real_rrf_with_typed_bm25_contributions(self):
         from backend.bm25 import BM25Index
         documents = [{"source": "guide.md", "text": "A rare fact."}]
