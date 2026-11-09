@@ -177,6 +177,22 @@ class DenseRetrieverAdapterTests(unittest.TestCase):
         )
 
 class GraphRetrieverAdapterTests(unittest.TestCase):
+    def test_real_graph_endpoint_uses_shared_score_schema(self):
+        response = TestClient(app).post("/api/retrieve", json={
+            "dataset": "kestrel", "question": "Who owns postroom?",
+            "retrievers": ["graph"], "top_k": 10,
+        })
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["graph_supporting_chunks"])
+        self.assertTrue(all(c["score_type"] == "graph_path_score" for c in payload["graph_supporting_chunks"]))
+        self.assertTrue(all("graph_score" not in c for c in payload["graph_supporting_chunks"]))
+
+    def test_graph_rejects_different_chunk_settings(self):
+        from backend.rag_service import validate_graph_chunking
+        with self.assertRaisesRegex(ValueError, "matching settings"):
+            validate_graph_chunking(400, 40)
+
     def test_graph_retriever_is_called_and_paths_are_preserved(self):
         graph_chunk = {
             "id": "graph-chunk-1",

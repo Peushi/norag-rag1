@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Any
 
 from backend.documents import (
@@ -35,10 +36,33 @@ from backend.schemas import (
     SourceChunk,
 )
 from backend.vector_store import get_collection
-from backend.graph_retrieval import retrieve_graph
+from backend.graph_retrieval import GRAPH_FILE, retrieve_graph
 
 DEFAULT_TOP_K = 3
 MIN_FUSION_CANDIDATES = 10
+
+
+def validate_graph_chunking(chunk_size: int, overlap: int) -> None:
+    """Graph provenance uses its build settings; do not fuse another chunking."""
+    statistics = json.loads(GRAPH_FILE.read_text(encoding="utf-8-sig")).get("statistics", {})
+    graph_settings = (statistics.get("chunk_size", 800), statistics.get("overlap", 80))
+    if (chunk_size, overlap) != graph_settings:
+        raise ValueError(
+            f"Graph uses chunk_size={graph_settings[0]}, overlap={graph_settings[1]}; "
+            "use matching settings or rebuild the graph before fusion."
+        )
+
+
+def graph_retriever_output(result: dict) -> RetrieverOutput:
+    """Adapt native score to the existing shared typed-score fields."""
+    chunks = []
+    for original in result["chunks"]:
+        chunk = dict(original)
+        if "graph_score" in chunk:
+            chunk["score"] = chunk.pop("graph_score")
+            chunk["score_type"] = "graph_path_score"
+        chunks.append(chunk)
+    return RetrieverOutput(chunks=chunks, graph_paths=result["paths"])
 
 
 @dataclass
@@ -148,6 +172,7 @@ def retrieve_selected_chunks(
         )
 
     def retrieve_graph_results(query: RetrievalQuery) -> RetrieverOutput:
+        validate_graph_chunking(query.chunk_size, query.overlap)
         result = retrieve_graph(
             question=query.question,
             top_k=query.top_k,
@@ -157,10 +182,7 @@ def retrieve_selected_chunks(
                 else None
             ),
         )
-        return RetrieverOutput(
-            chunks=result["chunks"],
-            graph_paths=result["paths"],
-        )
+        return graph_retriever_output(result)
 
     query = RetrievalQuery(
         question=question,
