@@ -351,20 +351,35 @@ Recall@5 is higher. Hybrid is available for explicit comparison and improves
 Kestrel identifier coverage at k=5 and baking coverage at k=10. Small question
 sets and exact-quote labels limit generalization.
 
-### Verification and remaining dependencies
+### Final Graph comparison and verification
 
-The earlier integration checkpoint passed all **84 tests**, with no failures or
-skips. Final validation after the evaluation changes passed all **90 tests**.
-Real hybrid API checks matched the evaluation's top-five IDs on both corpora.
-Index edits, chunk-setting changes, selection, empty results, and citation
-compatibility were checked; provider calls were mocked for generation checks.
-No live Gemini calls were made. Frontend typechecking and production build also
-passed.
+The expanded Kestrel set contains **10 answerable and 2 unanswerable questions**,
+including q08, q11, and q12 as `two_hop`. All original V2 questions and evidence
+are preserved. Three real retrieval-only reruns reproduced the saved metrics:
 
-Graph retrieval and the expanded 12-question Kestrel evaluation are now
-implemented and measured; q11 and q12 add two provenance-labeled `two_hop`
-questions. The evaluation runner now records per-adapter, retrieval/orchestration,
-and generation latency, and supports paired answer generation with and without
-Path as Context. Existing comparison results predate those additions, so rerun the
-evaluation before reporting latency or Path-as-Context comparison results. The
-hidden `/bm25` page is absent and was not implemented or changed.
+| Method | HitRate@5 | Recall@3 | Recall@5 | Recall@10 |
+|---|---:|---:|---:|---:|
+| Dense | 90% | 75% | 80% | 95% |
+| Dense + BM25 | 100% | 72.5% | 82.5% | 95% |
+| Dense + BM25 + Graph | 100% | 77.5% | 87.5% | 95% |
+
+Graph brings q11's second-hop evidence from fused rank 9 to 3. For q12, evidence
+ranks improve from 2/3 to 1/2. Two-hop Recall@3 rises from 66.67% to 83.33% over
+Dense+BM25. **q08 remains at 50% recall**: expected catalog evidence is still
+missing. Graph is best overall at k=3/5 on this expanded set, while Dense has
+better Recall@1 and all methods tie at k=10. Historical eight-answerable-question
+figures above remain separate; original-subset, full-k, per-type, and every-question
+results are in [the V3 comparison](evaluation/results/v3/COMPARISON.md).
+
+Final integration fixed a real API failure by mapping native `graph_score` into
+the shared typed-score fields, without changing Graph ranking or RRF. Graph
+requests with chunk settings different from its saved build are now rejected
+before fusion. No prompt or Path as Context experiment was changed.
+
+All **93 tests passed**, with no failures or skips. All 12 three-retriever API
+rankings matched evaluation, and all three two-hop path-context flows passed with
+mocked generation. Frontend typechecking and production build passed. No live
+Gemini or graph-extraction calls were made. Refreshed expanded-result JSONLs contain
+single-run latency samples; they do not establish a speed improvement. The hidden
+`/bm25` page remains absent and untouched. Person A's required retrieval comparisons,
+including Graph and the expanded two-hop set, are complete for this checkout.

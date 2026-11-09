@@ -131,7 +131,7 @@ For the original eight-question Kestrel and original baking comparisons, keep De
 
 Person B's Graph retriever and expanded Kestrel evaluation are now implemented and measured. The original V2 questions and evidence were left unchanged; q11 and q12 were added as provenance-labeled two-hop questions. The expanded set contains 10 answerable questions and 2 unanswerable questions. The original eight-question results above remain the historical Dense/BM25 comparison; the separate expanded results below include all 12 questions.
 
-For Sasha: BM25 is registered behind existing /api/retrieve, /api/ask, and evaluation-run controls. Ranked BM25 results include id/text/source/position/rank/retriever/score/score_type. Hybrid responses use her unchanged fused schema and retain original ranks and score types. Candidate depth is at least 10 for hybrid fusion. The final evaluation runner now records per-adapter, retrieval/orchestration, and answer-generation latency. The existing precomputed results predate that instrumentation; rerun the evaluations before reporting latency values.
+For Sasha: BM25 is registered behind existing /api/retrieve, /api/ask, and evaluation-run controls. Ranked BM25 results include id/text/source/position/rank/retriever/score/score_type. Hybrid responses use her unchanged fused schema and retain original ranks and score types. Candidate depth is at least 10 for hybrid fusion. The final evaluation runner now records per-adapter, retrieval/orchestration, and answer-generation latency. The refreshed expanded Kestrel files include that instrumentation; original comparison files remain historical. Latency samples are single runs and are not a reliable performance comparison.
 
 The existing precomputed V2 comparison endpoint still serves its original V2 files. This V3 folder is separate and is not silently substituted into that endpoint. No schema/frontend changes were made.
 
@@ -194,7 +194,7 @@ The expanded raw results and summaries are:
 - Existing question labels, evidence_matches, retrieval_metrics, retrieved_chunks, evaluation_chunks, generation/grading fields, and legacy source-only retrieval_hit are retained.
 - retriever_results stores each method’s ordered candidates and typed scores. fused_chunks stores actual RRF output. Hybrid evaluation_chunks add distance from the Dense candidate if present, otherwise null; BM25 scores are never represented as cosine distances. Dense-only evaluation_chunks keep the V2 representation.
 - Summaries record method names, chunk settings, BM25 parameters, candidate depth, fusion policy, threshold scope, counts and metrics. Raw results contain original evidence/IDs, ranks, text and distances/scores.
-- Tests: 84 passed, 0 failed, 0 skipped. Real API checks on both corpora matched the saved hybrid top five; selection and empty selection passed; Ask citation flow passed with a fake provider. Real evaluation used no retrieval mocks and no live Gemini calls.
+- Initial BM25 checkpoint: 84 passed, 0 failed, 0 skipped. Final Graph integration: 93 passed, 0 failed, 0 skipped. Real API checks on both corpora matched the saved hybrid top five; selection and empty selection passed; Ask citation flow passed with a fake provider. Real evaluation used no retrieval mocks and no live Gemini calls.
 
 Exact test command:
 
@@ -205,10 +205,76 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 backend/.venv/bin/python -m unittest dis
 Reproduce the four measurements with the environment activated (these overwrite only the matching V3 result files):
 
 ```bash
-for dataset in baking kestrel; do
-  python -m evaluation.rag_evaluation --dataset "$dataset" --retrievers dense --output "evaluation/results/v3/${dataset}_dense_800_80.jsonl"
-  python -m evaluation.rag_evaluation --dataset "$dataset" --retrievers dense bm25 --output "evaluation/results/v3/${dataset}_dense_bm25_800_80.jsonl"
-done
+python -m evaluation.rag_evaluation --dataset baking --retrievers dense --output evaluation/results/v3/baking_dense_800_80.jsonl
+python -m evaluation.rag_evaluation --dataset baking --retrievers dense bm25 --output evaluation/results/v3/baking_dense_bm25_800_80.jsonl
+python -m evaluation.rag_evaluation --dataset kestrel --limit 10 --retrievers dense --output evaluation/results/v3/kestrel_dense_800_80.jsonl
+python -m evaluation.rag_evaluation --dataset kestrel --limit 10 --retrievers dense bm25 --output evaluation/results/v3/kestrel_dense_bm25_800_80.jsonl
 ```
 
 Alternative 400/40 configurations are supported by --chunk-size 400 --overlap 40 and tested for shared chunk identity. Live BM25 has no persistent cache to invalidate. No hidden /bm25 page was found, added, edited, or removed.
+
+
+## Final Person A verification
+
+The three expanded Kestrel runs were rerun after integration. All overall and per-type metrics exactly reproduce the committed measurements. Independent checks recomputed quote matches, every k-prefix metric and all aggregate denominators, and checked common-ID content across real retrievers. All original V2 question objects remain unchanged; q11 and q12 are additions.
+
+### Expanded-set results by type
+
+Each cell is HitRate% / Recall%. Unanswerable types are excluded (null metrics).
+
+| Method | Type | n | k=1 | k=3 | k=5 | k=10 |
+|---|---|---:|---|---|---|---|
+| dense | exact_identifier | 2 | 50.00 / 25.00 | 50.00 / 50.00 | 50.00 / 50.00 | 100.00 / 100.00 |
+| dense | split_answer | 2 | 100.00 / 62.50 | 100.00 / 100.00 | 100.00 / 100.00 | 100.00 / 100.00 |
+| dense | two_hop | 3 | 33.33 / 16.67 | 100.00 / 50.00 | 100.00 / 66.67 | 100.00 / 83.33 |
+| dense | versions | 2 | 0.00 / 0.00 | 100.00 / 100.00 | 100.00 / 100.00 | 100.00 / 100.00 |
+| dense | vocabulary | 1 | 100.00 / 100.00 | 100.00 / 100.00 | 100.00 / 100.00 | 100.00 / 100.00 |
+| dense_bm25 | exact_identifier | 2 | 50.00 / 25.00 | 50.00 / 50.00 | 100.00 / 100.00 | 100.00 / 100.00 |
+| dense_bm25 | split_answer | 2 | 100.00 / 37.50 | 100.00 / 62.50 | 100.00 / 62.50 | 100.00 / 100.00 |
+| dense_bm25 | two_hop | 3 | 66.67 / 33.33 | 100.00 / 66.67 | 100.00 / 66.67 | 100.00 / 83.33 |
+| dense_bm25 | versions | 2 | 0.00 / 0.00 | 100.00 / 100.00 | 100.00 / 100.00 | 100.00 / 100.00 |
+| dense_bm25 | vocabulary | 1 | 0.00 / 0.00 | 100.00 / 100.00 | 100.00 / 100.00 | 100.00 / 100.00 |
+| dense_bm25_graph | exact_identifier | 2 | 50.00 / 25.00 | 50.00 / 50.00 | 100.00 / 100.00 | 100.00 / 100.00 |
+| dense_bm25_graph | split_answer | 2 | 100.00 / 37.50 | 100.00 / 62.50 | 100.00 / 62.50 | 100.00 / 100.00 |
+| dense_bm25_graph | two_hop | 3 | 100.00 / 50.00 | 100.00 / 83.33 | 100.00 / 83.33 | 100.00 / 83.33 |
+| dense_bm25_graph | versions | 2 | 0.00 / 0.00 | 100.00 / 100.00 | 100.00 / 100.00 | 100.00 / 100.00 |
+| dense_bm25_graph | vocabulary | 1 | 0.00 / 0.00 | 100.00 / 100.00 | 100.00 / 100.00 | 100.00 / 100.00 |
+
+### Original V2 subset, extracted from these runs
+
+These rows exclude only new q11/q12, leaving the original 10 questions (8 answerable, 2 unanswerable). They are comparable to V2; do not compare the 12-question aggregates directly with V2. Each cell is HitRate% / Recall%.
+
+| Method | k=1 | k=3 | k=5 | k=10 |
+|---|---|---|---|---|
+| dense | 62.50 / 40.62 | 87.50 / 81.25 | 87.50 / 81.25 | 100.00 / 93.75 |
+| dense_bm25 | 50.00 / 21.88 | 87.50 / 71.88 | 100.00 / 84.38 | 100.00 / 93.75 |
+| dense_bm25_graph | 50.00 / 21.88 | 87.50 / 71.88 | 100.00 / 84.38 | 100.00 / 93.75 |
+
+### Effect of adding Graph to Dense+BM25
+
+Comparisons use per-question Recall on the complete expanded answerable set.
+
+| k | Improved | Worsened | Unchanged |
+|---:|---|---|---|
+| 1 | q12 | None | q01, q02, q03, q04, q05, q06, q07, q08, q11 |
+| 3 | q11 | None | q01, q02, q03, q04, q05, q06, q07, q08, q12 |
+| 5 | q11 | None | q01, q02, q03, q04, q05, q06, q07, q08, q12 |
+| 10 | None | None | q01, q02, q03, q04, q05, q06, q07, q08, q11, q12 |
+
+### Integration fixes and validation
+
+- Native Graph chunks contain graph_score. The adapters now map it to the existing score/score_type fields (graph_path_score), fixing a real HTTP 500 from the shared response schema. The Graph ranking algorithm and RRF are unchanged.
+- Graph settings are read from its saved build metadata. Requests using other chunk settings are rejected before fusion instead of mixing graph provenance built at 800/80 with another Dense/BM25 chunking.
+- All 12 real three-retriever API rankings match evaluation top-five IDs. The three two-hop Path as Context flows were checked with fake generation, never live Gemini.
+- Full suite: **93 passed, 0 failed, 0 skipped**. Frontend TypeScript checking and production build passed. Graph extraction and live generation were not run.
+- These refreshed 12-question files now include per-question and summary latency fields. They are single-run wall-clock observations, not evidence of a general speed improvement. Original 10-question files remain historical, without the new instrumentation.
+
+Reproduce the expanded comparison without generation:
+
+```bash
+python -m evaluation.rag_evaluation --dataset kestrel --retrievers dense --output evaluation/results/v3/kestrel_dense_800_80_12q.jsonl
+python -m evaluation.rag_evaluation --dataset kestrel --retrievers dense bm25 --output evaluation/results/v3/kestrel_dense_bm25_800_80_12q.jsonl
+python -m evaluation.rag_evaluation --dataset kestrel --retrievers dense bm25 graph --output evaluation/results/v3/kestrel_dense_bm25_graph_800_80_12q.jsonl
+```
+
+To reproduce the historical Kestrel Dense/Dense+BM25 files, use --limit 10 with the current question file and their original output paths. The first ten questions are unchanged. Baking uses its full original 12-question set.
