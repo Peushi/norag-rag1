@@ -1,4 +1,4 @@
-# BakeFix — V1, V2 and V3 Report
+# BakeFix — V1, V2, and V3 Report
 
 BakeFix is a baking troubleshooting RAG application. V1 establishes a naive
 baseline: retrieve passages from baking guides, then generate grounded answers
@@ -27,6 +27,17 @@ with source references.
 | Index management | Full rebuilds after document or chunk-setting changes keep V1 simple for a small corpus. Chunk settings are saved for reuse.                                   |
 | Evaluation       | Source-based Hit@5 checks whether at least one expected document appears among the top five chunks. Unanswerable questions are excluded.                       |
 
+### Peushi — Answer Generation
+
+| Decision              | Choice and reason                                                                                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM integration       | Google Gemini through the OpenAI-compatible API, keeping model configuration in environment variables.                                                                        |
+| Prompt construction   | A grounded prompt provides the user's question and retrieved passages as context. The model is instructed to answer using the supplied evidence and avoid unsupported claims. |
+| Response validation   | Pydantic schemas validate the generated response structure and ensure references correspond to retrieved chunks.                                                              |
+| Citation verification | References are checked against the retrieved chunk IDs to prevent invalid citations.                                                                                          |
+| Abstention            | When the retrieved evidence is insufficient, the system returns a `not_found` response rather than inventing an answer.                                                       |
+| Evaluation            | Created reusable no-context and RAG evaluation workflows, JSONL result files, and manual-review tools to assess answer quality.                                               |
+
 ### Aleksandra — API and Frontend
 
 | Decision               | Choice and reason                                                                                                                                                               |
@@ -37,7 +48,9 @@ with source references.
 | Search configuration   | Chunk size, overlap, and top-k are configurable through the settings endpoint, allowing users to tune retrieval without changing the client or server code.                     |
 | Failure handling       | The API returns explicit validation and not-found errors, and the frontend displays failures to users rather than presenting them as successful empty results.                  |
 
-## Retrieval Baseline
+## V1 — Baseline
+
+### Retrieval Baseline
 
 Results from the recorded local run:
 
@@ -57,34 +70,6 @@ Reproduce after building the index:
 python -m backend.evaluation
 ```
 
-## Known Failures and Limitations
-
-### Karma
-
-- **Fixed boundaries:** Chunks can split words and explanations; overlap only partly reduces this.
-- **Similarity versus evidence:** Nearest passages may not answer the question. Top-k retrieval can return unrelated chunks for an out-of-corpus question.
-- **Evaluation coverage:** Six answerable questions are a small sample. Passage-level labels and a separate abstention check remain pending.
-- **Rebuild recovery:** If indexing fails after resetting Chroma, restoring a document does not restore the previous index. Another rebuild may be needed.
-- **Observed bug, fixed:** The first index build failed because deleting a missing collection raised `NotFoundError`; the handler now catches that exception.
-
-### Peushi— Answer Generation
-
-| Decision              | Choice and reason                                                                                                                                                             |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LLM integration       | Google Gemini through the OpenAI-compatible API, keeping model configuration in environment variables.                                                                        |
-| Prompt construction   | A grounded prompt provides the user's question and retrieved passages as context. The model is instructed to answer using the supplied evidence and avoid unsupported claims. |
-| Response validation   | Pydantic schemas validate the generated response structure and ensure references correspond to retrieved chunks.                                                              |
-| Citation verification | References are checked against the retrieved chunk IDs to prevent invalid citations.                                                                                          |
-| Abstention            | When the retrieved evidence is insufficient, the system returns a `not_found` response rather than inventing an answer.                                                       |
-| Evaluation            | Created reusable no-context and RAG evaluation workflows, JSONL result files, and manual-review tools to assess answer quality.                                               |
-
-### Peushi — Known Limitations
-
-- **Retrieval dependency:** Answer quality depends on whether the retriever provides the correct evidence.
-- **LLM variability:** Generated responses may vary between runs.
-- **Context limitations:** Missing or incomplete evidence can lead to an abstention even when the answer exists elsewhere in the corpus.
-- **Citation limitations:** Valid citation IDs do not automatically guarantee that the cited passage fully supports the answer.
-
 ### Aleksandra — Integration and UI
 
 The V1 integration connects the React client to the FastAPI backend through a
@@ -99,6 +84,28 @@ chunk IDs.
 | Document management   | The document library lists available notes and supports uploading UTF-8 `.md` and `.txt` files and removing documents. Upload, delete, and validation failures are surfaced in the UI.                                                                                                                   |
 | API integration       | `GET /api/documents`, `POST /api/documents`, `DELETE /api/documents/{document_id}`, and `PUT /api/settings` support the library and search settings. `POST /api/retrieve` returns retrieved chunks; `POST /api/ask` runs retrieval and answer generation; `GET /api/chunks/{chunk_id}` looks up a chunk. |
 | Errors and validation | Invalid requests return explicit API errors, and the frontend displays request failures rather than silently presenting them as empty or successful results.                                                                                                                                             |
+
+### Known Failures and Limitations
+
+#### Karma — Indexing and Retrieval
+
+- **Fixed boundaries:** Chunks can split words and explanations; overlap only partly reduces this.
+- **Similarity versus evidence:** Nearest passages may not answer the question. Top-k retrieval can return unrelated chunks for an out-of-corpus question.
+- **Evaluation coverage:** Six answerable questions are a small sample. Passage-level labels and a separate abstention check remain pending.
+- **Rebuild recovery:** If indexing fails after resetting Chroma, restoring a document does not restore the previous index. Another rebuild may be needed.
+- **Observed bug, fixed:** The first index build failed because deleting a missing collection raised `NotFoundError`; the handler now catches that exception.
+
+#### Peushi — Answer Generation
+
+- **Retrieval dependency:** Answer quality depends on whether the retriever provides the correct evidence.
+- **LLM variability:** Generated responses may vary between runs.
+- **Context limitations:** Missing or incomplete evidence can lead to an abstention even when the answer exists elsewhere in the corpus.
+- **Citation limitations:** Valid citation IDs do not automatically guarantee that the cited passage fully supports the answer.
+
+#### Aleksandra — Integration and UI
+
+- **Supported file formats:** The V1 document library accepts UTF-8 Markdown and plain-text files only; other document formats are outside the upload flow.
+- **Document editing:** The UI supports uploading and deleting documents, but not editing document contents in place.
 
 ## V2 — Retrieval Evaluation and Words Analytics
 
@@ -226,19 +233,19 @@ A knowledge graph was constructed for the Kestrel knowledge base using Gemini-ba
 
 The graph extraction process produced the following results:
 
-| Metric | Result |
-|---|---:|
-| Documents processed | 5 |
-| Chunks processed | 43 |
-| Successful Gemini calls | 43 |
-| Failed chunks | 0 |
-| Valid graph triples | 32 |
-| Invalid triples | 3 |
-| Prompt tokens | 21,857 |
-| Completion tokens | 4,438 |
-| Total tokens | 26,295 |
-| Total build time | 297.23 seconds |
-| Retry time | 109.79 seconds |
+| Metric                  |         Result |
+| ----------------------- | -------------: |
+| Documents processed     |              5 |
+| Chunks processed        |             43 |
+| Successful Gemini calls |             43 |
+| Failed chunks           |              0 |
+| Valid graph triples     |             32 |
+| Invalid triples         |              3 |
+| Prompt tokens           |         21,857 |
+| Completion tokens       |          4,438 |
+| Total tokens            |         26,295 |
+| Total build time        | 297.23 seconds |
+| Retry time              | 109.79 seconds |
 
 All 43 chunks were processed successfully. Three extracted triples were recorded as invalid because their evidence quotes did not pass the validation checks. Valid triples were stored with their supporting chunk references so that graph relationships could be traced back to the original documentation.
 
@@ -247,10 +254,10 @@ All 43 chunks were processed successfully. Three extracted triples were recorded
 A deterministic random sample of 10 extracted triples (seed 42) was manually reviewed. Each triple was classified as correct, incorrect, or unsupported based on its supporting evidence.
 
 | Classification | Count | Percentage |
-|---|---:|---:|
-| Correct | 6 | 60% |
-| Incorrect | 1 | 10% |
-| Unsupported | 3 | 30% |
+| -------------- | ----: | ---------: |
+| Correct        |     6 |        60% |
+| Incorrect      |     1 |        10% |
+| Unsupported    |     3 |        30% |
 
 The review showed that most sampled relationships were correct, but some extracted relationships were not sufficiently supported by their evidence. For example, the extracted relationship identifying Payments Core as a SERVICE was incorrect: Payments Core represents a TEAM. This entity type was subsequently corrected in the graph.
 
@@ -274,9 +281,9 @@ The Path as Context approach was implemented to provide Gemini with relevant gra
 
 Two Kestrel questions were tested by comparing Gemini responses with and without graph paths.
 
-| Question | Without graph | With graph |
-|---|---|---|
-| Which team owns the service responsible for KST-5031? | Correct answer | Correct answer |
+| Question                                                                                                                                         | Without graph  | With graph     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- | -------------- |
+| Which team owns the service responsible for KST-5031?                                                                                            | Correct answer | Correct answer |
 | If more than three customers are affected by KST-6010 on the same day, which team should support escalate to, and which channel should they use? | Correct answer | Correct answer |
 
 For the KST-5031 question, both configurations returned the correct team and supporting references. The measured response times were 0.96 seconds without graph context and 0.98 seconds with graph context.
@@ -298,9 +305,66 @@ The results show that graph paths can make multi-hop relationships explicit. How
 - Gemini output and response times may vary between runs.
 - Graph paths do not replace source evidence. Their supporting document chunks must remain available to the answer-generation process.
 
-## V3 — Karma: BM25 and Retrieval Evaluation
+### Aleksandra — V3 API, Frontend, and Integration
 
-### Design decisions
+#### Retrieval API and Shared Result Contract
+
+The existing retrieval and Ask API flows were extended to select Dense, BM25,
+Graph, or combinations of these methods. Selected methods share the retrieval
+orchestrator and are fused using the existing equal-weight Reciprocal Rank
+Fusion (RRF) implementation with constant 60. Hybrid requests retrieve at least
+10 candidates per method before returning the requested final top-k. Graph
+retrieval is restricted to the Kestrel dataset.
+
+The shared response preserves each retriever's original rank and typed score
+alongside the fused result. This avoids treating BM25 or Graph scores as Dense
+cosine distances and keeps the existing chunk fields usable by the UI. API
+validation also rejects invalid retriever selections and incompatible Graph
+chunk settings rather than silently mixing results from different chunking
+configurations.
+
+The Ask interface exposes Baking/Kestrel selection, retriever configuration,
+and the optional Path as Context setting. It displays retrieved chunks, fused
+contributions, Graph paths, and their supporting chunks. Path context is
+Kestrel/Graph-only; the graph paths are navigation context and supporting
+document chunks remain the evidence used for generated answers and citations.
+
+#### Evaluation UI and Results
+
+The Evaluation tab provides the six supported Dense, BM25, and Graph
+configurations, the 800/80 and 400/40 chunking presets, and controls for top-k,
+distance filtering, question limits, and answer generation. It starts an
+evaluation through the API, tracks run status, and loads results when the run
+completes. Results include HitRate and macro evidence Recall at k=1, 3, 5, and
+10, summarized overall and by question type.
+
+For Graph evaluations, Path as Context can be compared using paired answer
+generation on the same retrieved evidence, with the path context omitted in one
+call and included in the other. The output keeps both answers, statuses,
+references, and generation timings distinct. If Graph returns no paths, the
+with-context arm is reported as unavailable instead of being presented as a
+valid comparison.
+
+The evaluation runner records per-retriever and total retrieval/orchestration
+latency, plus generation latency for each applicable arm. Summary files report
+sample counts, means, and medians. These timings are observational wall-clock
+measurements, not a controlled performance benchmark; model-generation times
+include provider/network latency, and single-run samples do not establish that
+one configuration is faster.
+
+#### Integration Verification and Limitations
+
+The final integration passed **93 backend tests**, with no failures or skips,
+and the frontend TypeScript check and production build passed. API rankings for
+the expanded Kestrel set matched the evaluation top-five results, and the
+two-hop Path as Context flows were checked with mocked generation. No live
+Gemini generation was used for these integration checks. The hidden `/bm25`
+page was not implemented; BM25 is exposed only through the intended retrieval,
+Ask, and evaluation interfaces.
+
+### Karma — BM25 and Retrieval Evaluation
+
+#### Design Decisions
 
 - BM25 uses the same documents, character chunks, IDs, and Words Analytics
   tokenizer as Dense: casefolded Unicode words/numbers, punctuation separated
@@ -317,24 +381,24 @@ The results show that graph paths can make multi-hop relationships explicit. How
   unchanged, equally weighted RRF (constant 60), with at least 10 candidates per
   method and then the requested final top-k. Scores retain their original types.
 
-### Measured results
+#### Measured Results
 
 Four real retrieval-only runs used original V2 questions, MiniLM, cosine Dense,
 800/80 chunks, and no threshold. The Dense results reproduce V2 exactly.
 
-| Corpus | Method | HitRate@5 | Recall@5 | Recall@10 |
-|---|---|---:|---:|---:|
-| Baking | Dense | 100% | 79.17% | 84.17% |
-| Baking | Dense + BM25 | 100% | 72.50% | 90.83% |
-| Kestrel | Dense | 87.50% | 81.25% | 93.75% |
-| Kestrel | Dense + BM25 | 100% | 84.38% | 93.75% |
+| Corpus  | Method       | HitRate@5 | Recall@5 | Recall@10 |
+| ------- | ------------ | --------: | -------: | --------: |
+| Baking  | Dense        |      100% |   79.17% |    84.17% |
+| Baking  | Dense + BM25 |      100% |   72.50% |    90.83% |
+| Kestrel | Dense        |    87.50% |   81.25% |    93.75% |
+| Kestrel | Dense + BM25 |      100% |   84.38% |    93.75% |
 
 Source-plus-complete-quote relevance, boundary handling, macro Recall, all four
 k values, and unanswerable exclusion remain unchanged. Raw per-question results,
 summaries, all-k/per-type tables, and reproduction commands are in
 [the V3 comparison](evaluation/results/v3/COMPARISON.md).
 
-### Improvements and regressions
+#### Improvements and Regressions
 
 - **q01:** complete two-IP evidence moves from Dense rank 7 to BM25 rank 3 and
   fused rank 4, fixing the top-5 miss.
@@ -351,17 +415,17 @@ Recall@5 is higher. Hybrid is available for explicit comparison and improves
 Kestrel identifier coverage at k=5 and baking coverage at k=10. Small question
 sets and exact-quote labels limit generalization.
 
-### Final Graph comparison and verification
+#### Final Graph Comparison and Verification
 
 The expanded Kestrel set contains **10 answerable and 2 unanswerable questions**,
 including q08, q11, and q12 as `two_hop`. All original V2 questions and evidence
 are preserved. Three real retrieval-only reruns reproduced the saved metrics:
 
-| Method | HitRate@5 | Recall@3 | Recall@5 | Recall@10 |
-|---|---:|---:|---:|---:|
-| Dense | 90% | 75% | 80% | 95% |
-| Dense + BM25 | 100% | 72.5% | 82.5% | 95% |
-| Dense + BM25 + Graph | 100% | 77.5% | 87.5% | 95% |
+| Method               | HitRate@5 | Recall@3 | Recall@5 | Recall@10 |
+| -------------------- | --------: | -------: | -------: | --------: |
+| Dense                |       90% |      75% |      80% |       95% |
+| Dense + BM25         |      100% |    72.5% |    82.5% |       95% |
+| Dense + BM25 + Graph |      100% |    77.5% |    87.5% |       95% |
 
 Graph brings q11's second-hop evidence from fused rank 9 to 3. For q12, evidence
 ranks improve from 2/3 to 1/2. Two-hop Recall@3 rises from 66.67% to 83.33% over
