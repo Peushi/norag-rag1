@@ -51,6 +51,8 @@
 :root .references h3 { font-family: 'Fraunces', Georgia, serif; }
 :root .footer-note { font-family: 'DM Sans', sans-serif; }
 :root .references li { border: 0; border-radius: 11px; background: #fffdf9; }
+:root .fused-chunk, :root .graph-path { border-color: var(--line); background: #fffdf9; }
+:root .fused-chunk-text, :root .graph-evidence-quote, :root .graph-supporting-chunk p { background: var(--paper-warm); }
 :root .document-count { border: 0; border-radius: 20px; background: var(--sage-wash); color: #56644e; }
 @media (max-width: 760px) {
   :root .page-shell { width: min(100% - 36px, 600px); padding: 24px 0 48px; }

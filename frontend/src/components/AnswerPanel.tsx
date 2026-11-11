@@ -4,6 +4,7 @@ import type {
   GraphEntity,
   GraphPath,
 } from "../types/api";
+import ReactMarkdown from "react-markdown";
 import "../../styles/retriever-controls.css";
 
 type AnswerPanelProps = {
@@ -108,7 +109,9 @@ function RetrievalDetails({ retrieval }: { retrieval: AskRetrieval }) {
                   })
                   .join("; ")}
               </p>
-              <span className="fused-chunk-text">{chunk.text}</span>
+              <div className="fused-chunk-text">
+                <ReactMarkdown skipHtml>{chunk.text}</ReactMarkdown>
+              </div>
             </li>
           ))}
         </ol>
@@ -195,7 +198,9 @@ function GraphPathDetails({
               <span className="reference-meta">
                 {chunk.source} · chunk {chunk.position + 1} · {chunk.id}
               </span>
-              <p>{chunk.text}</p>
+              <div className="fused-chunk-text">
+                <ReactMarkdown skipHtml>{chunk.text}</ReactMarkdown>
+              </div>
             </div>
           ))}
         </details>
