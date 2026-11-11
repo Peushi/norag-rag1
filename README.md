@@ -108,6 +108,22 @@ The main API groups are document and settings routes, `/api/retrieve` and
 `/api/words...`. Browse `/docs` for request/response schemas and the complete
 route list.
 
+## Ask traces
+
+Every `POST /api/ask` request receives a trace, including invalid requests,
+abstentions, and failed generations. Successful Ask responses contain a
+`trace_id`; error responses expose it in the `X-Trace-ID` header. Fetch the
+trace with `GET /api/traces/{trace_id}`, or use the answer's **Details** button
+in the UI.
+
+Traces are stored in a local SQLite database at `.bakefix/traces.sqlite3` by
+default. Set `BAKEFIX_TRACE_DB` to use another local path. Expired traces are
+purged when a trace is created or fetched. Trace spans record step status,
+duration, and safe
+metadata such as model and token counts; they do not store prompts, document
+text, or API keys. The Details endpoint has no authentication and is intended
+for this local single-user app; do not expose the backend publicly.
+
 ## Documents, indexes, and graph data
 
 The shared document loader reads UTF-8 `.md` and `.txt` files from `corpus/`.
@@ -204,4 +220,3 @@ higher.
 - **An index seems stale or corrupted:** the Chroma directory is local generated
   state. Stop the backend, remove `chroma_db/`, then restart and let the index
   rebuild from source documents.
-

@@ -115,6 +115,11 @@ class RetrieverSelectionApiTests(unittest.TestCase):
             ["dense", "graph"],
         )
         self.assertEqual(ask.call_args.kwargs["dataset"], "kestrel")
+        self.assertIsNotNone(ask.call_args.kwargs["trace"])
+        self.assertEqual(
+            response.json()["trace_id"],
+            response.headers["x-trace-id"],
+        )
 
     def test_ask_endpoint_rejects_graph_for_baking(self):
         response = self.client.post(

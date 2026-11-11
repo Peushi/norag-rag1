@@ -227,13 +227,29 @@ def ask_question(
     if include_path_context and "graph" not in selected_retrievers:
         raise ValueError("include_path_context requires graph retrieval")
 
-    retrieval = retrieve_selected_chunks(
-        question,
-        retrievers=selected_retrievers,
-        document_ids=document_ids,
-        top_k=top_k,
-        dataset=dataset,
-    )
+    if trace is None:
+        retrieval = retrieve_selected_chunks(
+            question,
+            retrievers=selected_retrievers,
+            document_ids=document_ids,
+            top_k=top_k,
+            dataset=dataset,
+        )
+    else:
+        with trace.span(
+            "retrieval",
+            attributes={
+                "dataset": dataset,
+                "retrievers": ",".join(selected_retrievers),
+            },
+        ):
+            retrieval = retrieve_selected_chunks(
+                question,
+                retrievers=selected_retrievers,
+                document_ids=document_ids,
+                top_k=top_k,
+                dataset=dataset,
+            )
     path_context = (
         _build_path_context(retrieval.graph_paths, retrieval.graph_chunks)
         if include_path_context

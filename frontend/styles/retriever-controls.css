@@ -273,6 +273,81 @@
   margin-bottom: 0;
 }
 
+.trace-details {
+  margin-top: 16px;
+}
+
+.trace-details-toggle {
+  padding: 7px 12px;
+  border: 1px solid #c9d4c2;
+  border-radius: 8px;
+  background: #f7f8f0;
+  color: var(--sage);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.trace-details-content {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #d5dfd0;
+  border-radius: 10px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.trace-details-content > p {
+  margin: 0 0 9px;
+  color: var(--muted);
+}
+
+.trace-span-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trace-span-list > li {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border: 1px solid #e0d5c2;
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.trace-span-list > li > span {
+  color: var(--muted);
+}
+
+.trace-span-list dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 4px 10px;
+  margin: 4px 0 0;
+}
+
+.trace-span-list dl div {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+}
+
+.trace-span-list dt {
+  color: var(--muted);
+}
+
+.trace-span-list dd {
+  margin: 0;
+  font-weight: 600;
+}
+
 @media (max-width: 520px) {
   .retriever-options { grid-template-columns: 1fr; }
   .fused-chunk-heading { flex-direction: column; gap: 3px; }
