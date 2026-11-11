@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,7 +10,7 @@ from backend.documents import (
     list_documents as list_document_paths,
 )
 from backend.index_settings import load_settings
-from backend.llm_service import generate_answer
+from backend.llm_service import TraceContext, generate_answer
 from backend.bm25 import retrieve_bm25
 from backend.retrieval import (
     ensure_index_current,
@@ -44,8 +45,13 @@ MIN_FUSION_CANDIDATES = 10
 
 def validate_graph_chunking(chunk_size: int, overlap: int) -> None:
     """Graph provenance uses its build settings; do not fuse another chunking."""
-    statistics = json.loads(GRAPH_FILE.read_text(encoding="utf-8-sig")).get("statistics", {})
-    graph_settings = (statistics.get("chunk_size", 800), statistics.get("overlap", 80))
+    statistics = json.loads(
+        GRAPH_FILE.read_text(encoding="utf-8-sig")
+    ).get("statistics", {})
+    graph_settings = (
+        statistics.get("chunk_size", 800),
+        statistics.get("overlap", 80),
+    )
     if (chunk_size, overlap) != graph_settings:
         raise ValueError(
             f"Graph uses chunk_size={graph_settings[0]}, overlap={graph_settings[1]}; "
@@ -67,13 +73,12 @@ def graph_retriever_output(result: dict) -> RetrieverOutput:
 
 @dataclass
 class Settings:
-    chunk_size: int # how the doc is split
-    overlap: int # how the doc is split
-    top_k: int = DEFAULT_TOP_K # retrieval asks for that much
-    relevance_threshold: float | None = None # filters chunks by distance
+    chunk_size: int
+    overlap: int
+    top_k: int = DEFAULT_TOP_K
+    relevance_threshold: float | None = None
 
 
-# loads saved chunking settings
 _index_settings = load_settings()
 APP_SETTINGS = Settings(
     chunk_size=_index_settings["chunk_size"],
@@ -96,7 +101,6 @@ def list_documents() -> list[dict[str, str | int]]:
     return documents
 
 
-# resolves a doc ID to a file
 def read_text_document(document_id: str) -> str:
     """Read one corpus document by its relative source path."""
     from backend.documents import resolve_document_path
@@ -187,8 +191,11 @@ def retrieve_selected_chunks(
     query = RetrievalQuery(
         question=question,
         dataset=dataset,
-        # Match evaluation's top-10 candidate pool when combining methods.
-        top_k=max(result_limit, MIN_FUSION_CANDIDATES) if len(selected_retrievers) > 1 else result_limit,
+        top_k=(
+            max(result_limit, MIN_FUSION_CANDIDATES)
+            if len(selected_retrievers) > 1
+            else result_limit
+        ),
         document_ids=tuple(document_ids) if document_ids is not None else None,
         chunk_size=APP_SETTINGS.chunk_size,
         overlap=APP_SETTINGS.overlap,
@@ -213,6 +220,7 @@ def ask_question(
     retrievers: list[RetrieverName] | None = None,
     include_path_context: bool = False,
     dataset: EvaluationDataset = "baking",
+    trace: TraceContext | None = None,
 ) -> AskResponse:
     """Retrieve through selected methods and delegate grounded answer generation."""
     selected_retrievers = ["dense"] if retrievers is None else retrievers
@@ -235,6 +243,7 @@ def ask_question(
         question,
         retrieval.chunks,
         path_context=path_context,
+        trace=trace,
     )
     return answer.model_copy(
         update={
@@ -262,6 +271,7 @@ def _build_path_context(
         if not isinstance(chunk_id, str) or not chunk_id:
             raise ValueError("Graph result chunks must have a valid id")
         chunks_by_id[chunk_id] = chunk
+
     supporting_ids: list[str] = []
     seen_ids: set[str] = set()
 
