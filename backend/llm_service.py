@@ -1,12 +1,42 @@
-﻿
-import json
+﻿import json
 import os
+from contextlib import nullcontext
+from collections.abc import Mapping
+from typing import ContextManager, Protocol
 
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
 
+from backend.pii_redaction import redact_personal_data
 from backend.schemas import AskResponse, LLMAnswer, PathContext, Reference
+
+
+class SpanContext(Protocol):
+    """Interface for an individual observability span."""
+
+    def __enter__(self) -> "SpanContext": ...
+
+    def __exit__(self, exc_type, exc_value, traceback) -> bool | None: ...
+
+    def set_attribute(
+        self,
+        key: str,
+        value: str | int | float | bool,
+    ) -> None: ...
+
+
+class TraceContext(Protocol):
+    """Interface for the shared trace context owned by the API."""
+
+    trace_id: str
+
+    def span(
+        self,
+        name: str,
+        *,
+        attributes: Mapping[str, str | int | float | bool] | None = None,
+    ) -> ContextManager[SpanContext]: ...
 
 
 class LLMServiceUnavailable(RuntimeError):
@@ -73,7 +103,7 @@ def build_prompt(
 
     context = "\n\n---\n\n".join(context_parts)
 
-        # Only include graph paths whose supporting chunks are supplied to Gemini.
+    # Only include graph paths whose supporting chunks are supplied to Gemini.
     available_chunk_ids = {str(chunk["id"]) for chunk in chunks}
     graph_context_parts = []
 
@@ -196,14 +226,19 @@ def generate_answer(
     graph_paths: list[dict] | None = None,
     *,
     path_context: PathContext | None = None,
+    trace: TraceContext | None = None,
 ) -> AskResponse:
     """
     Generate and validate an answer from retrieved chunks.
 
     Each chunk must contain: id, text, source, and position. Retriever scores
     are not used in answer generation.
+
     The caller should perform the configured relevance-threshold check
     before calling this function.
+
+    The optional trace context is injected by the API. This function does
+    not create or manage trace storage.
     """
     if not question.strip():
         return AskResponse(
@@ -243,7 +278,6 @@ def generate_answer(
                 retrieved_by_id[chunk_id] = chunk
                 prompt_chunks.append(chunk)
 
-    # Keep compatibility with the original behaviour.
     if not prompt_chunks:
         return AskResponse(
             status="not_found",
@@ -258,12 +292,33 @@ def generate_answer(
         path_context=path_context,
     )
 
+    # Redact personal information before sending anything to Gemini.
+    # The original chunks remain unchanged for local citation verification.
+    redaction_span = (
+        trace.span("pii_redaction")
+        if trace is not None
+        else nullcontext()
+    )
+
+    with redaction_span:
+        prompt = redact_personal_data(prompt)
+
     if client is None:
         raise LLMServiceUnavailable(
             "GOOGLE_API_KEY is missing. Configure it in your local .env file."
         )
 
-    try:
+    # Generate the answer using the injected trace context.
+    generation_span = (
+        trace.span(
+            "llm_generation",
+            attributes={"model": MODEL},
+        )
+        if trace is not None
+        else nullcontext()
+    )
+
+    with generation_span as span:
         response = client.chat.completions.create(
             model=MODEL,
             messages=[
@@ -279,56 +334,102 @@ def generate_answer(
             response_format={"type": "json_object"},
         )
 
+        # Token counts are safe metadata. Some test mocks may omit usage.
+        usage = getattr(response, "usage", None)
+
+        if usage is not None and span is not None:
+            input_tokens = getattr(usage, "prompt_tokens", None)
+            output_tokens = getattr(usage, "completion_tokens", None)
+
+            if input_tokens is not None:
+                span.set_attribute("input_tokens", input_tokens)
+
+            if output_tokens is not None:
+                span.set_attribute("output_tokens", output_tokens)
+
+    # Parse and validate Gemini's response.
+    validation_span = (
+        trace.span("response_validation")
+        if trace is not None
+        else nullcontext()
+    )
+
+    with validation_span as span:
         content = response.choices[0].message.content
+
         if not content:
             raise LLMResponseError("Gemini returned an empty response.")
 
-        parsed_json = json.loads(content)
-        llm_answer = LLMAnswer.model_validate(parsed_json)
-
-    except (ValidationError, json.JSONDecodeError) as exc:
-        raise LLMResponseError(
-            "Gemini returned a response that failed JSON/Pydantic validation."
-        ) from exc
-
-    if llm_answer.status == "not_found":
-        return AskResponse(
-            status="not_found",
-            answer=NOT_FOUND_ANSWER,
-            references=[],
-        )
-
-    if not llm_answer.cited_chunk_ids:
-        return AskResponse(
-            status="not_found",
-            answer=NOT_FOUND_ANSWER,
-            references=[],
-        )
-
-    # Never trust source details or quotes invented by the model.
-    # Build references only from chunks actually supplied as evidence.
-    references = []
-    seen_ids = set()
-
-    for chunk_id in llm_answer.cited_chunk_ids:
-        if chunk_id in seen_ids:
-            continue
-
-        chunk = retrieved_by_id.get(chunk_id)
-        if chunk is None:
+        try:
+            parsed_json = json.loads(content)
+            llm_answer = LLMAnswer.model_validate(parsed_json)
+        except (ValidationError, json.JSONDecodeError) as exc:
             raise LLMResponseError(
-                f"Gemini cited chunk '{chunk_id}', which was not retrieved."
+                "Gemini returned a response that failed JSON/Pydantic validation."
+            ) from exc
+
+        if span is not None:
+            span.set_attribute("answer_status", llm_answer.status)
+            span.set_attribute(
+                "citation_count",
+                len(llm_answer.cited_chunk_ids),
             )
 
-        seen_ids.add(chunk_id)
-        references.append(
-            Reference(
-                chunk_id=chunk_id,
-                source=chunk["source"],
-                position=chunk["position"],
-                quote=chunk["text"][:300],
+    # Verify citations and construct references only from retrieved evidence.
+    citation_span = (
+        trace.span("citation_verification")
+        if trace is not None
+        else nullcontext()
+    )
+
+    with citation_span as span:
+        if llm_answer.status == "not_found":
+            if span is not None:
+                span.set_attribute("verified_citations", 0)
+
+            return AskResponse(
+                status="not_found",
+                answer=NOT_FOUND_ANSWER,
+                references=[],
             )
-        )
+
+        if not llm_answer.cited_chunk_ids:
+            if span is not None:
+                span.set_attribute("verified_citations", 0)
+
+            return AskResponse(
+                status="not_found",
+                answer=NOT_FOUND_ANSWER,
+                references=[],
+            )
+
+        references = []
+        seen_ids = set()
+
+        for chunk_id in llm_answer.cited_chunk_ids:
+            if chunk_id in seen_ids:
+                continue
+
+            chunk = retrieved_by_id.get(chunk_id)
+
+            if chunk is None:
+                raise LLMResponseError(
+                    f"Gemini cited chunk '{chunk_id}', which was not retrieved."
+                )
+
+            seen_ids.add(chunk_id)
+
+            references.append(
+                Reference(
+                    chunk_id=chunk_id,
+                    source=chunk["source"],
+                    position=chunk["position"],
+                    quote=chunk["text"][:300],
+                )
+            )
+
+        if span is not None:
+            span.set_attribute("verified_citations", len(references))
 
     return AskResponse(
         status="answered",
