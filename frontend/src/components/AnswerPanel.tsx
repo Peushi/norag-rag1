@@ -1,9 +1,13 @@
+import { useState } from "react";
 import type {
   Answer,
   AskRetrieval,
   GraphEntity,
   GraphPath,
+  TraceDetail,
 } from "../types/api";
+import ReactMarkdown from "react-markdown";
+import { getApiErrorMessage, isTraceDetail } from "../types/api";
 import "../../styles/retriever-controls.css";
 
 type AnswerPanelProps = {
@@ -26,6 +30,7 @@ export function AnswerPanel({ answer }: AnswerPanelProps) {
     return (
       <div className="error">
         <p>{answer.text}</p>
+        <TraceDetails traceId={answer.trace_id} />
       </div>
     );
   }
@@ -67,7 +72,106 @@ export function AnswerPanel({ answer }: AnswerPanelProps) {
         </div>
       )}
       {answer.retrieval && <RetrievalDetails retrieval={answer.retrieval} />}
+      <TraceDetails traceId={answer.trace_id} />
     </>
+  );
+}
+
+function TraceDetails({ traceId }: { traceId?: string | null }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [trace, setTrace] = useState<TraceDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!traceId) {
+    return null;
+  }
+  const activeTraceId = traceId;
+
+  async function toggleDetails() {
+    if (isOpen) {
+      setIsOpen(false);
+      return;
+    }
+
+    setIsOpen(true);
+    setError(null);
+    if (trace) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `/api/traces/${encodeURIComponent(activeTraceId)}`,
+      );
+      const data: unknown = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(data, "Could not load this trace."),
+        );
+      }
+      if (!isTraceDetail(data)) {
+        throw new Error("The server returned an invalid trace.");
+      }
+      setTrace(data);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Could not load this trace.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <section className="trace-details">
+      <button
+        className="trace-details-toggle"
+        type="button"
+        aria-expanded={isOpen}
+        onClick={() => void toggleDetails()}
+      >
+        {isOpen ? "Hide trace" : "Details"}
+      </button>
+      {isOpen && (
+        <div className="trace-details-content" aria-live="polite">
+          {isLoading && <p>Loading trace…</p>}
+          {error && <p className="error" role="alert">{error}</p>}
+          {trace && (
+            <>
+              <p>
+                Trace {trace.trace_id} · {trace.status}
+                {trace.outcome ? ` · ${trace.outcome}` : ""}
+              </p>
+              <ol className="trace-span-list">
+                {trace.spans.map((span, index) => (
+                  <li key={`${span.name}-${index}`}>
+                    <strong>{span.name}</strong>
+                    <span>{span.status} · {span.duration_ms.toFixed(1)} ms</span>
+                    {Object.keys(span.attributes).length > 0 && (
+                      <dl>
+                        {Object.entries(span.attributes).map(([key, value]) => (
+                          <div key={key}>
+                            <dt>{key}</dt>
+                            <dd>{String(value)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                    {span.error_type && (
+                      <span className="error">Failed: {span.error_type}</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -108,7 +212,9 @@ function RetrievalDetails({ retrieval }: { retrieval: AskRetrieval }) {
                   })
                   .join("; ")}
               </p>
-              <span className="fused-chunk-text">{chunk.text}</span>
+              <div className="fused-chunk-text">
+                <ReactMarkdown skipHtml>{chunk.text}</ReactMarkdown>
+              </div>
             </li>
           ))}
         </ol>
@@ -195,7 +301,9 @@ function GraphPathDetails({
               <span className="reference-meta">
                 {chunk.source} · chunk {chunk.position + 1} · {chunk.id}
               </span>
-              <p>{chunk.text}</p>
+              <div className="fused-chunk-text">
+                <ReactMarkdown skipHtml>{chunk.text}</ReactMarkdown>
+              </div>
             </div>
           ))}
         </details>

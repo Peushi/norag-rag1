@@ -134,6 +134,7 @@ class AskResponse(BaseModel):
     answer: str
     references: list[Reference] = Field(default_factory=list)
     retrieval: RetrieveResponse | None = None
+    trace_id: str | None = None
 
     @model_validator(mode="after")
     def validate_references(self):
@@ -142,6 +143,30 @@ class AskResponse(BaseModel):
         if self.status == "answered" and not self.references:
             raise ValueError("answered responses must include at least one reference.")
         return self
+
+
+class TraceSpanResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    status: Literal["completed", "failed"]
+    started_at: str
+    completed_at: str
+    duration_ms: float = Field(ge=0)
+    attributes: dict[str, str | int | float | bool] = Field(default_factory=dict)
+    error_type: str | None = None
+
+
+class TraceResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    trace_id: str
+    operation: Literal["question", "indexing"]
+    status: Literal["running", "completed", "failed"]
+    outcome: str | None = None
+    started_at: str
+    completed_at: str | None = None
+    spans: list[TraceSpanResponse] = Field(default_factory=list)
 
 
 class LLMAnswer(BaseModel):

@@ -89,18 +89,40 @@ export type AskResponse = {
   answer: string;
   references: AnswerReference[];
   retrieval?: AskRetrieval | null;
+  trace_id?: string | null;
+};
+
+export type TraceSpan = {
+  name: string;
+  status: "completed" | "failed";
+  started_at: string;
+  completed_at: string;
+  duration_ms: number;
+  attributes: Record<string, string | number | boolean>;
+  error_type?: string | null;
+};
+
+export type TraceDetail = {
+  trace_id: string;
+  operation: "question" | "indexing";
+  status: "running" | "completed" | "failed";
+  outcome?: string | null;
+  started_at: string;
+  completed_at?: string | null;
+  spans: TraceSpan[];
 };
 
 export type Answer =
   | { kind: "empty"; text: string }
   | { kind: "loading" }
-  | { kind: "error"; text: string }
-  | { kind: "not_found"; text: string; retrieval?: AskRetrieval | null }
+  | { kind: "error"; text: string; trace_id?: string | null }
+  | { kind: "not_found"; text: string; retrieval?: AskRetrieval | null; trace_id?: string | null }
   | {
       kind: "answered";
       text: string;
       references: AnswerReference[];
       retrieval?: AskRetrieval | null;
+      trace_id?: string | null;
     };
 
 export function getApiErrorMessage(value: unknown, fallback: string): string {
@@ -162,6 +184,44 @@ export function isAskResponse(value: unknown): value is AskResponse {
     value.retrieval === null ||
     value.retrieval === undefined ||
     isAskRetrieval(value.retrieval)
+  ) && (
+    !("trace_id" in value) ||
+    value.trace_id === null ||
+    typeof value.trace_id === "string"
+  );
+}
+
+export function isTraceDetail(value: unknown): value is TraceDetail {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("trace_id" in value) ||
+    typeof value.trace_id !== "string" ||
+    !("operation" in value) ||
+    (value.operation !== "question" && value.operation !== "indexing") ||
+    !("status" in value) ||
+    !["running", "completed", "failed"].includes(String(value.status)) ||
+    !("started_at" in value) ||
+    typeof value.started_at !== "string" ||
+    !("spans" in value) ||
+    !Array.isArray(value.spans)
+  ) {
+    return false;
+  }
+
+  return value.spans.every(
+    (span: unknown) =>
+      typeof span === "object" &&
+      span !== null &&
+      "name" in span &&
+      typeof span.name === "string" &&
+      "status" in span &&
+      (span.status === "completed" || span.status === "failed") &&
+      "duration_ms" in span &&
+      typeof span.duration_ms === "number" &&
+      "attributes" in span &&
+      typeof span.attributes === "object" &&
+      span.attributes !== null,
   );
 }
 

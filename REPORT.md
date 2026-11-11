@@ -1,8 +1,83 @@
 # BakeFix — V1, V2, and V3 Report
 
-BakeFix is a baking troubleshooting RAG application. V1 establishes a naive
-baseline: retrieve passages from baking guides, then generate grounded answers
-with source references.
+BakeFix is a document-grounded question answering application. It began as a
+baking troubleshooting baseline and grew to include the Kestrel knowledge base,
+retrieval-only evaluation, BM25, and knowledge-graph retrieval. This report
+records the implementation and experiments; the [README](README.md) covers
+setup and day-to-day use.
+
+## Executive Summary
+
+The project implements a React/Vite client and FastAPI service for document
+management, retrieval, grounded answer generation, evaluation, and corpus word
+analysis. Dense retrieval uses local `all-MiniLM-L6-v2` embeddings and Chroma;
+BM25 and a Kestrel-only knowledge graph can be selected and combined through
+equal-weight reciprocal rank fusion (RRF). Gemini is used for answer generation
+and was used to extract the committed graph.
+
+The experiments show that no tested retriever dominates at every cutoff or on
+every question. On the original V2 sets, 800/80 chunks outperformed 400/40 on
+aggregate evidence retrieval. Dense+BM25 improved selected results but also
+introduced regressions. In the separate expanded Kestrel set, adding Graph to
+Dense+BM25 improved Recall@3 and Recall@5 over that set, largely by improving
+two-hop evidence ranking; it did not recover the missing catalog evidence for
+q08. These are results on small, fixed question sets using exact expected-quote
+matching. They do not establish general performance or answer correctness.
+
+The report's strongest conclusions are about retrieval evidence coverage and
+implementation behavior. Generation quality, abstention quality, broad latency
+comparisons, and graph quality beyond a small manual sample remain open areas.
+
+## System Overview
+
+The frontend sends JSON requests to FastAPI. The backend loads Markdown and
+plain-text source documents, chunks them, and retrieves passages using Dense,
+BM25, Graph, or selected combinations. Combined rankings use RRF. For Ask
+requests, retrieved passages are sent to Gemini and the response is schema
+validated; citations must refer to retrieved chunks. Optional Path as Context
+adds graph paths only when their supporting chunks are supplied. The Words and
+Evaluation views use shared document/chunking logic and dedicated evaluation
+services.
+
+```text
+React/Vite UI ──JSON──> FastAPI
+                         ├── document loading and chunking
+                         ├── Dense (MiniLM + Chroma) ─┐
+                         ├── BM25 ────────────────────┼── RRF ──> evidence passages
+                         └── Graph (Kestrel) ─────────┘                 │
+                                                        Gemini <─────────┘
+                                                validated answer + citations
+```
+
+Evaluation uses isolated/precomputed retrieval results as described below;
+Graph data is committed under `kestrel-kb/graph/` and tied to 800/80 chunks.
+The architecture and endpoint details are summarized in the [README](README.md)
+and can be inspected at `/docs` when running the service.
+
+## Evaluation Scope and Result Index
+
+This report includes several distinct experiments. Their metrics should be
+compared only when dataset, question subset, chunk settings, and retrieval
+configuration match.
+
+| Experiment | Questions and setup | Main results |
+| --- | --- | --- |
+| V1 baseline | Baking: 6 answerable, 1 unanswerable; source-level Hit@5; 800/80 | This report's V1 section; legacy evaluation files under `evaluation/results/`. |
+| V2 chunk comparison | Original Baking and Kestrel question sets; Dense; 800/80 and 400/40; complete source-plus-quote labels | [`evaluation/results/retrieval_comparison.md`](evaluation/results/retrieval_comparison.md) and paired JSONL/summary files. |
+| V3 Dense/BM25 comparison | Original question sets; 800/80; Dense and Dense+BM25 | [`evaluation/results/v3/COMPARISON.md`](evaluation/results/v3/COMPARISON.md) and `*_800_80*.jsonl` files. |
+| Expanded Kestrel Graph comparison | 12 questions (10 answerable, 2 unanswerable), including q11/q12 additions; 800/80; Dense, Dense+BM25, Dense+BM25+Graph | [`evaluation/results/v3/COMPARISON.md`](evaluation/results/v3/COMPARISON.md) and `*12q*.jsonl` files. |
+| Generation and manual review | Baking/Kestrel no-context and RAG runs, with reviewed result files | `*_no_context.jsonl`, `*_rag.jsonl`, and `*_rag_reviewed.jsonl`; analysis tools in `evaluation/`. |
+
+For V2/V3 retrieval metrics, a passage matches an expected evidence item when
+the expected source and complete quoted text occur in that passage after
+whitespace normalization. HitRate@k counts answerable questions with at least
+one matched item in the top k. Recall@k computes each answerable question's
+fraction of expected items retrieved, then macro-averages across questions.
+Unanswerable items are excluded from aggregate metrics and retain null
+per-question metrics. This labeling is reproducible, but does not credit
+paraphrases or determine whether a passage supports every claim in a generated
+answer. Latencies are observational wall-clock timings, not controlled
+benchmarks.
 
 ## Team Responsibilities
 
@@ -192,9 +267,16 @@ Evaluation was performed without live Gemini calls, allowing retrieval quality t
 
 These findings provide directions for future retrieval improvements.
 
-### Peushi — LLM Evaluation and Answer Quality
+### Generation Evaluation Scope
 
-_To be completed by Peushi._
+No-context and RAG generation outputs, including reviewed outputs, are stored
+under `evaluation/results/`. They are distinct from the retrieval-only metrics
+reported here. The repository includes reusable evaluation and manual-review
+scripts, but this report does not provide a consolidated, independently scored
+generation-quality result across both corpora. Accordingly, retrieval gains
+must not be read as proof of more correct answers or better abstention. A
+follow-up evaluation should state its answer rubric, reviewer agreement,
+provider/model settings, and per-question outcomes explicitly.
 
 ### Aleksandra — Words Analytics and Frontend Integration
 
@@ -447,3 +529,20 @@ Gemini or graph-extraction calls were made. Refreshed expanded-result JSONLs con
 single-run latency samples; they do not establish a speed improvement. The hidden
 `/bm25` page remains absent and untouched. Person A's required retrieval comparisons,
 including Graph and the expanded two-hop set, are complete for this checkout.
+
+## Conclusion and Remaining Scope
+
+BakeFix now provides an integrated interface for grounded document Q&A and
+tools to inspect and compare retrieval behavior. The recorded experiments favor
+800/80 over 400/40 among the tested Dense configurations. BM25 and Graph each
+help selected evidence-ranking cases, but regressions and unresolved misses
+remain. Graph improved two of three tested two-hop Kestrel cases at intermediate
+cutoffs; the sample is too small to generalize that result.
+
+The main next steps are to evaluate generated answers with a published rubric,
+expand and independently review question/evidence labels, review more extracted
+graph triples, and repeat latency measurements under controlled conditions.
+The repository also contains project artifacts outside this report's core
+experiments, including the Vellora espresso-machine source document and UI/UX
+planning notes. They are not part of the reported Baking or Kestrel retrieval
+comparisons. See the [README](README.md) for the project map and usage guide.

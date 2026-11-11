@@ -49,6 +49,7 @@ from backend.schemas import (
     RetrieveResponse,
     RetrievalComparisonResponse,
     SettingsRequest,
+    TraceResponse,
     WordChunksResponse,
     WordQuestionAnalysisRequest,
     WordQuestionAnalysisResponse,
@@ -61,6 +62,7 @@ from backend.words_analytics import (
     get_word_chunks,
     list_questions,
 )
+from backend.tracing import create_trace, get_trace
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT_DIR / "frontend"
@@ -68,6 +70,24 @@ FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
 FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
 
 app = FastAPI(title="BakeFix RAG API")
+
+
+@app.middleware("http")
+async def trace_ask_requests(request: Request, call_next):
+    if request.method != "POST" or request.url.path != "/api/ask":
+        return await call_next(request)
+
+    trace = create_trace("question")
+    request.state.ask_trace = trace
+    try:
+        response = await call_next(request)
+    except Exception:
+        trace.finish("failed")
+        raise
+
+    trace.finish("failed" if response.status_code >= 400 else "completed")
+    response.headers["X-Trace-ID"] = trace.trace_id
+    return response
 
 
 # ERROR HANDLERS
@@ -404,7 +424,8 @@ async def retrieve_endpoint(payload: RetrieveRequest):
 # full question - answer route
 # retreives relevant chunks and passes them
 @app.post("/api/ask", response_model=AskResponse)
-async def ask_endpoint(payload: AskRequest):
+async def ask_endpoint(payload: AskRequest, request: Request):
+    trace = request.state.ask_trace
     try:
         result = ask_question(
             question=payload.question,
@@ -413,6 +434,7 @@ async def ask_endpoint(payload: AskRequest):
             document_ids=payload.document_ids,
             top_k=payload.top_k,
             include_path_context=payload.include_path_context,
+            trace=trace,
         )
     except RetrieverUnavailableError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
@@ -422,7 +444,16 @@ async def ask_endpoint(payload: AskRequest):
         raise
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return result
+    trace.set_outcome(result.status)
+    return result.model_copy(update={"trace_id": trace.trace_id})
+
+
+@app.get("/api/traces/{trace_id}", response_model=TraceResponse)
+async def trace_endpoint(trace_id: str):
+    trace = get_trace(trace_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found.")
+    return trace
 
 
 

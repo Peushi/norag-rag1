@@ -1,0 +1,133 @@
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from fastapi.testclient import TestClient
+
+from backend.main import app
+from backend.schemas import AskResponse
+from backend.tracing import create_trace
+
+
+class TraceRecorderTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.trace_db_patch = patch(
+            "backend.tracing.TRACE_DB_PATH",
+            Path(self.temp_dir.name) / "traces.sqlite3",
+        )
+        self.trace_db_patch.start()
+
+    def tearDown(self):
+        self.trace_db_patch.stop()
+        self.temp_dir.cleanup()
+
+    def test_records_successful_span_and_trace(self):
+        trace = create_trace("question")
+        with trace.span(
+            "llm_generation",
+            attributes={"model": "test-model"},
+        ) as span:
+            span.set_attribute("input_tokens", 12)
+        trace.set_outcome("answered")
+        trace.finish("completed")
+
+        with TestClient(app) as client:
+            response = client.get(f"/api/traces/{trace.trace_id}")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["operation"], "question")
+        self.assertEqual(data["status"], "completed")
+        self.assertEqual(data["outcome"], "answered")
+        self.assertEqual(data["spans"][0]["name"], "llm_generation")
+        self.assertEqual(data["spans"][0]["status"], "completed")
+        self.assertEqual(data["spans"][0]["attributes"]["input_tokens"], 12)
+        self.assertGreaterEqual(data["spans"][0]["duration_ms"], 0)
+
+    def test_failed_span_stores_error_type_without_message(self):
+        trace = create_trace("question")
+        try:
+            with trace.span("retrieval"):
+                raise ValueError("private query text")
+        except ValueError:
+            pass
+        trace.finish("failed")
+
+        from backend.tracing import get_trace
+
+        saved = get_trace(trace.trace_id)
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["spans"][0]["status"], "failed")
+        self.assertEqual(saved["spans"][0]["error_type"], "ValueError")
+        self.assertNotIn("private query text", str(saved))
+
+    def test_rejects_sensitive_attribute_names(self):
+        trace = create_trace("question")
+        with self.assertRaisesRegex(ValueError, "not permitted"):
+            trace.span("unsafe", attributes={"prompt_text": "private"})
+
+
+class AskTraceApiTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.trace_db_patch = patch(
+            "backend.tracing.TRACE_DB_PATH",
+            Path(self.temp_dir.name) / "traces.sqlite3",
+        )
+        self.trace_db_patch.start()
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        self.trace_db_patch.stop()
+        self.temp_dir.cleanup()
+
+    def test_ask_passes_trace_and_returns_trace_id(self):
+        answer = AskResponse(
+            status="not_found",
+            answer="No supporting evidence.",
+        )
+
+        def fake_ask(**kwargs):
+            with kwargs["trace"].span("retrieval"):
+                pass
+            return answer
+
+        with patch("backend.main.ask_question", side_effect=fake_ask) as ask:
+            response = self.client.post(
+                "/api/ask",
+                json={"question": "What happened?"},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        trace_id = response.json()["trace_id"]
+        self.assertEqual(response.headers["x-trace-id"], trace_id)
+        self.assertIsNotNone(ask.call_args.kwargs["trace"])
+        trace_response = self.client.get(f"/api/traces/{trace_id}")
+        self.assertEqual(trace_response.status_code, 200)
+        self.assertEqual(trace_response.json()["outcome"], "not_found")
+        self.assertEqual(
+            [span["name"] for span in trace_response.json()["spans"]],
+            ["retrieval"],
+        )
+
+    def test_invalid_ask_still_has_a_failed_trace(self):
+        response = self.client.post(
+            "/api/ask",
+            json={"question": "What happened?", "retrievers": []},
+        )
+
+        self.assertEqual(response.status_code, 422)
+        trace_id = response.headers["x-trace-id"]
+        trace_response = self.client.get(f"/api/traces/{trace_id}")
+        self.assertEqual(trace_response.status_code, 200)
+        self.assertEqual(trace_response.json()["status"], "failed")
+
+    def test_missing_trace_returns_404(self):
+        response = self.client.get("/api/traces/not-a-real-trace")
+        self.assertEqual(response.status_code, 404)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -9,7 +9,7 @@ from backend.llm_service import generate_answer
 from backend.main import app
 from backend.rag_service import _build_path_context, ask_question
 from backend.retrieval_orchestrator import OrchestratedRetrieval
-from backend.schemas import AskRequest, PathContext
+from backend.schemas import AskRequest, AskResponse, PathContext
 
 
 class PathContextSchemaTests(unittest.TestCase):
@@ -177,11 +177,9 @@ class PathContextAskFlowTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
 
     def test_ask_api_passes_path_context_option_to_service(self):
-        answer = SimpleNamespace(
+        answer = AskResponse(
             status="not_found",
             answer="No supporting evidence.",
-            references=[],
-            retrieval=None,
         )
         with patch("backend.main.ask_question", return_value=answer) as ask:
             response = TestClient(app).post(

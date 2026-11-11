@@ -61,6 +61,7 @@ export function useAskQuestion({
     setStatus("Looking through your notes...");
     setAnswer({ kind: "loading" });
 
+    let traceId: string | null = null;
     try {
       const response = await fetch("/api/ask", {
         method: "POST",
@@ -74,6 +75,7 @@ export function useAskQuestion({
           include_path_context: includePathContext,
         }),
       });
+      traceId = response.headers.get("x-trace-id");
       const data: unknown = await response.json();
 
       if (!response.ok) {
@@ -91,6 +93,7 @@ export function useAskQuestion({
           kind: "not_found",
           text: data.answer,
           retrieval: data.retrieval,
+          trace_id: data.trace_id ?? traceId,
         });
         setStatus("No matching note found.");
       } else {
@@ -99,6 +102,7 @@ export function useAskQuestion({
           text: data.answer,
           references: data.references,
           retrieval: data.retrieval,
+          trace_id: data.trace_id ?? traceId,
         });
         setStatus("Here’s what I found.");
       }
@@ -107,7 +111,7 @@ export function useAskQuestion({
         error instanceof Error
           ? error.message
           : "Something went wrong. Please try again.";
-      setAnswer({ kind: "error", text: message });
+      setAnswer({ kind: "error", text: message, trace_id: traceId });
       setStatus("We couldn’t find an answer just now.");
     }
   }
