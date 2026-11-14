@@ -31,6 +31,8 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
     total_prompt_tokens = 0
     total_completion_tokens = 0
     token_usage_available = True
+    total_cost_usd = 0.0
+    cost_usage_available = True
     successful_calls = 0
 
     start_time = time.perf_counter()
@@ -68,11 +70,19 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
                     for triple in result["triples"]
                 )
 
-                if result["prompt_tokens"] is None or result["completion_tokens"] is None:
+                if (
+                    result["prompt_tokens"] is None
+                    or result["completion_tokens"] is None
+                ):
                     token_usage_available = False
                 else:
                     total_prompt_tokens += result["prompt_tokens"]
                     total_completion_tokens += result["completion_tokens"]
+
+                if result.get("cost_usd") is None:
+                    cost_usage_available = False
+                else:
+                    total_cost_usd += result["cost_usd"]
 
                 print(
                     f"  Chunk {chunk['position'] + 1}/{len(chunks)}: "
@@ -104,6 +114,10 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
             "total_tokens": (
                 total_prompt_tokens + total_completion_tokens
                 if token_usage_available else None
+            ),
+            "cost_usd": (
+                round(total_cost_usd, 8)
+                if cost_usage_available else None
             ),
             "build_time_seconds": round(build_time, 2),
             "chunk_size": chunk_size,
@@ -176,6 +190,8 @@ def retry_failed_graph_chunks(delay_seconds=5):
     retry_prompt_tokens = 0
     retry_completion_tokens = 0
     token_usage_available = True
+    retry_cost_usd = 0.0
+    cost_usage_available = True
 
     start_time = time.perf_counter()
 
@@ -220,6 +236,11 @@ def retry_failed_graph_chunks(delay_seconds=5):
             else:
                 retry_prompt_tokens += result["prompt_tokens"]
                 retry_completion_tokens += result["completion_tokens"]
+
+            if result.get("cost_usd") is None:
+                cost_usage_available = False
+            else:
+                retry_cost_usd += result["cost_usd"]
 
             print(
                 f"  {chunk_id}: "
@@ -276,6 +297,21 @@ def retry_failed_graph_chunks(delay_seconds=5):
             statistics["retry_completion_tokens"] = retry_completion_tokens
     else:
         statistics["total_tokens"] = None
+
+    statistics["retry_cost_usd"] = (
+        round(retry_cost_usd, 8)
+        if cost_usage_available else None
+    )
+
+    original_cost = statistics.get("cost_usd")
+
+    if original_cost is not None and cost_usage_available:
+        statistics["cost_usd"] = round(
+            original_cost + retry_cost_usd,
+            8,
+        )
+    else:
+        statistics["cost_usd"] = None
 
     GRAPH_FILE.write_text(
         json.dumps(graph_data, indent=2, ensure_ascii=False),

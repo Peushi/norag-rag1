@@ -27,6 +27,7 @@ from backend.retrieval_orchestrator import (
     orchestrate_retrieval,
 )
 from backend.schemas import (
+    AnswerStyle,
     AskResponse,
     PathContext,
     PathSupportingChunk,
@@ -221,6 +222,7 @@ def ask_question(
     include_path_context: bool = False,
     dataset: EvaluationDataset = "baking",
     trace: TraceContext | None = None,
+    style: AnswerStyle | None = None,
 ) -> AskResponse:
     """Retrieve through selected methods and delegate grounded answer generation."""
     selected_retrievers = ["dense"] if retrievers is None else retrievers
@@ -250,17 +252,21 @@ def ask_question(
                 top_k=top_k,
                 dataset=dataset,
             )
+
     path_context = (
         _build_path_context(retrieval.graph_paths, retrieval.graph_chunks)
         if include_path_context
         else None
     )
+
     answer = generate_answer(
         question,
         retrieval.chunks,
         path_context=path_context,
         trace=trace,
+        style=style,
     )
+
     return answer.model_copy(
         update={
             "retrieval": RetrieveResponse(
