@@ -13,6 +13,28 @@ export type AnswerReference = {
 
 export type RetrieverName = "dense" | "bm25" | "graph";
 
+/** How the answer should be written; mirrors the backend AnswerStyle model. */
+export type AnswerStyle = {
+  level: "beginner" | "expert";
+  tone: "friendly" | "professional" | "technical";
+  length: "short" | "medium" | "long";
+  eli12: boolean;
+};
+
+export const DEFAULT_ANSWER_STYLE: AnswerStyle = {
+  level: "beginner",
+  tone: "friendly",
+  length: "medium",
+  eli12: false,
+};
+
+/** A term from the answer, defined only from a cited passage. */
+export type GlossaryEntry = {
+  term: string;
+  definition: string;
+  chunk_id: string;
+};
+
 export type RetrieverContribution = {
   retriever: RetrieverName;
   rank: number;
@@ -88,6 +110,7 @@ export type AskResponse = {
   status: "answered" | "not_found";
   answer: string;
   references: AnswerReference[];
+  glossary?: GlossaryEntry[];
   retrieval?: AskRetrieval | null;
   trace_id?: string | null;
 };
@@ -116,11 +139,19 @@ export type Answer =
   | { kind: "empty"; text: string }
   | { kind: "loading" }
   | { kind: "error"; text: string; retryable?: boolean; trace_id?: string | null }
-  | { kind: "not_found"; text: string; retrieval?: AskRetrieval | null; trace_id?: string | null }
+  | {
+      kind: "not_found";
+      text: string;
+      style: AnswerStyle;
+      retrieval?: AskRetrieval | null;
+      trace_id?: string | null;
+    }
   | {
       kind: "answered";
       text: string;
+      style: AnswerStyle;
       references: AnswerReference[];
+      glossary: GlossaryEntry[];
       retrieval?: AskRetrieval | null;
       trace_id?: string | null;
     };
@@ -202,6 +233,25 @@ export function isDocumentSummary(value: unknown): value is DocumentSummary {
     typeof value.name === "string" &&
     "size_bytes" in value &&
     typeof value.size_bytes === "number"
+  );
+}
+
+/** Keep only well-formed glossary entries; a bad entry never hides the answer. */
+export function toGlossary(value: unknown): GlossaryEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (entry: unknown): entry is GlossaryEntry =>
+      typeof entry === "object" &&
+      entry !== null &&
+      "term" in entry &&
+      typeof entry.term === "string" &&
+      entry.term.trim() !== "" &&
+      "definition" in entry &&
+      typeof entry.definition === "string" &&
+      "chunk_id" in entry &&
+      typeof entry.chunk_id === "string",
   );
 }
 

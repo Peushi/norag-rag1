@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnswerPanel } from "./components/AnswerPanel";
+import { AnswerStyleControls } from "./components/AnswerStyleControls";
 import { DocumentLibrary } from "./components/DocumentLibrary";
 import { DocumentSelector } from "./components/DocumentSelector";
 import { EvaluationRunner } from "./components/EvaluationRunner";
@@ -7,6 +8,7 @@ import { RetrievalSettings } from "./components/RetrievalSettings";
 import { RetrievalComparison } from "./components/RetrievalComparison";
 import { RetrieverControls } from "./components/RetrieverControls";
 import { WordsExperience } from "./components/WordsExperience";
+import { useAnswerStyle } from "./hooks/useAnswerStyle";
 import { useAskQuestion } from "./hooks/useAskQuestion";
 import { useDocumentSelection } from "./hooks/useDocumentSelection";
 import { useDocuments } from "./hooks/useDocuments";
@@ -64,6 +66,7 @@ export default function App() {
     hasError: settingsHasError,
     traceId: settingsTraceId,
   } = useRetrievalSettings();
+  const { style: answerStyle, updateStyle, resetStyle } = useAnswerStyle();
   const {
     question,
     setQuestion,
@@ -78,6 +81,7 @@ export default function App() {
     dataset: askDataset,
     retrievers: selectedRetrievers,
     includePathContext,
+    style: answerStyle,
   });
 
   function toggleRetriever(retriever: RetrieverName) {
@@ -275,6 +279,12 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          <AnswerStyleControls
+            style={answerStyle}
+            onChange={updateStyle}
+            onReset={resetStyle}
+          />
 
           <div className="question-actions">
             <span className="helper-copy">

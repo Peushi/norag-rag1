@@ -3,6 +3,8 @@ import {
   getApiErrorDetail,
   isAskResponse,
   readJson,
+  toGlossary,
+  type AnswerStyle,
   type Answer,
   type RetrieverName,
 } from "../types/api";
@@ -19,6 +21,7 @@ type UseAskQuestionOptions = {
   dataset: "baking" | "kestrel";
   retrievers: RetrieverName[];
   includePathContext: boolean;
+  style: AnswerStyle;
 };
 
 export function useAskQuestion({
@@ -28,6 +31,7 @@ export function useAskQuestion({
   dataset,
   retrievers,
   includePathContext,
+  style,
 }: UseAskQuestionOptions) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer>(EMPTY_ANSWER);
@@ -63,6 +67,11 @@ export function useAskQuestion({
 
     setStatus("");
     setAnswer({ kind: "loading" });
+    // Remember the style this answer was requested in, even if the reader
+    // changes the controls while waiting.
+    const requestStyle: AnswerStyle = style.eli12
+      ? { ...style, level: "beginner" }
+      : style;
 
     let traceId: string | null = null;
     try {
@@ -76,6 +85,7 @@ export function useAskQuestion({
           top_k: topK,
           retrievers,
           include_path_context: includePathContext,
+          style: requestStyle,
         }),
       });
       traceId = response.headers.get("x-trace-id");
@@ -101,6 +111,7 @@ export function useAskQuestion({
         setAnswer({
           kind: "not_found",
           text: data.answer,
+          style: requestStyle,
           retrieval: data.retrieval,
           trace_id: data.trace_id ?? traceId,
         });
@@ -108,7 +119,9 @@ export function useAskQuestion({
         setAnswer({
           kind: "answered",
           text: data.answer,
+          style: requestStyle,
           references: data.references,
+          glossary: toGlossary(data.glossary),
           retrieval: data.retrieval,
           trace_id: data.trace_id ?? traceId,
         });

@@ -1,10 +1,13 @@
 import type {
   Answer,
+  AnswerReference,
+  GlossaryEntry,
   AskRetrieval,
   GraphEntity,
   GraphPath,
 } from "../types/api";
 import ReactMarkdown from "react-markdown";
+import { describeStyle } from "./AnswerStyleControls";
 import { TraceDetails } from "./TraceDetails";
 import "../../styles/retriever-controls.css";
 
@@ -70,6 +73,11 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
       <div className="answer-title">
         {answer.kind === "not_found" ? "Not in your documents" : "Answer"}
       </div>
+      {answer.kind === "answered" && (
+        <p className="answer-style-used">
+          Written {describeStyle(answer.style)}
+        </p>
+      )}
       {answer.kind === "not_found" ? (
         <div className="answer-copy not-found">
           <p>{answer.text}</p>
@@ -105,9 +113,53 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
           </ul>
         </div>
       )}
+      {answer.kind === "answered" && answer.glossary.length > 0 && (
+        <Glossary entries={answer.glossary} references={answer.references} />
+      )}
       {answer.retrieval && <RetrievalDetails retrieval={answer.retrieval} />}
       <TraceDetails key={answer.trace_id ?? "none"} traceId={answer.trace_id} />
     </>
+  );
+}
+
+/** Terms used in the answer, each defined from a passage the answer cites. */
+function Glossary({
+  entries,
+  references,
+}: {
+  entries: GlossaryEntry[];
+  references: AnswerReference[];
+}) {
+  const sourceNumber = new Map(
+    references.map((reference, index) => [reference.chunk_id, index + 1]),
+  );
+
+  return (
+    <section className="glossary" aria-labelledby="glossary-title">
+      <h3 id="glossary-title">Words to know</h3>
+      <dl>
+        {entries.map((entry) => {
+          const number = sourceNumber.get(entry.chunk_id);
+          return (
+            <div key={`${entry.term}-${entry.chunk_id}`}>
+              <dt>{entry.term}</dt>
+              <dd>
+                {entry.definition}
+                {number !== undefined && (
+                  <span
+                    className="glossary-source"
+                    title={`Defined from source [${number}]`}
+                  >
+                    {" "}
+                    [{number}]
+                  </span>
+                )}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </section>
   );
 }
 

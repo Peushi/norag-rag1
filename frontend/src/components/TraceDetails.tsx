@@ -109,6 +109,14 @@ type TraceResult = {
 
 const RESULT_ATTRIBUTE = /^result\.(\d+)\.([a-z_]+)$/;
 
+/** Show decimals without floating-point noise (0.00047000000000000004 → 0.00047). */
+function formatAttribute(value: TraceAttributeValue): string {
+  if (typeof value === "number" && !Number.isInteger(value)) {
+    return String(Number(value.toPrecision(6)));
+  }
+  return String(value);
+}
+
 /** Split flat span attributes into plain metadata and ranked retrieval results. */
 function splitTraceAttributes(attributes: TraceSpan["attributes"]) {
   const plain: [string, TraceAttributeValue][] = [];
@@ -144,7 +152,7 @@ function TraceSpanItem({ span }: { span: TraceSpan }) {
           {plain.map(([key, value]) => (
             <div key={key}>
               <dt>{key}</dt>
-              <dd>{String(value)}</dd>
+              <dd>{formatAttribute(value)}</dd>
             </div>
           ))}
         </dl>
