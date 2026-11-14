@@ -1,5 +1,5 @@
-from .documents import load_documents
-from .retrieval import rebuild_index, retrieve_chunks
+from backend.documents import load_documents
+from backend.retrieval import rebuild_index, retrieve_chunks
 
 
 def main():

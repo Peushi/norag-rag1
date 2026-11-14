@@ -18,6 +18,7 @@ contains interface planning notes.
 | Path | Purpose |
 | --- | --- |
 | `backend/` | FastAPI routes, document/chunk handling, dense and BM25 retrieval, graph retrieval, generation, and API schemas. |
+| `tests/` | Automated backend tests and manual retrieval smoke checks. |
 | `frontend/` | React user interface for asking questions, managing documents, retrieval settings, evaluations, and word analytics. |
 | `corpus/` | Baking source documents used by the application. |
 | `docs/` | Additional source documents available to the document loader. |
@@ -220,3 +221,20 @@ higher.
 - **An index seems stale or corrupted:** the Chroma directory is local generated
   state. Stop the backend, remove `chroma_db/`, then restart and let the index
   rebuild from source documents.
+
+## Run tests
+
+From the repository root, with your Python environment activated:
+
+```bash
+python -m unittest discover -s tests -t . -p 'test_*.py' -v
+```
+
+Tests use the local embedding model; download it once before running offline.
+Generation calls in the automated suite are mocked and do not require a Gemini key.
+
+For a manual retrieval smoke check (rebuilds the baking index):
+
+```bash
+python -m tests.retrieval_smoke_test
+```

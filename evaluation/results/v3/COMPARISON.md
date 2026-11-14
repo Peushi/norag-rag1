@@ -199,7 +199,7 @@ The expanded raw results and summaries are:
 Exact test command:
 
 ```bash
-HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 backend/.venv/bin/python -m unittest discover -s backend -t . -p 'test_*.py' -v
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 backend/.venv/bin/python -m unittest discover -s tests -t . -p 'test_*.py' -v
 ```
 
 Reproduce the four measurements with the environment activated (these overwrite only the matching V3 result files):
