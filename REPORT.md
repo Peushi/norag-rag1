@@ -440,9 +440,8 @@ The final integration passed **93 backend tests**, with no failures or skips,
 and the frontend TypeScript check and production build passed. API rankings for
 the expanded Kestrel set matched the evaluation top-five results, and the
 two-hop Path as Context flows were checked with mocked generation. No live
-Gemini generation was used for these integration checks. The hidden `/bm25`
-page was not implemented; BM25 is exposed only through the intended retrieval,
-Ask, and evaluation interfaces.
+Gemini generation was used for these integration checks. BM25 is exposed only
+through the intended retrieval, Ask, and evaluation interfaces.
 
 ### Karma — BM25 and Retrieval Evaluation
 
@@ -526,8 +525,8 @@ All **93 tests passed**, with no failures or skips. All 12 three-retriever API
 rankings matched evaluation, and all three two-hop path-context flows passed with
 mocked generation. Frontend typechecking and production build passed. No live
 Gemini or graph-extraction calls were made. Refreshed expanded-result JSONLs contain
-single-run latency samples; they do not establish a speed improvement. The hidden
-`/bm25` page remains absent and untouched. Person A's required retrieval comparisons,
+single-run latency samples; they do not establish a speed improvement. Person A's
+required retrieval comparisons,
 including Graph and the expanded two-hop set, are complete for this checkout.
 
 ## Conclusion and Remaining Scope

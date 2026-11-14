@@ -211,7 +211,7 @@ python -m evaluation.rag_evaluation --dataset kestrel --limit 10 --retrievers de
 python -m evaluation.rag_evaluation --dataset kestrel --limit 10 --retrievers dense bm25 --output evaluation/results/v3/kestrel_dense_bm25_800_80.jsonl
 ```
 
-Alternative 400/40 configurations are supported by --chunk-size 400 --overlap 40 and tested for shared chunk identity. Live BM25 has no persistent cache to invalidate. No hidden /bm25 page was found, added, edited, or removed.
+Alternative 400/40 configurations are supported by --chunk-size 400 --overlap 40 and tested for shared chunk identity. Live BM25 has no persistent cache to invalidate.
 
 
 ## Final Person A verification
