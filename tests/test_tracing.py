@@ -69,6 +69,99 @@ class TraceRecorderTests(unittest.TestCase):
             trace.span("unsafe", attributes={"prompt_text": "private"})
 
 
+class RetrievalSpanTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.trace_db_patch = patch(
+            "backend.tracing.TRACE_DB_PATH",
+            Path(self.temp_dir.name) / "traces.sqlite3",
+        )
+        self.trace_db_patch.start()
+
+    def tearDown(self):
+        self.trace_db_patch.stop()
+        self.temp_dir.cleanup()
+
+    def _retrieval(self):
+        from backend.retrieval_orchestrator import OrchestratedRetrieval
+
+        return OrchestratedRetrieval(
+            chunks=[
+                {
+                    "id": "abc123::chunk_0002",
+                    "text": "SECRET CHUNK TEXT about the descaling mode",
+                    "source": "manual.txt",
+                    "position": 2,
+                    "final_rank": 1,
+                    "final_score": 0.0325,
+                    "retrievers": [
+                        {"retriever": "dense", "rank": 2, "score": 0.31, "score_type": "cosine_distance"},
+                        {"retriever": "bm25", "rank": 1, "score": 7.2, "score_type": "bm25"},
+                    ],
+                },
+                {
+                    "id": "abc123::chunk_0005",
+                    "text": "Another private passage",
+                    "source": "manual.txt",
+                    "position": 5,
+                    "final_rank": 2,
+                    "final_score": 0.0161,
+                    "retrievers": [{"retriever": "bm25", "rank": 3}],
+                },
+            ],
+            graph_paths=[],
+            retrievers=("dense", "bm25"),
+        )
+
+    def test_retrieval_span_records_ranked_chunk_ids_without_text(self):
+        from backend.rag_service import ask_question
+        from backend.tracing import get_trace
+
+        trace = create_trace("question")
+        answer = AskResponse(status="not_found", answer="Not found.")
+        with patch(
+            "backend.rag_service.retrieve_selected_chunks",
+            return_value=self._retrieval(),
+        ), patch("backend.rag_service.generate_answer", return_value=answer):
+            ask_question(
+                "How do I descale?",
+                retrievers=["dense", "bm25"],
+                document_ids=["manual.txt"],
+                top_k=2,
+                trace=trace,
+            )
+        trace.finish("completed")
+
+        span = get_trace(trace.trace_id)["spans"][0]
+        attributes = span["attributes"]
+        self.assertEqual(span["name"], "retrieval")
+        self.assertEqual(attributes["retrievers"], "dense,bm25")
+        self.assertEqual(attributes["top_k"], 2)
+        self.assertEqual(attributes["document_filter"], "selected")
+        self.assertEqual(attributes["selected_document_count"], 1)
+        self.assertEqual(attributes["result_count"], 2)
+        self.assertEqual(attributes["result.1.chunk_id"], "abc123::chunk_0002")
+        self.assertEqual(attributes["result.1.position"], 2)
+        self.assertEqual(
+            attributes["result.1.found_by"],
+            "dense#2 (cosine_distance 0.3100); bm25#1 (bm25 7.2000)",
+        )
+        self.assertEqual(attributes["result.2.found_by"], "bm25#3")
+        saved = str(get_trace(trace.trace_id))
+        self.assertNotIn("SECRET CHUNK TEXT", saved)
+        self.assertNotIn("private passage", saved)
+        self.assertNotIn("How do I descale", saved)
+
+    def test_long_found_by_summary_is_truncated(self):
+        from backend.rag_service import TRACE_STRING_LIMIT, _found_by
+
+        contributions = [
+            {"retriever": "dense", "rank": rank, "score": 0.123456, "score_type": "cosine_distance"}
+            for rank in range(1, 20)
+        ]
+        self.assertLessEqual(len(_found_by(contributions)), TRACE_STRING_LIMIT)
+
+
 class AskTraceApiTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
