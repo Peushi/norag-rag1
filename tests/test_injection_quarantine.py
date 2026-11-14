@@ -1,7 +1,9 @@
 import json
+import gc
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -147,6 +149,7 @@ class QuarantineTests(unittest.TestCase):
                 self.assertIn(ATTACK, stored['documents'])
         finally:
             client.close()
+            gc.collect()
 
     def test_normal_browsing_and_document_reader_cannot_access_quarantine(self):
         result = self.upload_attack()
@@ -283,11 +286,13 @@ class QuarantineTests(unittest.TestCase):
     def test_concurrent_release_does_not_duplicate_publication(self):
         from concurrent.futures import ThreadPoolExecutor
         item = self.upload_attack()
+
         def release():
             try:
                 return quarantine.release_quarantined_document(item['quarantine_id'], approved=True)['status']
             except quarantine.QuarantineStateError:
                 return 'already_reviewed'
+
         with ThreadPoolExecutor(max_workers=2) as pool:
             outcomes = list(pool.map(lambda _: release(), range(2)))
         self.assertCountEqual(outcomes, ['indexed', 'already_reviewed'])
@@ -296,10 +301,12 @@ class QuarantineTests(unittest.TestCase):
     def test_terminal_storage_failure_is_visible_and_resumable(self):
         result = self.upload_attack()
         original_write = quarantine._write
+
         def fail_terminal(record):
             if record['status'] == 'released':
                 raise OSError('disk failed')
             original_write(record)
+
         with patch.object(quarantine, '_write', side_effect=fail_terminal):
             with self.assertRaises(OSError):
                 quarantine.release_quarantined_document(result['quarantine_id'], approved=True)
@@ -339,7 +346,7 @@ class QuarantineTests(unittest.TestCase):
         self.assertEqual([s['name'] for s in trace['spans']], ['document_validation', 'injection_scanning', 'quarantine_storage'])
         self.assertNotIn(ATTACK, json.dumps(trace))
         self.assertNotIn('excerpt', json.dumps(trace))
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             self.assertEqual(connection.execute('SELECT COUNT(*) FROM traces').fetchone()[0], 1)
 
     def test_api_safe_upload_preserves_filename_and_is_indexed(self):
@@ -369,6 +376,7 @@ class QuarantineTests(unittest.TestCase):
         self.assertEqual(trace['outcome'], 'rejected')
         self.assertEqual(trace['spans'][0]['name'], 'quarantine_rejection')
         self.assertNotIn(ATTACK, json.dumps(trace))
+
         another = self.upload_attack('second.md')
         released = quarantine.release_quarantined_document(another['quarantine_id'], approved=True)
         trace = self.trace(released['trace_id'])

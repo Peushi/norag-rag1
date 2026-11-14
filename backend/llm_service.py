@@ -1,5 +1,4 @@
-﻿
-import json
+﻿import json
 import os
 from collections.abc import Mapping
 from contextlib import nullcontext
@@ -10,7 +9,10 @@ from openai import OpenAI
 from pydantic import ValidationError
 
 from backend.cost_tracking import calculate_cost_usd
-from backend.pii_redaction import redact_personal_data
+from backend.pii_redaction import (
+    redact_contact_patterns,
+    redact_personal_data,
+)
 from backend.schemas import (
     AnswerStyle,
     AskResponse,
@@ -365,16 +367,10 @@ def generate_answer(
             glossary=[],
         )
 
-    prompt = build_prompt(
-        question,
-        prompt_chunks,
-        graph_paths=graph_paths,
-        path_context=path_context,
-        style=style,
-    )
-
     # Redact personal information before sending anything to Gemini.
-    # The original chunks remain unchanged for local citation verification.
+    # Presidio is applied to the question only. Retrieved document content
+    # and graph paths receive conservative contact-pattern redaction.
+    # Original chunks remain unchanged for local citation verification.
     redaction_span = (
         trace.span("pii_redaction")
         if trace is not None
@@ -382,7 +378,17 @@ def generate_answer(
     )
 
     with redaction_span:
-        prompt = redact_personal_data(prompt)
+        safe_question = redact_personal_data(question)
+
+        prompt = build_prompt(
+            safe_question,
+            prompt_chunks,
+            graph_paths=graph_paths,
+            path_context=path_context,
+            style=style,
+        )
+
+        prompt = redact_contact_patterns(prompt)
 
     if client is None:
         raise LLMServiceUnavailable(
