@@ -103,7 +103,10 @@ async def trace_pipeline_requests(request: Request, call_next):
         raise
 
     if is_indexing:
-        trace.set_outcome("failed" if response.status_code >= 400 else "indexed")
+        if response.status_code >= 400:
+            trace.set_outcome("failed")
+        elif get_trace(trace.trace_id)["outcome"] is None:
+            trace.set_outcome("indexed")
     trace.finish("failed" if response.status_code >= 400 else "completed")
     response.headers["X-Trace-ID"] = trace.trace_id
     return response
@@ -367,13 +370,15 @@ async def upload_document(file: UploadFile = File(...)):
     if not file.filename:
         raise HTTPException(status_code=422, detail="A file is required.")
     safe_name = Path(file.filename).name
+    if safe_name != file.filename or "\\" in file.filename:
+        raise HTTPException(status_code=422, detail="Invalid document filename.")
     if Path(safe_name).suffix.lower() not in {".md", ".txt"}:
         raise HTTPException(status_code=422, detail="Only .md and .txt documents are supported.")
 
     content = await file.read()
     try:
         text = content.decode("utf-8")
-        add_document_and_reindex(
+        result = add_document_and_reindex(
             safe_name,
             text,
             chunk_size=APP_SETTINGS.chunk_size,
@@ -385,7 +390,7 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return {"status": "uploaded", "filename": safe_name}
+    return {**result, "filename": safe_name}
 
 
 @app.delete("/api/documents/{document_id:path}")

@@ -273,9 +273,12 @@ def indexing_operation(function):
                 current.set_outcome("failed")
                 current.finish("failed")
             raise
+        explicit_outcome = result.get("status") if isinstance(result, dict) else None
+        if explicit_outcome in {"indexed", "quarantined", "rejected"} and hasattr(current, "set_outcome"):
+            current.set_outcome(explicit_outcome)
         if owned:
             partial = isinstance(result, dict) and bool(result.get("failed_chunks"))
-            outcome = "indexed"
+            outcome = explicit_outcome if explicit_outcome in {"indexed", "quarantined", "rejected"} else "indexed"
             if partial:
                 successes = result.get("statistics", {}).get("successful_calls", 0)
                 outcome = "partial" if successes else "failed"

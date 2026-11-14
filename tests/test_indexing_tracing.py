@@ -121,7 +121,7 @@ class IndexingTraceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         saved = self.saved(response.headers['X-Trace-ID'])
         self.assertEqual(saved['status'], 'completed')
-        self.assertEqual(saved['spans'][0]['attributes']['document_count'], 2)
+        self.assertEqual(next(s for s in saved['spans'] if s['name'] == 'load_documents')['attributes']['document_count'], 2)
         self.assertEqual(self.trace_count(), 1)
 
     def test_failed_upload_retains_failed_trace_and_restores_files(self):

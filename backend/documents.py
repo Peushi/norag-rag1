@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .tracing import indexing_operation
+from .injection_scanner import scan_document
 
 if TYPE_CHECKING:
     from .llm_service import TraceContext
@@ -74,19 +75,39 @@ def resolve_document_path(source: str, *, corpus_dir: Path | None = None) -> Pat
     return path
 
 
-def add_document(source: str, content: str) -> str:
-    """Save a nonempty document without overwriting an existing file."""
-    if not content.strip():
+def dataset_directory(dataset):
+    from .retrieval import DATASET_DIRECTORIES
+    if dataset not in DATASET_DIRECTORIES:
+        raise ValueError("Unknown document dataset")
+    return DATASET_DIRECTORIES[dataset]
+
+
+def validate_new_document(source, content, *, dataset="baking"):
+    if not isinstance(content, str) or not content.strip():
         raise ValueError("Document cannot be empty")
-
-    path = resolve_document_path(source)
+    path = resolve_document_path(source, corpus_dir=dataset_directory(dataset))
     if path.exists():
-        raise FileExistsError(f"Document already exists: {source}")
+        raise FileExistsError("Document already exists")
+    return path
 
+
+def _save_document(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("x", encoding="utf-8") as file:
-        file.write(content)
+    file = path.open("x", encoding="utf-8")
+    try:
+        with file:
+            file.write(content)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
 
+
+def add_document(source: str, content: str) -> str:
+    """Low-level additions also fail closed; uploads use the quarantine wrapper."""
+    path = validate_new_document(source, content)
+    if scan_document(content):
+        raise ValueError("Document requires quarantine review")
+    _save_document(path, content)
     return source
 
 
@@ -101,6 +122,31 @@ def delete_document(source: str) -> str:
     return source
 
 
+def _publish_and_reindex(source, content, *, dataset, chunk_size, overlap, trace):
+    """Publish only screened or explicitly approved content; fail closed on error."""
+    from .retrieval import rebuild_index, reset_collection
+    from .index_settings import load_settings, validate_settings
+
+    settings = load_settings()
+    validate_settings(
+        settings["chunk_size"] if chunk_size is None else chunk_size,
+        settings["overlap"] if overlap is None else overlap,
+    )
+    path = validate_new_document(source, content, dataset=dataset)
+    with trace.span("document_storage", attributes={"dataset": dataset}):
+        _save_document(path, content)
+    try:
+        with trace.span("index_rebuild", attributes={"dataset": dataset}):
+            stats = rebuild_index(chunk_size=chunk_size, overlap=overlap, dataset=dataset, trace=trace)
+    except Exception:
+        with trace.span("index_rollback", attributes={"dataset": dataset}):
+            path.unlink(missing_ok=True)
+            # Clear completed batches from a failed build before a retry.
+            reset_collection(dataset)
+        raise
+    return {"source": source, "index": stats}
+
+
 @indexing_operation
 def add_document_and_reindex(
     source: str,
@@ -108,22 +154,23 @@ def add_document_and_reindex(
     *,
     chunk_size: int | None = None,
     overlap: int | None = None,
+    dataset: str = "baking",
     trace: "TraceContext | None" = None,
 ) -> dict:
-    """Add a document and rebuild using saved settings unless overridden.
-
-    Failure restores the file state only; Chroma may need another rebuild.
-    """
-    from .retrieval import rebuild_index
-
-    add_document(source, content)
-    try:
-        stats = rebuild_index(chunk_size=chunk_size, overlap=overlap, trace=trace)
-    except Exception:
-        resolve_document_path(source).unlink(missing_ok=True)
-        raise
-
-    return {"source": source, "index": stats}
+    """Validate and scan BEFORE corpus writes; suspicious uploads stay outside."""
+    with trace.span("document_validation") as span:
+        validate_new_document(source, content, dataset=dataset)
+        span.set_attribute("dataset", dataset)
+    with trace.span("injection_scanning") as span:
+        findings = scan_document(content)
+        span.set_attribute("detection_count", len(findings))
+        span.set_attribute("rule_ids", ",".join(sorted({f["rule_id"] for f in findings})))
+    if findings:
+        from .quarantine import store_quarantined_document
+        return store_quarantined_document(source, content, findings, dataset=dataset, trace=trace)
+    result = _publish_and_reindex(source, content, dataset=dataset,
+                                  chunk_size=chunk_size, overlap=overlap, trace=trace)
+    return {**result, "status": "indexed", "dataset": dataset, "findings": []}
 
 
 @indexing_operation
