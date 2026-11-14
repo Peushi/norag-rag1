@@ -1,9 +1,16 @@
 import { useState, type FormEvent, type ChangeEvent } from "react";
-import { getApiErrorMessage, type DocumentSummary } from "../types/api";
+import {
+  getApiErrorMessage,
+  getTraceId,
+  readJson,
+  type DocumentSummary,
+  type IndexingActivity,
+} from "../types/api";
+import { TraceDetails } from "./TraceDetails";
 
 type DocumentLibraryProps = {
   documents: DocumentSummary[];
-  onDelete: (document: DocumentSummary) => void;
+  onDelete: (document: DocumentSummary) => Promise<IndexingActivity>;
   onUploaded: () => Promise<void>;
 };
 
@@ -12,6 +19,23 @@ export function DocumentLibrary({
   onDelete,
   onUploaded,
 }: DocumentLibraryProps) {
+  const [activity, setActivity] = useState<IndexingActivity | null>(null);
+  const [busyDocumentId, setBusyDocumentId] = useState<string | null>(null);
+
+  async function handleDelete(document: DocumentSummary) {
+    setBusyDocumentId(document.id);
+    setActivity({
+      message: `Removing “${document.name}” and updating search…`,
+      tone: "success",
+      traceId: null,
+    });
+    try {
+      setActivity(await onDelete(document));
+    } finally {
+      setBusyDocumentId(null);
+    }
+  }
+
   return (
     <aside className="card library-card" aria-labelledby="library-title">
       <div className="section-heading">
@@ -24,7 +48,9 @@ export function DocumentLibrary({
         </div>
       </div>
 
-      <DocumentUpload onUploaded={onUploaded} />
+      <DocumentUpload onUploaded={onUploaded} onActivity={setActivity} />
+
+      {activity && <IndexingActivityNote activity={activity} />}
 
       <div className="library-documents">
         <div className="library-label">
@@ -48,9 +74,10 @@ export function DocumentLibrary({
                     type="button"
                     className="delete-doc"
                     aria-label={`Remove ${document.name}`}
-                    onClick={() => onDelete(document)}
+                    disabled={busyDocumentId !== null}
+                    onClick={() => void handleDelete(document)}
                   >
-                    Remove
+                    {busyDocumentId === document.id ? "Removing…" : "Remove"}
                   </button>
                 </li>
               ))}
@@ -62,29 +89,63 @@ export function DocumentLibrary({
   );
 }
 
-type DocumentUploadProps = {
-  onUploaded: () => Promise<void>;
+/** The outcome of the last upload or removal, with a link to its indexing trace. */
+function IndexingActivityNote({ activity }: { activity: IndexingActivity }) {
+  return (
+    <div
+      className={`indexing-activity ${activity.tone}`}
+      role={activity.tone === "error" ? "alert" : "status"}
+    >
+      <p>{activity.message}</p>
+      <TraceDetails key={activity.traceId ?? "none"} traceId={activity.traceId} />
+    </div>
+  );
+}
+
+type UploadResponse = {
+  status: "indexed" | "quarantined";
+  findings?: unknown[];
 };
 
-function DocumentUpload({ onUploaded }: DocumentUploadProps) {
+function isUploadResponse(value: unknown): value is UploadResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "status" in value &&
+    (value.status === "indexed" || value.status === "quarantined")
+  );
+}
+
+type DocumentUploadProps = {
+  onUploaded: () => Promise<void>;
+  onActivity: (activity: IndexingActivity | null) => void;
+};
+
+function DocumentUpload({ onUploaded, onActivity }: DocumentUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState("");
-  const [uploadError, setUploadError] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     if (!file) {
-      setUploadError(true);
-      setUploadMessage("Choose a document to add.");
+      onActivity({
+        message: "Choose a document to add.",
+        tone: "error",
+        traceId: null,
+      });
       return;
     }
 
+    const fileName = file.name;
     setIsUploading(true);
-    setUploadError(false);
-    setUploadMessage("Adding and indexing your document...");
+    onActivity({
+      message: `Checking and indexing “${fileName}”…`,
+      tone: "success",
+      traceId: null,
+    });
 
+    let traceId: string | null = null;
     try {
       const body = new FormData();
       body.append("file", file);
@@ -92,25 +153,49 @@ function DocumentUpload({ onUploaded }: DocumentUploadProps) {
         method: "POST",
         body,
       });
-      const data: unknown = await response.json();
+      const data = await readJson(response);
+      traceId = getTraceId(response, data);
 
       if (!response.ok) {
         throw new Error(
-          getApiErrorMessage(data, "That document could not be added."),
+          getApiErrorMessage(data, `“${fileName}” could not be added.`),
         );
+      }
+      if (!isUploadResponse(data)) {
+        throw new Error("The server returned an unexpected upload response.");
       }
 
       setFile(null);
       form.reset();
-      await onUploaded();
-      setUploadMessage("Your document is ready to search.");
+
+      if (data.status === "quarantined") {
+        const count = data.findings?.length ?? 0;
+        onActivity({
+          message:
+            `“${fileName}” was held for review and is not searchable yet. ` +
+            `It contains ${count === 1 ? "a passage" : `${count} passages`} ` +
+            "that look like instructions aimed at the assistant.",
+          tone: "warning",
+          traceId,
+        });
+        return;
+      }
+
+      await onUploaded().catch(() => undefined);
+      onActivity({
+        message: `“${fileName}” is ready to search.`,
+        tone: "success",
+        traceId,
+      });
     } catch (error) {
-      setUploadError(true);
-      setUploadMessage(
-        error instanceof Error
-          ? error.message
-          : "That document could not be added.",
-      );
+      onActivity({
+        message:
+          error instanceof Error
+            ? error.message
+            : `“${fileName}” could not be added.`,
+        tone: "error",
+        traceId,
+      });
     } finally {
       setIsUploading(false);
     }
@@ -118,7 +203,7 @@ function DocumentUpload({ onUploaded }: DocumentUploadProps) {
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     setFile(event.target.files?.[0] ?? null);
-    setUploadMessage("");
+    onActivity(null);
   }
 
   return (
@@ -138,14 +223,6 @@ function DocumentUpload({ onUploaded }: DocumentUploadProps) {
       >
         {isUploading ? "Adding document..." : "Add document"}
       </button>
-      {uploadMessage && (
-        <p
-          className={`upload-message${uploadError ? " error" : ""}`}
-          role="status"
-        >
-          {uploadMessage}
-        </p>
-      )}
     </form>
   );
 }

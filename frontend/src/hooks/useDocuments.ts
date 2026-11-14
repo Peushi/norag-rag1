@@ -1,8 +1,11 @@
 import { useState } from "react";
 import {
   getApiErrorMessage,
+  getTraceId,
   isDocumentSummary,
+  readJson,
   type DocumentSummary,
+  type IndexingActivity,
 } from "../types/api";
 
 export function useDocuments() {
@@ -46,29 +49,40 @@ export function useDocuments() {
     }
   }
 
-  async function deleteDocument(document: DocumentSummary): Promise<void> {
-    setStatus(`Removing ${document.name}...`);
+  /** Remove a document; the library shows the returned outcome and its trace. */
+  async function deleteDocument(
+    document: DocumentSummary,
+  ): Promise<IndexingActivity> {
+    let traceId: string | null = null;
     try {
       const response = await fetch(
         `/api/documents/${encodeURIComponent(document.id)}`,
         { method: "DELETE" },
       );
-      const data: unknown = await response.json();
+      const data = await readJson(response);
+      traceId = getTraceId(response, data);
 
       if (!response.ok) {
         throw new Error(
-          getApiErrorMessage(data, "That note could not be removed."),
+          getApiErrorMessage(data, `“${document.name}” could not be removed.`),
         );
       }
 
-      await loadDocuments();
-      setStatus("The note has been removed.");
+      await loadDocuments().catch(() => undefined);
+      return {
+        message: `“${document.name}” was removed and is no longer searched.`,
+        tone: "success",
+        traceId,
+      };
     } catch (error) {
-      setStatus(
-        error instanceof Error
-          ? error.message
-          : "That note could not be removed.",
-      );
+      return {
+        message:
+          error instanceof Error
+            ? error.message
+            : `“${document.name}” could not be removed.`,
+        tone: "error",
+        traceId,
+      };
     }
   }
 

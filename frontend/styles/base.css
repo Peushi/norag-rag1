@@ -96,6 +96,12 @@ input[type='file']::file-selector-button { margin-right: 8px; padding: 7px 10px;
 .upload-button { width: 100%; margin-top: 11px; }
 .upload-message { margin: 8px 0 0; color: var(--sage); font-size: 12px; }
 .upload-message.error { color: var(--terracotta-dark); }
+.indexing-activity { margin: 10px 0 14px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--sage-wash); color: var(--ink); font-size: 12px; }
+.indexing-activity p { margin: 0; }
+.indexing-activity.warning { border-color: #e2c39a; background: #fbf1df; }
+.indexing-activity.error { border-color: #e4b8a6; background: var(--rose-wash); color: var(--terracotta-dark); }
+.indexing-activity .trace-details { margin-top: 8px; }
+.delete-doc:disabled { cursor: wait; opacity: .6; }
 .library-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 6px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .document-count { min-width: 24px; padding: 2px 7px; border: 1px solid var(--ink); border-radius: 999px; background: var(--sage-wash); color: var(--sage); text-align: center; letter-spacing: 0; }
 .document-list ul, .references ul { list-style: none; padding: 0; margin: 0; }

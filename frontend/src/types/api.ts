@@ -138,6 +138,35 @@ export function getApiErrorMessage(value: unknown, fallback: string): string {
   return typeof error.message === "string" ? error.message : fallback;
 }
 
+/** The result of a change that rebuilds the index (upload, removal, settings). */
+export type IndexingActivity = {
+  message: string;
+  tone: "success" | "warning" | "error";
+  traceId: string | null;
+};
+
+/** Read the trace ID from a JSON body, falling back to the X-Trace-ID header. */
+export function getTraceId(response: Response, data: unknown): string | null {
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    "trace_id" in data &&
+    typeof data.trace_id === "string"
+  ) {
+    return data.trace_id;
+  }
+  return response.headers.get("x-trace-id");
+}
+
+/** Read a JSON body without throwing when the server returned something else. */
+export async function readJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 export function isDocumentSummary(value: unknown): value is DocumentSummary {
   if (typeof value !== "object" || value === null) {
     return false;

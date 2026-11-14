@@ -42,6 +42,7 @@ export default function App() {
     isSaving,
     message: settingsMessage,
     hasError: settingsHasError,
+    traceId: settingsTraceId,
   } = useRetrievalSettings();
   const {
     question,
@@ -194,7 +195,7 @@ export default function App() {
         {askDataset === "baking" && (
           <DocumentLibrary
             documents={documents}
-            onDelete={(item) => void deleteDocument(item)}
+            onDelete={deleteDocument}
             onUploaded={loadDocuments}
           />
         )}
@@ -269,6 +270,7 @@ export default function App() {
               isSaving={isSaving}
               message={settingsMessage}
               hasError={settingsHasError}
+              traceId={settingsTraceId}
             />
 
             <RetrieverControls

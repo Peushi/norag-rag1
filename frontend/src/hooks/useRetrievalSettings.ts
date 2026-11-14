@@ -1,4 +1,5 @@
 import { useReducer } from "react";
+import { getTraceId, readJson } from "../types/api";
 
 type SettingsValues = {
   chunk_size: string;
@@ -23,13 +24,14 @@ type SettingsState = {
   activeTopK: number;
   phase: "idle" | "saving" | "success" | "error";
   message: string;
+  traceId: string | null;
 };
 
 type SettingsAction =
   | { type: "setting/changed"; field: keyof SettingsValues; value: string }
   | { type: "save/started" }
-  | { type: "save/succeeded"; response: SettingsResponse }
-  | { type: "save/failed"; message: string };
+  | { type: "save/succeeded"; response: SettingsResponse; traceId: string | null }
+  | { type: "save/failed"; message: string; traceId?: string | null };
 
 const INITIAL_STATE: SettingsState = {
   values: {
@@ -40,6 +42,7 @@ const INITIAL_STATE: SettingsState = {
   activeTopK: 3,
   phase: "idle",
   message: "",
+  traceId: null,
 };
 
 function settingsReducer(
@@ -56,6 +59,7 @@ function settingsReducer(
         },
         phase: "idle",
         message: "",
+        traceId: null,
       };
 
     case "save/started":
@@ -63,6 +67,7 @@ function settingsReducer(
         ...state,
         phase: "saving",
         message: "Saving settings and rebuilding the index...",
+        traceId: null,
       };
 
     case "save/succeeded":
@@ -75,6 +80,7 @@ function settingsReducer(
         activeTopK: action.response.top_k,
         phase: "success",
         message: `Settings saved. The index now has ${action.response.index.chunks} chunks.`,
+        traceId: action.traceId,
       };
 
     case "save/failed":
@@ -82,6 +88,7 @@ function settingsReducer(
         ...state,
         phase: "error",
         message: action.message,
+        traceId: action.traceId ?? null,
       };
 
     default: {
@@ -160,6 +167,7 @@ export function useRetrievalSettings() {
 
     dispatch({ type: "save/started" });
 
+    let traceId: string | null = null;
     try {
       const response = await fetch("/api/settings", {
         method: "PUT",
@@ -171,7 +179,8 @@ export function useRetrievalSettings() {
         }),
       });
 
-      const data: unknown = await response.json();
+      const data = await readJson(response);
+      traceId = getTraceId(response, data);
 
       if (!response.ok) {
         throw new Error(
@@ -183,12 +192,12 @@ export function useRetrievalSettings() {
         throw new Error("The server returned an invalid settings response.");
       }
 
-      dispatch({ type: "save/succeeded", response: data });
+      dispatch({ type: "save/succeeded", response: data, traceId });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Settings could not be saved.";
 
-      dispatch({ type: "save/failed", message });
+      dispatch({ type: "save/failed", message, traceId });
     }
   }
 
@@ -202,6 +211,7 @@ export function useRetrievalSettings() {
     isSaving: state.phase === "saving",
     message: state.message,
     hasError: state.phase === "error",
+    traceId: state.traceId,
     updateSetting,
     saveSettings,
   };

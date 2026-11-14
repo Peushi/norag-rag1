@@ -1,4 +1,5 @@
 import type { ChangeEvent } from "react";
+import { TraceDetails } from "./TraceDetails";
 import "../../styles/retrieval-settings.css";
 
 type RetrievalSettingsValues = {
@@ -14,6 +15,7 @@ type RetrievalSettingsProps = {
   isSaving: boolean;
   message: string;
   hasError: boolean;
+  traceId: string | null;
 };
 
 export function RetrievalSettings({
@@ -23,6 +25,7 @@ export function RetrievalSettings({
   isSaving,
   message,
   hasError,
+  traceId,
 }: RetrievalSettingsProps) {
   function handleChange(
     field: keyof RetrievalSettingsValues,
@@ -97,6 +100,7 @@ export function RetrievalSettings({
           </p>
         )}
       </div>
+      <TraceDetails key={traceId ?? "none"} traceId={traceId} />
     </section>
   );
 }
