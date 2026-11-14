@@ -238,11 +238,14 @@ def ask_question(
     else:
         with trace.span(
             "retrieval",
-            attributes={
-                "dataset": dataset,
-                "retrievers": ",".join(selected_retrievers),
-            },
-        ):
+            attributes=_retrieval_request_attributes(
+                dataset=dataset,
+                retrievers=selected_retrievers,
+                document_ids=document_ids,
+                top_k=top_k,
+                include_path_context=include_path_context,
+            ),
+        ) as span:
             retrieval = retrieve_selected_chunks(
                 question,
                 retrievers=selected_retrievers,
@@ -250,6 +253,7 @@ def ask_question(
                 top_k=top_k,
                 dataset=dataset,
             )
+            _record_retrieval_results(span, retrieval)
     path_context = (
         _build_path_context(retrieval.graph_paths, retrieval.graph_chunks)
         if include_path_context
@@ -272,6 +276,68 @@ def ask_question(
             )
         }
     )
+
+
+TRACE_STRING_LIMIT = 200
+
+
+def _retrieval_request_attributes(
+    *,
+    dataset: str,
+    retrievers: list[RetrieverName],
+    document_ids: list[str] | None,
+    top_k: int | None,
+    include_path_context: bool,
+) -> dict[str, str | int | float | bool]:
+    """Describe the retrieval settings with safe metadata only.
+
+    Selected documents are recorded as a count, not as file names.
+    """
+    attributes: dict[str, str | int | float | bool] = {
+        "dataset": dataset,
+        "retrievers": ",".join(retrievers),
+        "top_k": APP_SETTINGS.top_k if top_k is None else top_k,
+        "chunk_size": APP_SETTINGS.chunk_size,
+        "overlap": APP_SETTINGS.overlap,
+        "document_filter": "all" if document_ids is None else "selected",
+        "include_path_context": include_path_context,
+    }
+    if document_ids is not None:
+        attributes["selected_document_count"] = len(document_ids)
+    if APP_SETTINGS.relevance_threshold is not None:
+        attributes["relevance_threshold"] = APP_SETTINGS.relevance_threshold
+    return attributes
+
+
+def _found_by(contributions: list[dict[str, Any]]) -> str:
+    """Summarize which retrievers found a chunk, e.g. 'dense#2 (cosine_distance 0.3412)'."""
+    parts = []
+    for contribution in contributions:
+        part = f"{contribution['retriever']}#{contribution['rank']}"
+        score = contribution.get("score")
+        score_type = contribution.get("score_type")
+        if isinstance(score, (int, float)) and score_type:
+            part += f" ({score_type} {score:.4f})"
+        parts.append(part)
+    summary = "; ".join(parts)
+    if len(summary) > TRACE_STRING_LIMIT:
+        summary = summary[: TRACE_STRING_LIMIT - 1] + "…"
+    return summary
+
+
+def _record_retrieval_results(span: Any, retrieval: OrchestratedRetrieval) -> None:
+    """Record ranked chunk IDs and retriever contributions, never chunk text."""
+    span.set_attribute("result_count", len(retrieval.chunks))
+    if "graph" in retrieval.retrievers:
+        span.set_attribute("graph_path_count", len(retrieval.graph_paths))
+
+    for chunk in retrieval.chunks:
+        prefix = f"result.{chunk['final_rank']}"
+        span.set_attribute(f"{prefix}.chunk_id", str(chunk["id"])[:TRACE_STRING_LIMIT])
+        span.set_attribute(f"{prefix}.source", str(chunk["source"])[:TRACE_STRING_LIMIT])
+        span.set_attribute(f"{prefix}.position", int(chunk["position"]))
+        span.set_attribute(f"{prefix}.score", round(float(chunk["final_score"]), 6))
+        span.set_attribute(f"{prefix}.found_by", _found_by(chunk["retrievers"]))
 
 
 def _build_path_context(

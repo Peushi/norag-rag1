@@ -5,6 +5,7 @@ import type {
   GraphEntity,
   GraphPath,
   TraceDetail,
+  TraceSpan,
 } from "../types/api";
 import ReactMarkdown from "react-markdown";
 import { getApiErrorMessage, isTraceDetail } from "../types/api";
@@ -150,23 +151,7 @@ function TraceDetails({ traceId }: { traceId?: string | null }) {
               </p>
               <ol className="trace-span-list">
                 {trace.spans.map((span, index) => (
-                  <li key={`${span.name}-${index}`}>
-                    <strong>{span.name}</strong>
-                    <span>{span.status} · {span.duration_ms.toFixed(1)} ms</span>
-                    {Object.keys(span.attributes).length > 0 && (
-                      <dl>
-                        {Object.entries(span.attributes).map(([key, value]) => (
-                          <div key={key}>
-                            <dt>{key}</dt>
-                            <dd>{String(value)}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    )}
-                    {span.error_type && (
-                      <span className="error">Failed: {span.error_type}</span>
-                    )}
-                  </li>
+                  <TraceSpanItem span={span} key={`${span.name}-${index}`} />
                 ))}
               </ol>
             </>
@@ -174,6 +159,90 @@ function TraceDetails({ traceId }: { traceId?: string | null }) {
         </div>
       )}
     </section>
+  );
+}
+
+type TraceAttributeValue = TraceSpan["attributes"][string];
+
+type TraceResult = {
+  rank: number;
+  fields: Record<string, TraceAttributeValue>;
+};
+
+const RESULT_ATTRIBUTE = /^result\.(\d+)\.([a-z_]+)$/;
+
+/** Split flat span attributes into plain metadata and ranked retrieval results. */
+function splitTraceAttributes(attributes: TraceSpan["attributes"]) {
+  const plain: [string, TraceAttributeValue][] = [];
+  const resultsByRank = new Map<number, TraceResult>();
+
+  for (const [key, value] of Object.entries(attributes)) {
+    const match = RESULT_ATTRIBUTE.exec(key);
+    if (!match) {
+      plain.push([key, value]);
+      continue;
+    }
+    const rank = Number(match[1]);
+    const result = resultsByRank.get(rank) ?? { rank, fields: {} };
+    result.fields[match[2]] = value;
+    resultsByRank.set(rank, result);
+  }
+
+  const results = [...resultsByRank.values()].sort((a, b) => a.rank - b.rank);
+  return { plain, results };
+}
+
+function TraceSpanItem({ span }: { span: TraceSpan }) {
+  const { plain, results } = splitTraceAttributes(span.attributes);
+
+  return (
+    <li>
+      <strong>{span.name}</strong>
+      <span>
+        {span.status} · {span.duration_ms.toFixed(1)} ms
+      </span>
+      {plain.length > 0 && (
+        <dl>
+          {plain.map(([key, value]) => (
+            <div key={key}>
+              <dt>{key}</dt>
+              <dd>{String(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {results.length > 0 && (
+        <ol className="trace-result-list" aria-label="Retrieved passages">
+          {results.map(({ rank, fields }) => (
+            <li key={rank}>
+              <span className="trace-result-rank">#{rank}</span>
+              <span>
+                {String(fields.source ?? "unknown source")}
+                {typeof fields.position === "number"
+                  ? ` · chunk ${fields.position + 1}`
+                  : ""}
+                {typeof fields.score === "number"
+                  ? ` · score ${fields.score.toFixed(4)}`
+                  : ""}
+              </span>
+              {fields.found_by !== undefined && (
+                <span className="trace-result-meta">
+                  Found by {String(fields.found_by)}
+                </span>
+              )}
+              {fields.chunk_id !== undefined && (
+                <span className="trace-result-meta">
+                  {String(fields.chunk_id)}
+                </span>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+      {span.error_type && (
+        <span className="error">Failed: {span.error_type}</span>
+      )}
+    </li>
   );
 }
 
