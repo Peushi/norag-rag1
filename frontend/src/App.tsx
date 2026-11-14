@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnswerPanel } from "./components/AnswerPanel";
 import { AnswerStyleControls } from "./components/AnswerStyleControls";
+import { ConceptMap } from "./components/ConceptMap";
 import { DocumentLibrary } from "./components/DocumentLibrary";
 import { DocumentSelector } from "./components/DocumentSelector";
 import { EvaluationRunner } from "./components/EvaluationRunner";
@@ -14,7 +15,7 @@ import { useDocumentSelection } from "./hooks/useDocumentSelection";
 import { useDocuments } from "./hooks/useDocuments";
 import { useRetrievalSettings } from "./hooks/useRetrievalSettings";
 import type { EvaluationDataset } from "./types/evaluations";
-import type { RetrieverName } from "./types/api";
+import type { GraphConcept, RetrieverName } from "./types/api";
 import "../styles/base.css";
 import "../styles/option-1.css";
 import "../styles/ask-experience.css";
@@ -109,6 +110,15 @@ export default function App() {
     }
   }
 
+  const questionRef = useRef<HTMLTextAreaElement>(null);
+
+  /** From the concept map: prefill a question and take the reader to it. */
+  function askAboutConcept(concept: GraphConcept) {
+    setQuestion(`What should I know about ${concept.name}?`);
+    questionRef.current?.focus();
+    questionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
   useEffect(() => {
     void loadDocuments().catch(() => {
       // The document hook exposes the failure through its status.
@@ -200,6 +210,8 @@ export default function App() {
       )}
 
       <div className="workspace" hidden={!isAskView}>
+        {isKestrel && <ConceptMap onAskAbout={askAboutConcept} />}
+
         {!isKestrel && (
           <DocumentLibrary
             documents={documents}
@@ -255,6 +267,7 @@ export default function App() {
             Your question
           </label>
           <textarea
+            ref={questionRef}
             id="question"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}

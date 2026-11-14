@@ -114,6 +114,34 @@ rejected. To be rewritten in my own words for the report.
 - **Rejected:** putting style inside "Search options" (it is a reader choice,
   not a search setting); always-visible controls (too much on the page).
 
+## New feature: Concept Map explorer (Part B, integration)
+
+- **Where:** in the left column when "Search in" is the Kestrel sample (the
+  only corpus with a graph). That column is empty for Kestrel because the
+  document library only manages the user's documents, and it sits next to
+  the question box, so "Ask about this concept" can fill the question.
+- **List, not a drawn graph:** the graph has 37 concepts and 32 relationships.
+  A searchable list grouped by type (error codes, services, teams…) opens one
+  concept's neighbourhood. It works on a phone and with a screen reader.
+  **Rejected:** a force-directed graph drawing (hard to read and to click at
+  this size, and inaccessible).
+- **Relationships read as sentences, from the open concept's side:**
+  "gateway is owned by Platform" and, on Platform's page, "Platform owns
+  gateway". Each neighbour is a link, with "Back to …" to retrace steps.
+- **Evidence:** each relationship shows the passage(s) it was extracted from
+  (the backend checks the extracted quote is still in the passage), and
+  "Read the whole document" opens the full source document.
+- **API:** `GET /api/concepts?query=` (search, not traced: no LLM and no index
+  change, and it runs on every visit), `GET /api/concepts/{id}` (traced as a
+  `concept_map` trace with the neighbourhood span, so opening a concept can be
+  explained like an answer), `GET /api/document-text` (reads one document from
+  the selected corpus; path traversal is refused).
+- **When the map cannot be used:** the graph was built for 800/80 passages. If
+  the user changed these in "Search options", the map explains which settings
+  to restore instead of showing an error code.
+- **Cost:** no LLM calls when exploring; the graph's one-off build cost is in
+  the V3 report.
+
 ## Responsible AI: quarantine review (Part C, integration)
 
 - **API:** `GET /api/quarantine` lists held documents with their findings
