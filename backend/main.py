@@ -63,7 +63,7 @@ from backend.words_analytics import (
     get_word_chunks,
     list_questions,
 )
-from backend.tracing import create_trace, get_trace
+from backend.tracing import create_trace, get_trace, use_indexing_trace
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT_DIR / "frontend"
@@ -74,18 +74,40 @@ app = FastAPI(title="BakeFix RAG API")
 
 
 @app.middleware("http")
-async def trace_ask_requests(request: Request, call_next):
-    if request.method != "POST" or request.url.path != "/api/ask":
+async def trace_pipeline_requests(request: Request, call_next):
+    is_ask = request.method == "POST" and request.url.path == "/api/ask"
+    is_indexing = (
+        (request.method == "POST" and request.url.path == "/api/documents")
+        or (request.method == "DELETE" and request.url.path.startswith("/api/documents/"))
+        or (request.method == "PUT" and request.url.path == "/api/settings")
+    )
+    if not (is_ask or is_indexing):
         return await call_next(request)
 
-    trace = create_trace("question")
+    trace = create_trace("question" if is_ask else "indexing")
     request.state.ask_trace = trace
     try:
-        response = await call_next(request)
+        with use_indexing_trace(trace):
+            response = await call_next(request)
     except Exception:
+        if is_indexing:
+            trace.set_outcome("failed")
         trace.finish("failed")
+        if is_indexing:
+            return JSONResponse(
+                status_code=500,
+                content=APIErrorResponse(error=APIErrorDetail(
+                    code="INDEXING_ERROR", message="Indexing failed.", retryable=True,
+                )).model_dump(),
+                headers={"X-Trace-ID": trace.trace_id},
+            )
         raise
 
+    if is_indexing:
+        if response.status_code >= 400:
+            trace.set_outcome("failed")
+        elif get_trace(trace.trace_id)["outcome"] is None:
+            trace.set_outcome("indexed")
     trace.finish("failed" if response.status_code >= 400 else "completed")
     response.headers["X-Trace-ID"] = trace.trace_id
     return response
@@ -349,13 +371,15 @@ async def upload_document(file: UploadFile = File(...)):
     if not file.filename:
         raise HTTPException(status_code=422, detail="A file is required.")
     safe_name = Path(file.filename).name
+    if safe_name != file.filename or "\\" in file.filename:
+        raise HTTPException(status_code=422, detail="Invalid document filename.")
     if Path(safe_name).suffix.lower() not in {".md", ".txt"}:
         raise HTTPException(status_code=422, detail="Only .md and .txt documents are supported.")
 
     content = await file.read()
     try:
         text = content.decode("utf-8")
-        add_document_and_reindex(
+        result = add_document_and_reindex(
             safe_name,
             text,
             chunk_size=APP_SETTINGS.chunk_size,
@@ -367,7 +391,7 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return {"status": "uploaded", "filename": safe_name}
+    return {**result, "filename": safe_name}
 
 
 @app.delete("/api/documents/{document_id:path}")
@@ -459,11 +483,28 @@ async def trace_endpoint(trace_id: str):
 
 # looks up 1 indexed chunk
 @app.get("/api/chunks/{chunk_id:path}", response_model=ChunkResponse)
-async def chunk_by_id(chunk_id: str):
-    chunk = get_chunk_by_id(chunk_id)
+async def chunk_by_id(
+    chunk_id: str,
+    dataset: Literal["baking", "kestrel"] = "baking",
+    graph_evidence: bool = False,
+):
+    try:
+        if graph_evidence:
+            if dataset != "kestrel":
+                raise ValueError("Graph evidence is Kestrel-only.")
+            from backend.concept_map import get_supporting_chunk
+
+            chunk = get_supporting_chunk(chunk_id)
+        else:
+            chunk = get_chunk_by_id(chunk_id, dataset=dataset)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Graph supporting chunk not found.") from exc
     if not chunk:
         raise HTTPException(status_code=404, detail=f"Chunk '{chunk_id}' not found.")
     return ChunkResponse(chunk=chunk)
+
 
 
 if __name__ == "__main__":

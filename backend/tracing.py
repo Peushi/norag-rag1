@@ -6,6 +6,9 @@ import os
 import re
 import sqlite3
 import threading
+from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import wraps
 import time
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -265,3 +268,49 @@ class TraceSpan:
     ) -> None:
         _validate_attribute(key, value)
         self._attributes[key] = value
+
+
+# Reuse the caller's trace across nested rebuilds; ownership stays with its creator.
+_indexing_trace = ContextVar("bakefix_indexing_trace", default=None)
+
+
+@contextmanager
+def use_indexing_trace(trace):
+    token = _indexing_trace.set(trace)
+    try:
+        yield trace
+    finally:
+        _indexing_trace.reset(token)
+
+
+def indexing_operation(function):
+    """Trace an indexing entry point without creating nested duplicate traces."""
+    @wraps(function)
+    def wrapped(*args, trace=None, **kwargs):
+        current = trace if trace is not None else _indexing_trace.get()
+        owned = current is None
+        if owned:
+            current = create_trace("indexing")
+        try:
+            with use_indexing_trace(current):
+                result = function(*args, trace=current, **kwargs)
+        except Exception:
+            if owned:
+                current.set_outcome("failed")
+                current.finish("failed")
+            raise
+        explicit_outcome = result.get("status") if isinstance(result, dict) else None
+        if explicit_outcome in {"indexed", "quarantined", "rejected"} and hasattr(current, "set_outcome"):
+            current.set_outcome(explicit_outcome)
+        if owned:
+            partial = isinstance(result, dict) and bool(result.get("failed_chunks"))
+            outcome = explicit_outcome if explicit_outcome in {"indexed", "quarantined", "rejected"} else "indexed"
+            if partial:
+                successes = result.get("statistics", {}).get("successful_calls", 0)
+                outcome = "partial" if successes else "failed"
+            current.set_outcome(outcome)
+            current.finish("failed" if partial else "completed")
+        if isinstance(result, dict):
+            result = {**result, "trace_id": current.trace_id}
+        return result
+    return wrapped

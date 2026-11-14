@@ -15,6 +15,7 @@ from backend.chunking import chunk_text
 from backend.bm25 import BM25Index, K1, B
 from backend.graph_retrieval import retrieve_graph
 from backend.documents import PROJECT_ROOT, load_documents
+from backend.tracing import indexing_operation
 from backend.index_settings import validate_settings
 from backend.llm_service import MODEL, generate_answer
 from backend.rag_service import _build_path_context, graph_retriever_output, validate_graph_chunking
@@ -51,62 +52,52 @@ def load_questions(path):
         return [json.loads(line) for line in file if line.strip()]
 
 
-def build_isolated_index(dataset, documents, chunk_size, overlap):
-    index_path = EVALUATION_DIR / "indexes" / dataset
-    index_path.mkdir(parents=True, exist_ok=True)
+@indexing_operation
+def build_isolated_index(dataset, documents, chunk_size, overlap, *, trace=None):
+    """Keep evaluation storage isolated while reusing shared indexing traces."""
+    with trace.span("load_documents", attributes={"dataset": dataset}) as span:
+        # The evaluation runner supplies the documents it has already loaded.
+        span.set_attribute("document_count", len(documents))
+        span.set_attribute("preloaded", True)
 
-    client = chromadb.PersistentClient(path=str(index_path))
-
-    try:
-        client.delete_collection("rag_evaluation")
-    except chromadb.errors.NotFoundError:
-        pass
-
-    embedding_fn = SentenceTransformerEmbeddingFunction(
-        model_name="all-MiniLM-L6-v2"
-    )
-
-    collection = client.create_collection(
-        name="rag_evaluation",
-        embedding_function=embedding_fn,
-        configuration={"hnsw": {"space": "cosine"}},
-    )
-
-    total_chunks = 0
-
-    for document in documents:
-        source = document["source"]
-
-        chunks = chunk_text(
-            document["text"],
-            chunk_size=chunk_size,
-            overlap=overlap,
-        )
-
-        ids = [
-            make_chunk_id(source, chunk["position"])
-            for chunk in chunks
+    with trace.span("chunking", attributes={"chunk_size": chunk_size, "overlap": overlap}) as span:
+        prepared = [
+            (document["source"], chunk_text(document["text"], chunk_size=chunk_size, overlap=overlap))
+            for document in documents
         ]
+        total_chunks = sum(len(chunks) for _, chunks in prepared)
+        span.set_attribute("chunk_count", total_chunks)
 
-        for start in range(0, len(chunks), 100):
-            batch = chunks[start:start + 100]
-            batch_ids = ids[start:start + 100]
-
-            collection.add(
-                ids=batch_ids,
-                documents=[chunk["text"] for chunk in batch],
-                metadatas=[
-                    {
-                        "source": source,
-                        "position": chunk["position"],
-                        "start": chunk["start"],
-                    }
-                    for chunk in batch
-                ],
-            )
-
-        total_chunks += len(chunks)
-
+    with trace.span("embedding_indexing", attributes={
+        "model": "all-MiniLM-L6-v2", "vector_count": 0,
+    }) as span:
+        index_path = EVALUATION_DIR / "indexes" / dataset
+        index_path.mkdir(parents=True, exist_ok=True)
+        client = chromadb.PersistentClient(path=str(index_path))
+        try:
+            client.delete_collection("rag_evaluation")
+        except chromadb.errors.NotFoundError:
+            pass
+        embedding_fn = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+        collection = client.create_collection(
+            name="rag_evaluation",
+            embedding_function=embedding_fn,
+            configuration={"hnsw": {"space": "cosine"}},
+        )
+        indexed = 0
+        for source, chunks in prepared:
+            for start in range(0, len(chunks), 100):
+                batch = chunks[start:start + 100]
+                collection.add(
+                    ids=[make_chunk_id(source, chunk["position"]) for chunk in batch],
+                    documents=[chunk["text"] for chunk in batch],
+                    metadatas=[
+                        {"source": source, "position": chunk["position"], "start": chunk["start"]}
+                        for chunk in batch
+                    ],
+                )
+                indexed += len(batch)
+                span.set_attribute("vector_count", indexed)
     return collection, total_chunks
 
 
