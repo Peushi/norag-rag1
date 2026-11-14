@@ -49,7 +49,9 @@ export function AnswerPanel({ answer }: AnswerPanelProps) {
   return (
     <>
       <div className="answer-title">
-        {answer.kind === "not_found" ? "Not in your notes yet" : "A little guidance"}
+        {answer.kind === "not_found"
+          ? "Not found in these sources yet"
+          : "A little guidance"}
       </div>
       <p
         className={`answer-copy${answer.kind === "not_found" ? " not-found" : ""}`}
@@ -58,7 +60,7 @@ export function AnswerPanel({ answer }: AnswerPanelProps) {
       </p>
       {answer.kind === "answered" && answer.references.length > 0 && (
         <div className="references">
-          <h3>From your notes</h3>
+          <h3>Sources</h3>
           <ul>
             {answer.references.map((reference) => (
               <li key={`${reference.chunk_id}-${reference.position}`}>

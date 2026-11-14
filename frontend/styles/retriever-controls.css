@@ -106,6 +106,47 @@
   opacity: .65;
 }
 
+.advanced-search-options {
+  margin-top: 20px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 252, 246, 0.62);
+}
+
+.advanced-search-options > summary {
+  color: var(--sage);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.advanced-search-options > summary:focus-visible {
+  border-radius: 4px;
+  outline: 3px solid rgba(82, 115, 107, .42);
+  outline-offset: 3px;
+}
+
+.advanced-search-help {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.advanced-search-options .document-scope,
+.advanced-search-options .retrieval-settings,
+.advanced-search-options .retriever-controls {
+  margin-top: 14px;
+}
+
+.keyboard-hint {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+}
+
 .retrieval-details {
   margin-top: 18px;
   padding-top: 15px;

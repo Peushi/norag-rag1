@@ -17,7 +17,9 @@ export function useDocuments() {
       const data: unknown = await response.json();
 
       if (!response.ok) {
-        throw new Error(getApiErrorMessage(data, "Could not load your notes."));
+        throw new Error(
+          getApiErrorMessage(data, "Could not load your documents."),
+        );
       }
 
       if (
@@ -34,7 +36,9 @@ export function useDocuments() {
       setStatus("");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Could not load your notes.";
+        error instanceof Error
+          ? error.message
+          : "Could not load your documents.";
       setStatus(message);
       throw error;
     } finally {

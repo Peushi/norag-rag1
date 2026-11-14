@@ -19,8 +19,8 @@ export function DocumentLibrary({
           +
         </span>
         <div>
-          <h2 id="library-title">Your recipe shelf</h2>
-          <p>Keep your baking notes close.</p>
+          <h2 id="library-title">Your documents</h2>
+          <p>Add manuals and notes for BakeFix to search.</p>
         </div>
       </div>
 
@@ -28,14 +28,14 @@ export function DocumentLibrary({
 
       <div className="library-documents">
         <div className="library-label">
-          <span>Available notes</span>
+          <span>Available documents</span>
           <span className="document-count">{documents.length}</span>
         </div>
 
         <div className="document-list">
           {documents.length === 0 ? (
             <div className="empty-library">
-              Your shelf is ready when you are. Add a note to get started.
+              No documents yet. Add a Markdown or text file to get started.
             </div>
           ) : (
             <ul>
@@ -77,13 +77,13 @@ function DocumentUpload({ onUploaded }: DocumentUploadProps) {
     const form = event.currentTarget;
     if (!file) {
       setUploadError(true);
-      setUploadMessage("Choose a note to add to your shelf.");
+      setUploadMessage("Choose a document to add.");
       return;
     }
 
     setIsUploading(true);
     setUploadError(false);
-    setUploadMessage("Adding your note...");
+    setUploadMessage("Adding and indexing your document...");
 
     try {
       const body = new FormData();
@@ -95,17 +95,21 @@ function DocumentUpload({ onUploaded }: DocumentUploadProps) {
       const data: unknown = await response.json();
 
       if (!response.ok) {
-        throw new Error(getApiErrorMessage(data, "That note could not be added."));
+        throw new Error(
+          getApiErrorMessage(data, "That document could not be added."),
+        );
       }
 
       setFile(null);
       form.reset();
       await onUploaded();
-      setUploadMessage("Your note is on the shelf.");
+      setUploadMessage("Your document is ready to search.");
     } catch (error) {
       setUploadError(true);
       setUploadMessage(
-        error instanceof Error ? error.message : "That note could not be added.",
+        error instanceof Error
+          ? error.message
+          : "That document could not be added.",
       );
     } finally {
       setIsUploading(false);
@@ -119,7 +123,7 @@ function DocumentUpload({ onUploaded }: DocumentUploadProps) {
 
   return (
     <form className="upload-box" onSubmit={(event) => void handleSubmit(event)}>
-      <label htmlFor="file-input">Add a document</label>
+      <label htmlFor="file-input">Choose a document (.md or .txt)</label>
       <input
         type="file"
         id="file-input"
@@ -132,7 +136,7 @@ function DocumentUpload({ onUploaded }: DocumentUploadProps) {
         type="submit"
         disabled={isUploading}
       >
-        {isUploading ? "Adding note..." : "Add to my shelf"}
+        {isUploading ? "Adding document..." : "Add document"}
       </button>
       {uploadMessage && (
         <p

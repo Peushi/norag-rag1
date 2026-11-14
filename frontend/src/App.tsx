@@ -107,13 +107,13 @@ export default function App() {
           </span>
           <span className="brand-name">BakeFix</span>
         </a>
-        <span className="header-note">A calm corner for baking questions</span>
+        <span className="header-note">Answers grounded in your documents</span>
       </header>
 
       <section className="intro" aria-labelledby="page-title">
         <p className="eyebrow">
           {activeTab === "ask"
-            ? "Good baking starts with a little know-how"
+            ? "Good answers start with trusted sources"
             : activeTab === "words"
               ? "Explore the words behind your answers"
               : "Measure retrieval against labeled evidence"}
@@ -121,9 +121,9 @@ export default function App() {
         <h1 id="page-title">
           {activeTab === "ask" ? (
             <>
-              Let&apos;s make your next bake
+              Find a helpful answer
               <br />
-              <em>a little easier.</em>
+              <em>in your documents.</em>
             </>
           ) : activeTab === "words" ? (
             <>
@@ -141,7 +141,7 @@ export default function App() {
         </h1>
         <p className="intro-copy">
           {activeTab === "ask"
-            ? "Ask what's on your mind. BakeFix will look through your kitchen notes and bring back the helpful bits, with sources you can check."
+            ? "Ask a question about your documents. BakeFix finds useful passages and shows you where the answer came from."
             : activeTab === "words"
               ? "See which words appear in the corpus, how often they occur, and which chunks contain them."
               : "Compare the measured baseline and smaller chunks using hit rate, evidence recall, and per-question results."}
@@ -205,10 +205,10 @@ export default function App() {
               ?
             </span>
             <div>
-              <h2>What&apos;s happening in your kitchen?</h2>
+              <h2>What would you like to know?</h2>
               <p>
                 {askDataset === "baking"
-                  ? "No question is too small. Start wherever you are."
+                  ? "Ask about a recipe, appliance, or kitchen problem."
                   : "Ask across the Kestrel knowledge base."}
               </p>
             </div>
@@ -225,7 +225,7 @@ export default function App() {
                 )
               }
             >
-              <option value="baking">Baking notes</option>
+              <option value="baking">My documents</option>
               <option value="kestrel">Kestrel KB</option>
             </select>
           </label>
@@ -244,39 +244,46 @@ export default function App() {
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             onKeyDown={handleQuestionKeyDown}
-            placeholder="For example: Why is my dough not rising?"
+            placeholder="Ask a question about the documents you added..."
           />
 
-          {askDataset === "baking" && (
-            <DocumentSelector
-              documents={documents}
-              isLoading={isLoadingDocuments}
-              selectedDocumentIds={selectedDocumentIds}
-              dispatch={selectionDispatch}
+          <details className="advanced-search-options">
+            <summary>Advanced search options</summary>
+            <p className="advanced-search-help">
+              By default, BakeFix searches all available documents with the
+              recommended settings.
+            </p>
+            {askDataset === "baking" && (
+              <DocumentSelector
+                documents={documents}
+                isLoading={isLoadingDocuments}
+                selectedDocumentIds={selectedDocumentIds}
+                dispatch={selectionDispatch}
+              />
+            )}
+
+            <RetrievalSettings
+              settings={settings}
+              updateSetting={updateSetting}
+              saveSettings={saveSettings}
+              isSaving={isSaving}
+              message={settingsMessage}
+              hasError={settingsHasError}
             />
-          )}
 
-          <RetrievalSettings
-            settings={settings}
-            updateSetting={updateSetting}
-            saveSettings={saveSettings}
-            isSaving={isSaving}
-            message={settingsMessage}
-            hasError={settingsHasError}
-          />
-
-          <RetrieverControls
-            dataset={askDataset}
-            selectedRetrievers={selectedRetrievers}
-            onToggleRetriever={toggleRetriever}
-            includePathContext={includePathContext}
-            onPathContextChange={setIncludePathContext}
-          />
+            <RetrieverControls
+              dataset={askDataset}
+              selectedRetrievers={selectedRetrievers}
+              onToggleRetriever={toggleRetriever}
+              includePathContext={includePathContext}
+              onPathContextChange={setIncludePathContext}
+            />
+          </details>
 
           <div className="question-actions">
             <span className="helper-copy">
               {askDataset === "baking"
-                ? "Answers are based on the documents on your shelf."
+                ? "Answers include passages from your selected documents."
                 : "Answers are based on the Kestrel knowledge base."}
             </span>
             <button
@@ -288,12 +295,15 @@ export default function App() {
               Find an answer <span aria-hidden="true">→</span>
             </button>
           </div>
+          <p className="keyboard-hint">
+            Tip: press ⌘/Ctrl + Enter to ask.
+          </p>
           <div id="status" role="status" aria-live="polite">
             {status}
             {askDataset === "baking" &&
             isLoadingDocuments &&
             !status
-              ? "Loading your notes..."
+              ? "Loading your documents..."
               : ""}
           </div>
 

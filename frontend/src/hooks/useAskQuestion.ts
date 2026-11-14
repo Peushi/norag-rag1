@@ -58,7 +58,7 @@ export function useAskQuestion({
       return;
     }
 
-    setStatus("Looking through your notes...");
+    setStatus("Searching your documents...");
     setAnswer({ kind: "loading" });
 
     let traceId: string | null = null;
