@@ -115,7 +115,7 @@ export type TraceDetail = {
 export type Answer =
   | { kind: "empty"; text: string }
   | { kind: "loading" }
-  | { kind: "error"; text: string; trace_id?: string | null }
+  | { kind: "error"; text: string; retryable?: boolean; trace_id?: string | null }
   | { kind: "not_found"; text: string; retrieval?: AskRetrieval | null; trace_id?: string | null }
   | {
       kind: "answered";
@@ -124,6 +124,29 @@ export type Answer =
       retrieval?: AskRetrieval | null;
       trace_id?: string | null;
     };
+
+export type ApiErrorDetail = {
+  code: string;
+  message: string;
+  retryable: boolean;
+};
+
+/** Read the backend's { error: { code, message, retryable } } body, if present. */
+export function getApiErrorDetail(value: unknown): ApiErrorDetail | null {
+  if (typeof value !== "object" || value === null || !("error" in value)) {
+    return null;
+  }
+  const error = value.error;
+  if (typeof error !== "object" || error === null) {
+    return null;
+  }
+  const record = error as Record<string, unknown>;
+  return {
+    code: typeof record.code === "string" ? record.code : "UNKNOWN",
+    message: typeof record.message === "string" ? record.message : "",
+    retryable: record.retryable === true,
+  };
+}
 
 export function getApiErrorMessage(value: unknown, fallback: string): string {
   if (typeof value !== "object" || value === null || !("error" in value)) {

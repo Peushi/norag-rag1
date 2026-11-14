@@ -10,24 +10,45 @@ import "../../styles/retriever-controls.css";
 
 type AnswerPanelProps = {
   answer: Answer;
+  onRetry: () => void;
 };
 
-export function AnswerPanel({ answer }: AnswerPanelProps) {
+/** Make the start of a passage readable as a quote: drop Markdown markers. */
+function cleanQuote(text: string): string {
+  const plain = text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (plain.length < 240) {
+    return plain;
+  }
+  const cut = plain.slice(0, 240);
+  return `${cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : 240)}…`;
+}
+
+export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
   if (answer.kind === "loading") {
     return (
       <div className="answer-placeholder">
         <span className="placeholder-mark" aria-hidden="true">
           ~
         </span>
-        <p>Gathering the helpful bits...</p>
+        <p>Reading your documents and writing an answer… This usually takes a few seconds.</p>
       </div>
     );
   }
 
   if (answer.kind === "error") {
     return (
-      <div className="error">
+      <div className="answer-error" role="alert">
+        <div className="answer-title">Something went wrong</div>
         <p>{answer.text}</p>
+        {answer.retryable !== false && (
+          <button type="button" className="button secondary" onClick={onRetry}>
+            Try again
+          </button>
+        )}
         <TraceDetails key={answer.trace_id ?? "none"} traceId={answer.trace_id} />
       </div>
     );
@@ -47,25 +68,38 @@ export function AnswerPanel({ answer }: AnswerPanelProps) {
   return (
     <>
       <div className="answer-title">
-        {answer.kind === "not_found"
-          ? "Not found in these sources yet"
-          : "A little guidance"}
+        {answer.kind === "not_found" ? "Not in your documents" : "Answer"}
       </div>
-      <p
-        className={`answer-copy${answer.kind === "not_found" ? " not-found" : ""}`}
-      >
-        {answer.text}
-      </p>
+      {answer.kind === "not_found" ? (
+        <div className="answer-copy not-found">
+          <p>{answer.text}</p>
+          <p className="not-found-help">What you can try:</p>
+          <ul className="not-found-tips">
+            <li>Rephrase the question with the words your documents use.</li>
+            <li>
+              Check “Search options”: some of your documents may be left out.
+            </li>
+            <li>Add a recipe, note or manual that covers this topic.</li>
+          </ul>
+        </div>
+      ) : (
+        <div className="answer-copy answer-markdown">
+          <ReactMarkdown skipHtml>{answer.text}</ReactMarkdown>
+        </div>
+      )}
       {answer.kind === "answered" && answer.references.length > 0 && (
         <div className="references">
-          <h3>Sources</h3>
+          <h3>Where this comes from</h3>
           <ul>
-            {answer.references.map((reference) => (
+            {answer.references.map((reference, index) => (
               <li key={`${reference.chunk_id}-${reference.position}`}>
                 <span className="reference-meta">
-                  {reference.source} · note {reference.position + 1}
+                  [{index + 1}] {reference.source} · passage{" "}
+                  {reference.position + 1}
                 </span>
-                <span className="reference-quote">“{reference.quote}”</span>
+                <span className="reference-quote">
+                  “{cleanQuote(reference.quote)}”
+                </span>
               </li>
             ))}
           </ul>
@@ -83,8 +117,8 @@ function RetrievalDetails({ retrieval }: { retrieval: AskRetrieval }) {
   );
 
   return (
-    <section className="retrieval-details" aria-label="Retrieval details">
-      <h3>How the evidence was found</h3>
+    <details className="retrieval-details">
+      <summary>How BakeFix found these passages (technical details)</summary>
       <ul className="retrieval-method-list">
         {retrieval.retrievers.map((retriever) => (
           <li key={retriever}>{retrieverLabel(retriever)}</li>
@@ -142,7 +176,7 @@ function RetrievalDetails({ retrieval }: { retrieval: AskRetrieval }) {
           )}
         </div>
       )}
-    </section>
+    </details>
   );
 }
 

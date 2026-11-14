@@ -10,19 +10,27 @@ import { TraceDetails } from "./TraceDetails";
 
 type DocumentLibraryProps = {
   documents: DocumentSummary[];
+  isLoading: boolean;
+  loadError: string;
+  onRetryLoad: () => void;
   onDelete: (document: DocumentSummary) => Promise<IndexingActivity>;
   onUploaded: () => Promise<void>;
 };
 
 export function DocumentLibrary({
   documents,
+  isLoading,
+  loadError,
+  onRetryLoad,
   onDelete,
   onUploaded,
 }: DocumentLibraryProps) {
   const [activity, setActivity] = useState<IndexingActivity | null>(null);
   const [busyDocumentId, setBusyDocumentId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   async function handleDelete(document: DocumentSummary) {
+    setConfirmingId(null);
     setBusyDocumentId(document.id);
     setActivity({
       message: `Removing “${document.name}” and updating search…`,
@@ -44,7 +52,7 @@ export function DocumentLibrary({
         </span>
         <div>
           <h2 id="library-title">Your documents</h2>
-          <p>Add manuals and notes for BakeFix to search.</p>
+          <p>Recipes, baking notes and appliance manuals that BakeFix searches.</p>
         </div>
       </div>
 
@@ -59,9 +67,22 @@ export function DocumentLibrary({
         </div>
 
         <div className="document-list">
-          {documents.length === 0 ? (
+          {isLoading && documents.length === 0 ? (
+            <div className="empty-library" role="status">
+              Loading your documents…
+            </div>
+          ) : loadError ? (
+            <div className="empty-library library-error" role="alert">
+              <p>Your documents couldn’t be loaded: {loadError}</p>
+              <button type="button" className="button secondary" onClick={onRetryLoad}>
+                Try again
+              </button>
+            </div>
+          ) : documents.length === 0 ? (
             <div className="empty-library">
-              No documents yet. Add a Markdown or text file to get started.
+              No documents yet. Add a recipe, note or appliance manual as a
+              <strong> .md</strong> or <strong>.txt</strong> file, then ask your
+              first question.
             </div>
           ) : (
             <ul>
@@ -70,15 +91,35 @@ export function DocumentLibrary({
                   <span className="document-name" title={document.name}>
                     {document.name}
                   </span>
-                  <button
-                    type="button"
-                    className="delete-doc"
-                    aria-label={`Remove ${document.name}`}
-                    disabled={busyDocumentId !== null}
-                    onClick={() => void handleDelete(document)}
-                  >
-                    {busyDocumentId === document.id ? "Removing…" : "Remove"}
-                  </button>
+                  {confirmingId === document.id ? (
+                    <span className="delete-confirm">
+                      <span>Remove from BakeFix?</span>
+                      <button
+                        type="button"
+                        className="delete-doc danger"
+                        onClick={() => void handleDelete(document)}
+                      >
+                        Remove
+                      </button>
+                      <button
+                        type="button"
+                        className="delete-doc"
+                        onClick={() => setConfirmingId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="delete-doc"
+                      aria-label={`Remove ${document.name}`}
+                      disabled={busyDocumentId !== null}
+                      onClick={() => setConfirmingId(document.id)}
+                    >
+                      {busyDocumentId === document.id ? "Removing…" : "Remove"}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
