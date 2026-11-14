@@ -1,3 +1,4 @@
+
 """Local personal information detection and redaction using Presidio."""
 
 import re
@@ -40,24 +41,35 @@ PERSONAL_ENTITIES = [
     "US_SSN",
 ]
 
-# Preserve generic labels commonly used in graph fixtures and documentation.
 PLACEHOLDER_PATTERN = re.compile(
     r"\b(?:Person|Location|Entity)\s+[A-Z]\b"
+)
+
+EMAIL_PATTERN = re.compile(
+    r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
+    re.IGNORECASE,
+)
+
+# Match common grouped phone formats without matching ordinary dates
+# such as 2026-11-14 or short technical identifiers such as KST-2044.
+PHONE_PATTERN = re.compile(
+    r"(?<!\w)"
+    r"(?!\d{4}[-/]\d{2}[-/]\d{2}\b)"
+    r"(?:\+\d{1,3}[\s.-]?)?"
+    r"(?:\(?\d{2,4}\)?[\s.-]){2,4}"
+    r"\d{2,4}"
+    r"(?!\w)"
 )
 
 
 def redact_personal_data(text: str) -> str:
     """
-    Detect and replace personal information locally.
-
-    Generic entity labels are protected from false-positive detection.
-    The original input is never modified.
+    Apply Presidio detection to text that may contain personal names
+    and other personal information.
     """
     if not text:
         return text
 
-    # Mask placeholders with spaces so Presidio cannot classify them.
-    # Keeping the same length preserves all detection character offsets.
     analysis_text = PLACEHOLDER_PATTERN.sub(
         lambda match: " " * len(match.group()),
         text,
@@ -91,3 +103,17 @@ def redact_personal_data(text: str) -> str:
         last_start = result.start
 
     return redacted_text
+
+
+def redact_contact_patterns(text: str) -> str:
+    """
+    Redact email addresses and common phone formats without
+    applying person-name detection to document content.
+    """
+    if not text:
+        return text
+
+    text = EMAIL_PATTERN.sub("[REDACTED_EMAIL_ADDRESS]", text)
+    text = PHONE_PATTERN.sub("[REDACTED_PHONE_NUMBER]", text)
+
+    return text

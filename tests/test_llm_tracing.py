@@ -1,4 +1,3 @@
-
 import json
 import unittest
 from types import SimpleNamespace
@@ -141,21 +140,24 @@ class LLMTracingTests(unittest.TestCase):
 
         private_chunk = {
             "id": "chunk-1",
-            "text": "Contact John Smith at john@example.com.",
+            "text": "Contact Jane Smith at jane@example.com.",
             "source": "private.pdf",
             "position": 0,
         }
 
+        question = "My name is John Smith. Who should I contact?"
         client = self.mock_client()
 
-        def fake_redaction(prompt):
-            return (
-                prompt
-                .replace("John Smith", "[REDACTED_PERSON]")
-                .replace(
-                    "john@example.com",
-                    "[REDACTED_EMAIL_ADDRESS]",
-                )
+        def fake_personal_redaction(text):
+            return text.replace(
+                "John Smith",
+                "[REDACTED_PERSON]",
+            )
+
+        def fake_contact_redaction(text):
+            return text.replace(
+                "jane@example.com",
+                "[REDACTED_EMAIL_ADDRESS]",
             )
 
         with (
@@ -163,11 +165,16 @@ class LLMTracingTests(unittest.TestCase):
             patch.object(
                 llm_service,
                 "redact_personal_data",
-                side_effect=fake_redaction,
-            ),
+                side_effect=fake_personal_redaction,
+            ) as personal_redaction,
+            patch.object(
+                llm_service,
+                "redact_contact_patterns",
+                side_effect=fake_contact_redaction,
+            ) as contact_redaction,
         ):
             llm_service.generate_answer(
-                "Who should I contact?",
+                question,
                 [private_chunk],
                 trace=trace,
             )
@@ -178,9 +185,16 @@ class LLMTracingTests(unittest.TestCase):
             ][1]["content"]
         )
 
+        personal_redaction.assert_called_once_with(question)
+        contact_redaction.assert_called_once()
+
+        # Full Presidio redaction applies to the question.
         self.assertNotIn("John Smith", sent_prompt)
-        self.assertNotIn("john@example.com", sent_prompt)
         self.assertIn("[REDACTED_PERSON]", sent_prompt)
+
+        # Retrieved chunks preserve names but redact contact details.
+        self.assertIn("Jane Smith", sent_prompt)
+        self.assertNotIn("jane@example.com", sent_prompt)
         self.assertIn("[REDACTED_EMAIL_ADDRESS]", sent_prompt)
 
     def test_validation_failure_marks_span_as_failed(self):
