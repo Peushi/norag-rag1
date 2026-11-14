@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -97,7 +98,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content=APIErrorResponse(
-            error=APIErrorDetail(code="VALIDATION_ERROR", message="Request validation failed.", retryable=False)
+            error=APIErrorDetail(code="VALIDATION_ERROR", message="Requestvalidation failed.", retryable=False)
         ).model_dump(),
     )
 
@@ -420,7 +421,6 @@ async def retrieve_endpoint(payload: RetrieveRequest):
     )
 
 
-
 # full question - answer route
 # retreives relevant chunks and passes them
 @app.post("/api/ask", response_model=AskResponse)
@@ -435,6 +435,7 @@ async def ask_endpoint(payload: AskRequest, request: Request):
             top_k=payload.top_k,
             include_path_context=payload.include_path_context,
             trace=trace,
+            style=payload.style,
         )
     except RetrieverUnavailableError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
@@ -454,7 +455,6 @@ async def trace_endpoint(trace_id: str):
     if trace is None:
         raise HTTPException(status_code=404, detail="Trace not found.")
     return trace
-
 
 
 # looks up 1 indexed chunk

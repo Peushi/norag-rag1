@@ -1,9 +1,9 @@
-
 import json
 import time
 
 from pydantic import ValidationError
 
+from backend.cost_tracking import calculate_cost_usd
 from backend.graph_schemas import GraphExtraction, GraphTriple
 from backend.llm_service import (
     MODEL,
@@ -121,13 +121,22 @@ def extract_graph_from_chunk(chunk: dict) -> dict:
             )
         )
 
-    usage = response.usage
+    usage = getattr(response, "usage", None)
+    prompt_tokens = getattr(usage, "prompt_tokens", None)
+    completion_tokens = getattr(usage, "completion_tokens", None)
+
+    cost_usd = calculate_cost_usd(
+        MODEL,
+        prompt_tokens,
+        completion_tokens,
+    )
 
     return {
         "triples": validated_triples,
         "invalid_triples": invalid_triples,
         "llm_calls": 1,
-        "prompt_tokens": usage.prompt_tokens if usage else None,
-        "completion_tokens": usage.completion_tokens if usage else None,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "cost_usd": cost_usd,
         "build_time_seconds": time.perf_counter() - start_time,
     }
