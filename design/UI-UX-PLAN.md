@@ -39,22 +39,45 @@ with layout refinements and an accessibility/responsive review.
 
 ## Confirmed product audience and corpus
 
-The team agreed that BakeFix is for home bakers and will use baking recipes as
-its corpus. The current files in `docs/` do not yet match that decision: they
-include literary text and an espresso-machine manual. Replace or move those
-sample documents out of the indexed corpus when the agreed baking recipes are
-available; do not silently index them as BakeFix baking content.
+BakeFix is for home cooks: people who bake and want answers from their own
+recipes, baking notes, and kitchen appliance manuals. This V4 decision widens
+the earlier "home bakers only" scope so that appliance manuals belong in the
+library; the Vellora Duo espresso-machine manual in `docs/` is the realistic
+document we use to exercise the full journey (upload, ask, open the trace).
+
+The baking guides in `corpus/` are the default "My documents" library. The
+Kestrel knowledge base stays available as a clearly labelled sample
+("Sample: Kestrel Analytics (demo company)") because the Concept Map explorer
+and the graph retriever only work on Kestrel. It is read-only and never mixed
+with the user's documents.
 
 ## Audience-focused design recommendations
 
 - Keep the warm visual identity, but bring the question field higher on the
   page so users can get help quickly.
-- Use practical, reassuring copy. Make clear that answers come from the user's
-  notes and may not cover every baking situation.
-- Provide baking-specific example questions, such as "Why didn't my dough
-  rise?", and tell users that `.txt` and `.md` notes can be added.
+- Use practical, reassuring copy. Make clear that answers come only from the
+  user's documents and may not cover every kitchen situation.
+- Provide example questions that match the selected knowledge base, such as
+  "Why didn't my bread dough rise?" for the user's documents, and tell users
+  that `.txt` and `.md` recipes, notes, and manuals can be added.
 - If supported by the corpus, offer optional starting topics such as dough,
-  ovens, ingredients, and storage.
+  ovens, ingredients, storage, and appliance care.
 - Make cited source documents and supporting passages easy to inspect.
-- Keep examples and UI labels tied to common recipe questions and recipe
-  terminology.
+- Keep examples and UI labels in everyday kitchen language; avoid retrieval
+  terms (chunks, top-k, RRF) outside "Search options" and technical details.
+
+## V4 navigation and visibility decisions
+
+- **Ask is the only main view.** Words analytics and the evaluation runner are
+  developer tools; they moved to a secondary "Behind the answers" area in the
+  header, one click away, each with a "Back to asking" link.
+- **Technical controls are secondary.** Document scope, retrieval methods, and
+  chunk settings live under a collapsed "Search options" panel below the ask
+  button. Retrieval ranks and scores sit under a collapsed "technical details"
+  section of each answer; the full trace opens from "Details".
+- **Every state says what to do next.** Loading, empty library, failed load,
+  "not in your documents", and errors each explain the next step; errors only
+  offer "Try again" when retrying can help.
+- **Destructive actions ask first.** Removing a document needs an inline
+  confirmation, and every upload, removal, or settings change shows its
+  outcome with a link to its indexing trace.

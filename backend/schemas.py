@@ -183,7 +183,7 @@ class TraceResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     trace_id: str
-    operation: Literal["question", "indexing"]
+    operation: Literal["question", "indexing", "concept_map"]
     status: Literal["running", "completed", "failed"]
     outcome: str | None = None
     started_at: str
@@ -242,6 +242,50 @@ class DocumentListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     documents: list[DocumentSummary]
+
+
+class DocumentTextResponse(BaseModel):
+    """The full text of one document, for reading the source of an answer or concept."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    document_id: str
+    dataset: EvaluationDataset
+    text: str
+
+
+class QuarantineFinding(BaseModel):
+    """One scanner match; the excerpt is short and masked by the scanner."""
+
+    rule_id: str
+    message: str
+    severity: str
+    line: int = Field(ge=1)
+    excerpt: str
+
+
+class QuarantineItem(BaseModel):
+    """A held document awaiting review; its full text is never returned."""
+
+    id: str
+    source: str
+    dataset: str
+    status: Literal["quarantined", "releasing"]
+    findings: list[QuarantineFinding]
+    created_at: str
+    trace_id: str | None = None
+
+
+class QuarantineListResponse(BaseModel):
+    items: list[QuarantineItem]
+
+
+class QuarantineReleaseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    approved: bool = Field(
+        description="Must be true: the reviewer confirms the document is safe to index."
+    )
 
 
 class SettingsRequest(BaseModel):
