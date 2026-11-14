@@ -1,7 +1,10 @@
 import { useState, type KeyboardEvent } from "react";
 import {
-  getApiErrorMessage,
+  getApiErrorDetail,
   isAskResponse,
+  readJson,
+  toGlossary,
+  type AnswerStyle,
   type Answer,
   type RetrieverName,
 } from "../types/api";
@@ -18,6 +21,7 @@ type UseAskQuestionOptions = {
   dataset: "baking" | "kestrel";
   retrievers: RetrieverName[];
   includePathContext: boolean;
+  style: AnswerStyle;
 };
 
 export function useAskQuestion({
@@ -27,6 +31,7 @@ export function useAskQuestion({
   dataset,
   retrievers,
   includePathContext,
+  style,
 }: UseAskQuestionOptions) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer>(EMPTY_ANSWER);
@@ -40,12 +45,14 @@ export function useAskQuestion({
     }
 
     if (documentCount === 0) {
-      setStatus("There are no documents to search. Add a document first.");
+      setStatus(
+        "There are no documents to search yet. Add a recipe, note or manual first.",
+      );
       return;
     }
 
     if (retrievers.length === 0) {
-      setStatus("Select at least one retrieval method.");
+      setStatus("Open “Search options” and turn on at least one search method.");
       return;
     }
 
@@ -54,12 +61,17 @@ export function useAskQuestion({
       selectedDocumentIds !== null &&
       selectedDocumentIds.length === 0
     ) {
-      setStatus("Select at least one document to search.");
+      setStatus("Open “Search options” and choose at least one document to search.");
       return;
     }
 
-    setStatus("Searching your documents...");
+    setStatus("");
     setAnswer({ kind: "loading" });
+    // Remember the style this answer was requested in, even if the reader
+    // changes the controls while waiting.
+    const requestStyle: AnswerStyle = style.eli12
+      ? { ...style, level: "beginner" }
+      : style;
 
     let traceId: string | null = null;
     try {
@@ -73,46 +85,55 @@ export function useAskQuestion({
           top_k: topK,
           retrievers,
           include_path_context: includePathContext,
+          style: requestStyle,
         }),
       });
       traceId = response.headers.get("x-trace-id");
-      const data: unknown = await response.json();
+      const data = await readJson(response);
 
       if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(data, "Something went wrong. Please try again."),
-        );
+        const failure = describeAskFailure(data);
+        setAnswer({ kind: "error", ...failure, trace_id: traceId });
+        return;
       }
 
       if (!isAskResponse(data)) {
-        throw new Error("The server returned an invalid answer.");
+        setAnswer({
+          kind: "error",
+          text: "BakeFix received an answer it couldn’t read. Please try again.",
+          retryable: true,
+          trace_id: traceId,
+        });
+        return;
       }
 
       if (data.status === "not_found") {
         setAnswer({
           kind: "not_found",
           text: data.answer,
+          style: requestStyle,
           retrieval: data.retrieval,
           trace_id: data.trace_id ?? traceId,
         });
-        setStatus("No matching note found.");
       } else {
         setAnswer({
           kind: "answered",
           text: data.answer,
+          style: requestStyle,
           references: data.references,
+          glossary: toGlossary(data.glossary),
           retrieval: data.retrieval,
           trace_id: data.trace_id ?? traceId,
         });
-        setStatus("Here’s what I found.");
       }
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Something went wrong. Please try again.";
-      setAnswer({ kind: "error", text: message, trace_id: traceId });
-      setStatus("We couldn’t find an answer just now.");
+    } catch {
+      // fetch only throws when the server cannot be reached at all.
+      setAnswer({
+        kind: "error",
+        text: "BakeFix can’t reach its server. Make sure the backend is running, then try again.",
+        retryable: true,
+        trace_id: traceId,
+      });
     }
   }
 
@@ -130,4 +151,49 @@ export function useAskQuestion({
     askQuestion,
     handleQuestionKeyDown,
   };
+}
+
+/** Turn an API error into a message a non-programmer can act on. */
+function describeAskFailure(data: unknown): { text: string; retryable: boolean } {
+  const detail = getApiErrorDetail(data);
+  switch (detail?.code) {
+    case "LLM_UNAVAILABLE":
+      if (detail.message.includes("GOOGLE_API_KEY")) {
+        return {
+          text: "BakeFix isn’t set up to write answers yet: add your GOOGLE_API_KEY to the .env file (see the README), then restart the server.",
+          retryable: false,
+        };
+      }
+      return {
+        text: "The answer service isn’t available right now. Check your internet connection and try again in a moment.",
+        retryable: true,
+      };
+    case "LLM_TIMEOUT":
+      return { text: "The answer took too long to arrive. Please try again.", retryable: true };
+    case "LLM_INVALID_RESPONSE":
+      return {
+        text: "BakeFix couldn’t check this answer against your documents, so it didn’t show it. Try again, or rephrase your question.",
+        retryable: true,
+      };
+    case "LLM_UPSTREAM_ERROR":
+      return {
+        text: "The answer service returned an error. Please try again in a moment.",
+        retryable: detail.retryable,
+      };
+    case "VALIDATION_ERROR":
+      return {
+        text: "That question couldn’t be sent. Check that it isn’t empty, then try again.",
+        retryable: false,
+      };
+    case "INDEXING_ERROR":
+      return {
+        text: "Your documents couldn’t be prepared for search. Please try again.",
+        retryable: true,
+      };
+    default:
+      return {
+        text: detail?.message ?? "Something went wrong. Please try again.",
+        retryable: detail?.retryable ?? true,
+      };
+  }
 }

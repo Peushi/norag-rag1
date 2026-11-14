@@ -13,6 +13,28 @@ export type AnswerReference = {
 
 export type RetrieverName = "dense" | "bm25" | "graph";
 
+/** How the answer should be written; mirrors the backend AnswerStyle model. */
+export type AnswerStyle = {
+  level: "beginner" | "expert";
+  tone: "friendly" | "professional" | "technical";
+  length: "short" | "medium" | "long";
+  eli12: boolean;
+};
+
+export const DEFAULT_ANSWER_STYLE: AnswerStyle = {
+  level: "beginner",
+  tone: "friendly",
+  length: "medium",
+  eli12: false,
+};
+
+/** A term from the answer, defined only from a cited passage. */
+export type GlossaryEntry = {
+  term: string;
+  definition: string;
+  chunk_id: string;
+};
+
 export type RetrieverContribution = {
   retriever: RetrieverName;
   rank: number;
@@ -88,6 +110,7 @@ export type AskResponse = {
   status: "answered" | "not_found";
   answer: string;
   references: AnswerReference[];
+  glossary?: GlossaryEntry[];
   retrieval?: AskRetrieval | null;
   trace_id?: string | null;
 };
@@ -115,15 +138,46 @@ export type TraceDetail = {
 export type Answer =
   | { kind: "empty"; text: string }
   | { kind: "loading" }
-  | { kind: "error"; text: string; trace_id?: string | null }
-  | { kind: "not_found"; text: string; retrieval?: AskRetrieval | null; trace_id?: string | null }
+  | { kind: "error"; text: string; retryable?: boolean; trace_id?: string | null }
+  | {
+      kind: "not_found";
+      text: string;
+      style: AnswerStyle;
+      retrieval?: AskRetrieval | null;
+      trace_id?: string | null;
+    }
   | {
       kind: "answered";
       text: string;
+      style: AnswerStyle;
       references: AnswerReference[];
+      glossary: GlossaryEntry[];
       retrieval?: AskRetrieval | null;
       trace_id?: string | null;
     };
+
+export type ApiErrorDetail = {
+  code: string;
+  message: string;
+  retryable: boolean;
+};
+
+/** Read the backend's { error: { code, message, retryable } } body, if present. */
+export function getApiErrorDetail(value: unknown): ApiErrorDetail | null {
+  if (typeof value !== "object" || value === null || !("error" in value)) {
+    return null;
+  }
+  const error = value.error;
+  if (typeof error !== "object" || error === null) {
+    return null;
+  }
+  const record = error as Record<string, unknown>;
+  return {
+    code: typeof record.code === "string" ? record.code : "UNKNOWN",
+    message: typeof record.message === "string" ? record.message : "",
+    retryable: record.retryable === true,
+  };
+}
 
 export function getApiErrorMessage(value: unknown, fallback: string): string {
   if (typeof value !== "object" || value === null || !("error" in value)) {
@@ -138,6 +192,86 @@ export function getApiErrorMessage(value: unknown, fallback: string): string {
   return typeof error.message === "string" ? error.message : fallback;
 }
 
+/** One passage the injection scanner flagged; the excerpt is short and masked. */
+export type QuarantineFinding = {
+  rule_id: string;
+  message: string;
+  severity: string;
+  line: number;
+  excerpt: string;
+};
+
+/** A document held for review; its full text never leaves the backend. */
+export type QuarantineItem = {
+  id: string;
+  source: string;
+  dataset: string;
+  status: "quarantined" | "releasing";
+  findings: QuarantineFinding[];
+  created_at: string;
+  trace_id?: string | null;
+};
+
+function isQuarantineFinding(value: unknown): value is QuarantineFinding {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "rule_id" in value &&
+    typeof value.rule_id === "string" &&
+    "message" in value &&
+    typeof value.message === "string" &&
+    "line" in value &&
+    typeof value.line === "number" &&
+    "excerpt" in value &&
+    typeof value.excerpt === "string"
+  );
+}
+
+export function isQuarantineItem(value: unknown): value is QuarantineItem {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    "source" in value &&
+    typeof value.source === "string" &&
+    "status" in value &&
+    (value.status === "quarantined" || value.status === "releasing") &&
+    "findings" in value &&
+    Array.isArray(value.findings) &&
+    value.findings.every(isQuarantineFinding)
+  );
+}
+
+/** The result of a change that rebuilds the index (upload, removal, settings). */
+export type IndexingActivity = {
+  message: string;
+  tone: "success" | "warning" | "error";
+  traceId: string | null;
+};
+
+/** Read the trace ID from a JSON body, falling back to the X-Trace-ID header. */
+export function getTraceId(response: Response, data: unknown): string | null {
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    "trace_id" in data &&
+    typeof data.trace_id === "string"
+  ) {
+    return data.trace_id;
+  }
+  return response.headers.get("x-trace-id");
+}
+
+/** Read a JSON body without throwing when the server returned something else. */
+export async function readJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 export function isDocumentSummary(value: unknown): value is DocumentSummary {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -150,6 +284,25 @@ export function isDocumentSummary(value: unknown): value is DocumentSummary {
     typeof value.name === "string" &&
     "size_bytes" in value &&
     typeof value.size_bytes === "number"
+  );
+}
+
+/** Keep only well-formed glossary entries; a bad entry never hides the answer. */
+export function toGlossary(value: unknown): GlossaryEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (entry: unknown): entry is GlossaryEntry =>
+      typeof entry === "object" &&
+      entry !== null &&
+      "term" in entry &&
+      typeof entry.term === "string" &&
+      entry.term.trim() !== "" &&
+      "definition" in entry &&
+      typeof entry.definition === "string" &&
+      "chunk_id" in entry &&
+      typeof entry.chunk_id === "string",
   );
 }
 

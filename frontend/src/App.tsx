@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnswerPanel } from "./components/AnswerPanel";
+import { AnswerStyleControls } from "./components/AnswerStyleControls";
 import { DocumentLibrary } from "./components/DocumentLibrary";
 import { DocumentSelector } from "./components/DocumentSelector";
 import { EvaluationRunner } from "./components/EvaluationRunner";
@@ -7,6 +8,7 @@ import { RetrievalSettings } from "./components/RetrievalSettings";
 import { RetrievalComparison } from "./components/RetrievalComparison";
 import { RetrieverControls } from "./components/RetrieverControls";
 import { WordsExperience } from "./components/WordsExperience";
+import { useAnswerStyle } from "./hooks/useAnswerStyle";
 import { useAskQuestion } from "./hooks/useAskQuestion";
 import { useDocumentSelection } from "./hooks/useDocumentSelection";
 import { useDocuments } from "./hooks/useDocuments";
@@ -15,11 +17,31 @@ import type { EvaluationDataset } from "./types/evaluations";
 import type { RetrieverName } from "./types/api";
 import "../styles/base.css";
 import "../styles/option-1.css";
+import "../styles/ask-experience.css";
 
-type AppTab = "ask" | "words" | "evaluation";
+type AppView = "ask" | "words" | "evaluation";
+
+/** Starter questions shown under the question box, per knowledge base. */
+const EXAMPLE_QUESTIONS: Record<EvaluationDataset, string[]> = {
+  baking: [
+    "Why didn't my bread dough rise?",
+    "How do I stop my cookies from spreading?",
+    "How do I keep a pie crust from getting soggy?",
+  ],
+  kestrel: [
+    "What does error KST-2044 mean and how do I fix it?",
+    "Can I get a refund on my annual plan 45 days after it renewed?",
+    "What happens when a customer's card payment fails?",
+  ],
+};
+
+const INSIGHT_VIEWS: { id: Exclude<AppView, "ask">; label: string }[] = [
+  { id: "words", label: "Words in your documents" },
+  { id: "evaluation", label: "Answer quality checks" },
+];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>("ask");
+  const [activeView, setActiveView] = useState<AppView>("ask");
   const [selectedCorpus, setSelectedCorpus] =
     useState<EvaluationDataset>("baking");
   const [askDataset, setAskDataset] = useState<EvaluationDataset>("baking");
@@ -42,7 +64,9 @@ export default function App() {
     isSaving,
     message: settingsMessage,
     hasError: settingsHasError,
+    traceId: settingsTraceId,
   } = useRetrievalSettings();
+  const { style: answerStyle, updateStyle, resetStyle } = useAnswerStyle();
   const {
     question,
     setQuestion,
@@ -57,6 +81,7 @@ export default function App() {
     dataset: askDataset,
     retrievers: selectedRetrievers,
     includePathContext,
+    style: answerStyle,
   });
 
   function toggleRetriever(retriever: RetrieverName) {
@@ -75,9 +100,11 @@ export default function App() {
   function changeAskDataset(dataset: EvaluationDataset) {
     setAskDataset(dataset);
     if (dataset !== "kestrel") {
-      setSelectedRetrievers((current) =>
-        current.filter((retriever) => retriever !== "graph"),
-      );
+      // Graph search is Kestrel-only; never leave the user with no method.
+      setSelectedRetrievers((current) => {
+        const remaining = current.filter((retriever) => retriever !== "graph");
+        return remaining.length > 0 ? remaining : ["dense"];
+      });
       setIncludePathContext(false);
     }
   }
@@ -95,106 +122,91 @@ export default function App() {
     });
   }, [documents]);
 
-  const status =
-    questionStatus || (askDataset === "baking" ? documentStatus : "");
+  const isAskView = activeView === "ask";
+  const isKestrel = askDataset === "kestrel";
+  const documentLoadError =
+    !isLoadingDocuments && documentStatus ? documentStatus : "";
+  const isScoped =
+    !isKestrel &&
+    selectedDocumentIds !== null &&
+    selectedDocumentIds.length < documents.length;
 
   return (
     <div className="page-shell">
       <header className="masthead">
-        <a className="brand" href="/" aria-label="BakeFix home">
+        <button
+          type="button"
+          className="brand"
+          aria-label="BakeFix home"
+          onClick={() => setActiveView("ask")}
+        >
           <span className="brand-mark" aria-hidden="true">
             B
           </span>
           <span className="brand-name">BakeFix</span>
-        </a>
-        <span className="header-note">Answers grounded in your documents</span>
+        </button>
+        <nav className="insights-nav" aria-label="Behind the answers">
+          <span className="insights-label">Behind the answers:</span>
+          {INSIGHT_VIEWS.map((view) => (
+            <button
+              key={view.id}
+              type="button"
+              className={activeView === view.id ? "active" : ""}
+              aria-current={activeView === view.id ? "page" : undefined}
+              onClick={() => setActiveView(view.id)}
+            >
+              {view.label}
+            </button>
+          ))}
+        </nav>
       </header>
 
-      <section className="intro" aria-labelledby="page-title">
-        <p className="eyebrow">
-          {activeTab === "ask"
-            ? "Good answers start with trusted sources"
-            : activeTab === "words"
-              ? "Explore the words behind your answers"
-              : "Measure retrieval against labeled evidence"}
-        </p>
-        <h1 id="page-title">
-          {activeTab === "ask" ? (
-            <>
-              Find a helpful answer
-              <br />
-              <em>in your documents.</em>
-            </>
-          ) : activeTab === "words" ? (
-            <>
-              Get to know your
-              <br />
-              <em>knowledge base.</em>
-            </>
-          ) : (
-            <>
-              See how well
-              <br />
-              <em>retrieval performs.</em>
-            </>
-          )}
-        </h1>
-        <p className="intro-copy">
-          {activeTab === "ask"
-            ? "Ask a question about your documents. BakeFix finds useful passages and shows you where the answer came from."
-            : activeTab === "words"
-              ? "See which words appear in the corpus, how often they occur, and which chunks contain them."
-              : "Compare the measured baseline and smaller chunks using hit rate, evidence recall, and per-question results."}
-        </p>
-      </section>
+      {isAskView ? (
+        <section className="intro intro-compact" aria-labelledby="page-title">
+          <h1 id="page-title">
+            Kitchen questions, <em>answered from your own documents.</em>
+          </h1>
+          <p className="intro-copy">
+            Add your recipes, baking notes and appliance manuals, then ask.
+            Every answer shows the passages it came from.
+          </p>
+        </section>
+      ) : (
+        <section className="intro intro-compact" aria-labelledby="page-title">
+          <button
+            type="button"
+            className="back-to-ask"
+            onClick={() => setActiveView("ask")}
+          >
+            <span aria-hidden="true">←</span> Back to asking
+          </button>
+          <h1 id="page-title">
+            {activeView === "words" ? (
+              <>
+                The words <em>in your documents.</em>
+              </>
+            ) : (
+              <>
+                How well <em>BakeFix finds answers.</em>
+              </>
+            )}
+          </h1>
+          <p className="intro-copy">
+            {activeView === "words"
+              ? "See which words appear in your documents, how often, and in which passages. Useful when a question isn't finding what you expect."
+              : "Run the fixed test questions and compare search settings using hit rate, evidence recall and per-question results."}
+          </p>
+        </section>
+      )}
 
-      <nav className="app-tabs" role="tablist" aria-label="Main views">
-        <button
-          id="ask-tab"
-          className={activeTab === "ask" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "ask"}
-          aria-controls="ask-panel"
-          onClick={() => setActiveTab("ask")}
-        >
-          Ask
-        </button>
-        <button
-          id="words-tab"
-          className={activeTab === "words" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "words"}
-          aria-controls="words-panel"
-          onClick={() => setActiveTab("words")}
-        >
-          Words
-        </button>
-        <button
-          id="evaluation-tab"
-          className={activeTab === "evaluation" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "evaluation"}
-          aria-controls="evaluation-panel"
-          onClick={() => setActiveTab("evaluation")}
-        >
-          Evaluation
-        </button>
-      </nav>
-
-      <div
-        id="ask-panel"
-        className="workspace"
-        role="tabpanel"
-        aria-labelledby="ask-tab"
-        hidden={activeTab !== "ask"}
-      >
-        {askDataset === "baking" && (
+      <div className="workspace" hidden={!isAskView}>
+        {!isKestrel && (
           <DocumentLibrary
             documents={documents}
-            onDelete={(item) => void deleteDocument(item)}
+            isLoading={isLoadingDocuments}
+            loadError={documentLoadError}
+            onRetryLoad={() => void loadDocuments().catch(() => undefined)}
+            onDelete={deleteDocument}
             onUploaded={loadDocuments}
           />
         )}
@@ -207,15 +219,15 @@ export default function App() {
             <div>
               <h2>What would you like to know?</h2>
               <p>
-                {askDataset === "baking"
-                  ? "Ask about a recipe, appliance, or kitchen problem."
-                  : "Ask across the Kestrel knowledge base."}
+                {isKestrel
+                  ? "You're asking the Kestrel Analytics sample: a fictional software company's help documents."
+                  : "Ask about a recipe, an appliance, or a kitchen problem."}
               </p>
             </div>
           </div>
 
           <label className="ask-corpus-select" htmlFor="ask-dataset">
-            Knowledge base
+            Search in
             <select
               id="ask-dataset"
               value={askDataset}
@@ -226,34 +238,85 @@ export default function App() {
               }
             >
               <option value="baking">My documents</option>
-              <option value="kestrel">Kestrel KB</option>
+              <option value="kestrel">
+                Sample: Kestrel Analytics (demo company)
+              </option>
             </select>
           </label>
-          {askDataset === "kestrel" && (
+          {isKestrel && (
             <p className="ask-corpus-note">
-              Kestrel is searched as a read-only knowledge base; document
-              selection is unavailable.
+              This read-only sample shows what BakeFix can do with a larger set
+              of help documents. Switch back to “My documents” to ask about
+              your own files.
             </p>
           )}
 
           <label className="question-label" htmlFor="question">
-            Tell us what you&apos;d like to know
+            Your question
           </label>
           <textarea
             id="question"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             onKeyDown={handleQuestionKeyDown}
-            placeholder="Ask a question about the documents you added..."
+            placeholder={
+              isKestrel
+                ? "For example: what does error KST-4012 mean?"
+                : "For example: why are my brownies cakey instead of fudgy?"
+            }
           />
 
+          <div className="example-questions" aria-label="Example questions">
+            <span>Try:</span>
+            {EXAMPLE_QUESTIONS[askDataset].map((example) => (
+              <button
+                key={example}
+                type="button"
+                className="example-question"
+                onClick={() => setQuestion(example)}
+              >
+                {example}
+              </button>
+            ))}
+          </div>
+
+          <AnswerStyleControls
+            style={answerStyle}
+            onChange={updateStyle}
+            onReset={resetStyle}
+          />
+
+          <div className="question-actions">
+            <span className="helper-copy">
+              {isKestrel
+                ? "Searching the Kestrel sample."
+                : isLoadingDocuments && documents.length === 0
+                  ? "Loading your documents…"
+                  : documents.length === 0
+                    ? "Add a document to start asking."
+                    : isScoped
+                  ? `Searching ${selectedDocumentIds?.length ?? 0} of ${documents.length} documents.`
+                  : `Searching all ${documents.length} of your documents.`}
+            </span>
+            <button
+              className="button"
+              type="button"
+              onClick={() => void askQuestion()}
+              disabled={answer.kind === "loading"}
+            >
+              {answer.kind === "loading" ? "Finding an answer…" : "Find an answer"}{" "}
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <p className="keyboard-hint">Tip: press ⌘/Ctrl + Enter to ask.</p>
+
           <details className="advanced-search-options">
-            <summary>Advanced search options</summary>
+            <summary>Search options</summary>
             <p className="advanced-search-help">
-              By default, BakeFix searches all available documents with the
-              recommended settings.
+              Most people never need these. By default BakeFix searches all
+              your documents with settings we tested on our question sets.
             </p>
-            {askDataset === "baking" && (
+            {!isKestrel && (
               <DocumentSelector
                 documents={documents}
                 isLoading={isLoadingDocuments}
@@ -262,15 +325,6 @@ export default function App() {
               />
             )}
 
-            <RetrievalSettings
-              settings={settings}
-              updateSetting={updateSetting}
-              saveSettings={saveSettings}
-              isSaving={isSaving}
-              message={settingsMessage}
-              hasError={settingsHasError}
-            />
-
             <RetrieverControls
               dataset={askDataset}
               selectedRetrievers={selectedRetrievers}
@@ -278,72 +332,57 @@ export default function App() {
               includePathContext={includePathContext}
               onPathContextChange={setIncludePathContext}
             />
+
+            <RetrievalSettings
+              settings={settings}
+              updateSetting={updateSetting}
+              saveSettings={saveSettings}
+              isSaving={isSaving}
+              message={settingsMessage}
+              hasError={settingsHasError}
+              traceId={settingsTraceId}
+            />
           </details>
 
-          <div className="question-actions">
-            <span className="helper-copy">
-              {askDataset === "baking"
-                ? "Answers include passages from your selected documents."
-                : "Answers are based on the Kestrel knowledge base."}
-            </span>
-            <button
-              className="button"
-              type="button"
-              onClick={() => void askQuestion()}
-              disabled={answer.kind === "loading"}
-            >
-              Find an answer <span aria-hidden="true">→</span>
-            </button>
-          </div>
-          <p className="keyboard-hint">
-            Tip: press ⌘/Ctrl + Enter to ask.
-          </p>
-          <div id="status" role="status" aria-live="polite">
-            {status}
-            {askDataset === "baking" &&
-            isLoadingDocuments &&
-            !status
-              ? "Loading your documents..."
-              : ""}
+          <div id="status" className="ask-status" role="status" aria-live="polite">
+            {questionStatus}
           </div>
 
           <section
             className="answer-box"
-            aria-live="polite"
+            aria-label="Answer"
             aria-busy={answer.kind === "loading"}
           >
-            <AnswerPanel answer={answer} />
+            <AnswerPanel
+              answer={answer}
+              onRetry={() => void askQuestion()}
+            />
           </section>
         </main>
       </div>
-      <div
-        id="words-panel"
-        role="tabpanel"
-        aria-labelledby="words-tab"
-        hidden={activeTab !== "words"}
-      >
-        <WordsExperience
-          corpus={selectedCorpus}
-          onCorpusChange={setSelectedCorpus}
-        />
-      </div>
-      <div
-        id="evaluation-panel"
-        className="evaluation-panel"
-        role="tabpanel"
-        aria-labelledby="evaluation-tab"
-        hidden={activeTab !== "evaluation"}
-      >
-        <EvaluationRunner
-          key={selectedCorpus}
-          dataset={selectedCorpus}
-          onDatasetChange={setSelectedCorpus}
-        />
-        <RetrievalComparison dataset={selectedCorpus} />
-      </div>
+
+      {activeView === "words" && (
+        <div id="words-panel">
+          <WordsExperience
+            corpus={selectedCorpus}
+            onCorpusChange={setSelectedCorpus}
+          />
+        </div>
+      )}
+      {activeView === "evaluation" && (
+        <div id="evaluation-panel" className="evaluation-panel">
+          <EvaluationRunner
+            key={selectedCorpus}
+            dataset={selectedCorpus}
+            onDatasetChange={setSelectedCorpus}
+          />
+          <RetrievalComparison dataset={selectedCorpus} />
+        </div>
+      )}
 
       <p className="footer-note">
-        Made for curious bakers, one question at a time.
+        BakeFix answers only from the documents you add, so it may not cover
+        every kitchen situation. If it can't find an answer, it says so.
       </p>
     </div>
   );

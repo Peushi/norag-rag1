@@ -1,0 +1,492 @@
+/* Ask-first layout: compact intro, secondary insight views, clearer states. */
+
+:root .masthead {
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 28px;
+}
+
+.brand {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.brand:focus-visible,
+.insights-nav button:focus-visible,
+.back-to-ask:focus-visible,
+.example-question:focus-visible,
+.retrieval-details > summary:focus-visible {
+  outline: 3px solid rgba(82, 115, 107, 0.42);
+  outline-offset: 3px;
+}
+
+.insights-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.insights-nav button {
+  padding: 4px 2px;
+  border: 0;
+  border-bottom: 1.5px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.insights-nav button:hover {
+  color: var(--ink);
+}
+
+.insights-nav button.active {
+  border-bottom-color: var(--terracotta);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+:root .intro.intro-compact {
+  margin-bottom: 24px;
+}
+
+.intro-compact h1 {
+  font-size: clamp(30px, 4.2vw, 44px);
+}
+
+.back-to-ask {
+  margin-bottom: 12px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--terracotta-dark);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.example-questions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.example-question {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.example-question:hover {
+  border-color: var(--sage);
+  background: var(--sage-wash);
+}
+
+.ask-status:empty {
+  display: none;
+}
+
+.ask-status {
+  margin-top: 10px;
+  color: var(--terracotta-dark);
+  font-size: 13px;
+}
+
+.answer-markdown {
+  white-space: normal;
+}
+
+.answer-markdown > :first-child {
+  margin-top: 0;
+}
+
+.answer-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.answer-markdown ul,
+.answer-markdown ol {
+  padding-left: 20px;
+}
+
+.not-found p {
+  margin: 0 0 6px;
+}
+
+.not-found-help {
+  margin-top: 12px !important;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.not-found-tips {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+}
+
+.answer-error {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  color: #963b3c;
+}
+
+.answer-error p {
+  margin: 0;
+}
+
+.answer-error .answer-title {
+  margin-bottom: 0;
+  color: #963b3c;
+}
+
+.retrieval-details > summary {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.retrieval-details[open] > summary {
+  margin-bottom: 10px;
+}
+
+.delete-confirm {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.delete-doc.danger {
+  background: var(--rose-wash);
+  color: var(--terracotta-dark);
+  font-weight: 700;
+}
+
+.library-error {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  color: var(--terracotta-dark);
+}
+
+.library-error p {
+  margin: 0;
+}
+
+/* Answer style controls */
+.answer-style {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.answer-style > summary {
+  padding: 9px 12px;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.answer-style > summary:focus-visible,
+.style-segments label:focus-within,
+.style-eli12:focus-within,
+.style-reset:focus-visible {
+  outline: 3px solid rgba(82, 115, 107, 0.42);
+  outline-offset: 2px;
+}
+
+.answer-style-label {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.answer-style-body {
+  display: grid;
+  gap: 10px;
+  padding: 2px 12px 12px;
+}
+
+.answer-style-help,
+.style-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.style-eli12 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.style-choice {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.style-choice legend {
+  margin-bottom: 5px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.style-choice:disabled {
+  opacity: 0.55;
+}
+
+.style-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.style-segments label {
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.style-choice:disabled .style-segments label {
+  cursor: not-allowed;
+}
+
+.style-segments label.selected {
+  border-color: var(--terracotta);
+  background: var(--rose-wash);
+  color: var(--terracotta-dark);
+  font-weight: 700;
+}
+
+.style-segments input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.style-reset {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--terracotta-dark);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Style used for an answer, and its glossary */
+.answer-style-used {
+  margin: -4px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.glossary {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.glossary h3 {
+  margin: 0 0 8px;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 14px;
+}
+
+.glossary dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.glossary dt {
+  font-weight: 700;
+}
+
+.glossary dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.glossary-source {
+  color: var(--terracotta-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Documents held for review by the injection scanner */
+.quarantine {
+  margin: 14px 0 16px;
+  padding: 10px 12px;
+  border: 1px solid #e2c39a;
+  border-radius: 12px;
+  background: #fbf1df;
+}
+
+.quarantine-count {
+  border-color: #b9894a;
+  background: #f5dfb8;
+  color: #7a5320;
+}
+
+.quarantine-help,
+.quarantine-note {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.quarantine-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quarantine-item + .quarantine-item {
+  border-top: 1px dashed #e2c39a;
+}
+
+.quarantine-item summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+  padding: 7px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.quarantine-item summary:focus-visible,
+.quarantine-trust:focus-within {
+  outline: 3px solid rgba(82, 115, 107, 0.42);
+  outline-offset: 2px;
+}
+
+.quarantine-meta {
+  color: #7a5320;
+  font-weight: 700;
+}
+
+.quarantine-findings {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.quarantine-findings li {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 12px;
+}
+
+.finding-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.finding-severity {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.finding-severity.high {
+  background: var(--rose-wash);
+  color: var(--terracotta-dark);
+}
+
+.finding-severity.medium {
+  background: #f5dfb8;
+  color: #7a5320;
+}
+
+.finding-line {
+  color: var(--muted);
+}
+
+.finding-excerpt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.quarantine-trust {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.quarantine-trust input {
+  margin-top: 2px;
+}
+
+.quarantine-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+@media (max-width: 520px) {
+  .insights-label {
+    width: 100%;
+  }
+
+  .document-list li {
+    flex-wrap: wrap;
+  }
+}

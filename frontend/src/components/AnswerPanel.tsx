@@ -1,37 +1,58 @@
-import { useState } from "react";
 import type {
   Answer,
+  AnswerReference,
+  GlossaryEntry,
   AskRetrieval,
   GraphEntity,
   GraphPath,
-  TraceDetail,
-  TraceSpan,
 } from "../types/api";
 import ReactMarkdown from "react-markdown";
-import { getApiErrorMessage, isTraceDetail } from "../types/api";
+import { describeStyle } from "./AnswerStyleControls";
+import { TraceDetails } from "./TraceDetails";
 import "../../styles/retriever-controls.css";
 
 type AnswerPanelProps = {
   answer: Answer;
+  onRetry: () => void;
 };
 
-export function AnswerPanel({ answer }: AnswerPanelProps) {
+/** Make the start of a passage readable as a quote: drop Markdown markers. */
+function cleanQuote(text: string): string {
+  const plain = text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (plain.length < 240) {
+    return plain;
+  }
+  const cut = plain.slice(0, 240);
+  return `${cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : 240)}…`;
+}
+
+export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
   if (answer.kind === "loading") {
     return (
       <div className="answer-placeholder">
         <span className="placeholder-mark" aria-hidden="true">
           ~
         </span>
-        <p>Gathering the helpful bits...</p>
+        <p>Reading your documents and writing an answer… This usually takes a few seconds.</p>
       </div>
     );
   }
 
   if (answer.kind === "error") {
     return (
-      <div className="error">
+      <div className="answer-error" role="alert">
+        <div className="answer-title">Something went wrong</div>
         <p>{answer.text}</p>
-        <TraceDetails traceId={answer.trace_id} />
+        {answer.retryable !== false && (
+          <button type="button" className="button secondary" onClick={onRetry}>
+            Try again
+          </button>
+        )}
+        <TraceDetails key={answer.trace_id ?? "none"} traceId={answer.trace_id} />
       </div>
     );
   }
@@ -50,199 +71,95 @@ export function AnswerPanel({ answer }: AnswerPanelProps) {
   return (
     <>
       <div className="answer-title">
-        {answer.kind === "not_found"
-          ? "Not found in these sources yet"
-          : "A little guidance"}
+        {answer.kind === "not_found" ? "Not in your documents" : "Answer"}
       </div>
-      <p
-        className={`answer-copy${answer.kind === "not_found" ? " not-found" : ""}`}
-      >
-        {answer.text}
-      </p>
+      {answer.kind === "answered" && (
+        <p className="answer-style-used">
+          Written {describeStyle(answer.style)}
+        </p>
+      )}
+      {answer.kind === "not_found" ? (
+        <div className="answer-copy not-found">
+          <p>{answer.text}</p>
+          <p className="not-found-help">What you can try:</p>
+          <ul className="not-found-tips">
+            <li>Rephrase the question with the words your documents use.</li>
+            <li>
+              Check “Search options”: some of your documents may be left out.
+            </li>
+            <li>Add a recipe, note or manual that covers this topic.</li>
+          </ul>
+        </div>
+      ) : (
+        <div className="answer-copy answer-markdown">
+          <ReactMarkdown skipHtml>{answer.text}</ReactMarkdown>
+        </div>
+      )}
       {answer.kind === "answered" && answer.references.length > 0 && (
         <div className="references">
-          <h3>Sources</h3>
+          <h3>Where this comes from</h3>
           <ul>
-            {answer.references.map((reference) => (
+            {answer.references.map((reference, index) => (
               <li key={`${reference.chunk_id}-${reference.position}`}>
                 <span className="reference-meta">
-                  {reference.source} · note {reference.position + 1}
+                  [{index + 1}] {reference.source} · passage{" "}
+                  {reference.position + 1}
                 </span>
-                <span className="reference-quote">“{reference.quote}”</span>
+                <span className="reference-quote">
+                  “{cleanQuote(reference.quote)}”
+                </span>
               </li>
             ))}
           </ul>
         </div>
       )}
+      {answer.kind === "answered" && answer.glossary.length > 0 && (
+        <Glossary entries={answer.glossary} references={answer.references} />
+      )}
       {answer.retrieval && <RetrievalDetails retrieval={answer.retrieval} />}
-      <TraceDetails traceId={answer.trace_id} />
+      <TraceDetails key={answer.trace_id ?? "none"} traceId={answer.trace_id} />
     </>
   );
 }
 
-function TraceDetails({ traceId }: { traceId?: string | null }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [trace, setTrace] = useState<TraceDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  if (!traceId) {
-    return null;
-  }
-  const activeTraceId = traceId;
-
-  async function toggleDetails() {
-    if (isOpen) {
-      setIsOpen(false);
-      return;
-    }
-
-    setIsOpen(true);
-    setError(null);
-    if (trace) {
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `/api/traces/${encodeURIComponent(activeTraceId)}`,
-      );
-      const data: unknown = await response.json();
-      if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(data, "Could not load this trace."),
-        );
-      }
-      if (!isTraceDetail(data)) {
-        throw new Error("The server returned an invalid trace.");
-      }
-      setTrace(data);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Could not load this trace.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  return (
-    <section className="trace-details">
-      <button
-        className="trace-details-toggle"
-        type="button"
-        aria-expanded={isOpen}
-        onClick={() => void toggleDetails()}
-      >
-        {isOpen ? "Hide trace" : "Details"}
-      </button>
-      {isOpen && (
-        <div className="trace-details-content" aria-live="polite">
-          {isLoading && <p>Loading trace…</p>}
-          {error && <p className="error" role="alert">{error}</p>}
-          {trace && (
-            <>
-              <p>
-                Trace {trace.trace_id} · {trace.status}
-                {trace.outcome ? ` · ${trace.outcome}` : ""}
-              </p>
-              <ol className="trace-span-list">
-                {trace.spans.map((span, index) => (
-                  <TraceSpanItem span={span} key={`${span.name}-${index}`} />
-                ))}
-              </ol>
-            </>
-          )}
-        </div>
-      )}
-    </section>
+/** Terms used in the answer, each defined from a passage the answer cites. */
+function Glossary({
+  entries,
+  references,
+}: {
+  entries: GlossaryEntry[];
+  references: AnswerReference[];
+}) {
+  const sourceNumber = new Map(
+    references.map((reference, index) => [reference.chunk_id, index + 1]),
   );
-}
-
-type TraceAttributeValue = TraceSpan["attributes"][string];
-
-type TraceResult = {
-  rank: number;
-  fields: Record<string, TraceAttributeValue>;
-};
-
-const RESULT_ATTRIBUTE = /^result\.(\d+)\.([a-z_]+)$/;
-
-/** Split flat span attributes into plain metadata and ranked retrieval results. */
-function splitTraceAttributes(attributes: TraceSpan["attributes"]) {
-  const plain: [string, TraceAttributeValue][] = [];
-  const resultsByRank = new Map<number, TraceResult>();
-
-  for (const [key, value] of Object.entries(attributes)) {
-    const match = RESULT_ATTRIBUTE.exec(key);
-    if (!match) {
-      plain.push([key, value]);
-      continue;
-    }
-    const rank = Number(match[1]);
-    const result = resultsByRank.get(rank) ?? { rank, fields: {} };
-    result.fields[match[2]] = value;
-    resultsByRank.set(rank, result);
-  }
-
-  const results = [...resultsByRank.values()].sort((a, b) => a.rank - b.rank);
-  return { plain, results };
-}
-
-function TraceSpanItem({ span }: { span: TraceSpan }) {
-  const { plain, results } = splitTraceAttributes(span.attributes);
 
   return (
-    <li>
-      <strong>{span.name}</strong>
-      <span>
-        {span.status} · {span.duration_ms.toFixed(1)} ms
-      </span>
-      {plain.length > 0 && (
-        <dl>
-          {plain.map(([key, value]) => (
-            <div key={key}>
-              <dt>{key}</dt>
-              <dd>{String(value)}</dd>
+    <section className="glossary" aria-labelledby="glossary-title">
+      <h3 id="glossary-title">Words to know</h3>
+      <dl>
+        {entries.map((entry) => {
+          const number = sourceNumber.get(entry.chunk_id);
+          return (
+            <div key={`${entry.term}-${entry.chunk_id}`}>
+              <dt>{entry.term}</dt>
+              <dd>
+                {entry.definition}
+                {number !== undefined && (
+                  <span
+                    className="glossary-source"
+                    title={`Defined from source [${number}]`}
+                  >
+                    {" "}
+                    [{number}]
+                  </span>
+                )}
+              </dd>
             </div>
-          ))}
-        </dl>
-      )}
-      {results.length > 0 && (
-        <ol className="trace-result-list" aria-label="Retrieved passages">
-          {results.map(({ rank, fields }) => (
-            <li key={rank}>
-              <span className="trace-result-rank">#{rank}</span>
-              <span>
-                {String(fields.source ?? "unknown source")}
-                {typeof fields.position === "number"
-                  ? ` · chunk ${fields.position + 1}`
-                  : ""}
-                {typeof fields.score === "number"
-                  ? ` · score ${fields.score.toFixed(4)}`
-                  : ""}
-              </span>
-              {fields.found_by !== undefined && (
-                <span className="trace-result-meta">
-                  Found by {String(fields.found_by)}
-                </span>
-              )}
-              {fields.chunk_id !== undefined && (
-                <span className="trace-result-meta">
-                  {String(fields.chunk_id)}
-                </span>
-              )}
-            </li>
-          ))}
-        </ol>
-      )}
-      {span.error_type && (
-        <span className="error">Failed: {span.error_type}</span>
-      )}
-    </li>
+          );
+        })}
+      </dl>
+    </section>
   );
 }
 
@@ -252,8 +169,8 @@ function RetrievalDetails({ retrieval }: { retrieval: AskRetrieval }) {
   );
 
   return (
-    <section className="retrieval-details" aria-label="Retrieval details">
-      <h3>How the evidence was found</h3>
+    <details className="retrieval-details">
+      <summary>How BakeFix found these passages (technical details)</summary>
       <ul className="retrieval-method-list">
         {retrieval.retrievers.map((retriever) => (
           <li key={retriever}>{retrieverLabel(retriever)}</li>
@@ -311,7 +228,7 @@ function RetrievalDetails({ retrieval }: { retrieval: AskRetrieval }) {
           )}
         </div>
       )}
-    </section>
+    </details>
   );
 }
 
