@@ -6,6 +6,8 @@ from pathlib import Path
 from backend.chunking import chunk_text
 from backend.retrieval import make_chunk_id
 from backend.graph_extraction import extract_graph_from_chunk
+from backend.llm_service import TraceContext
+from backend.tracing import indexing_operation
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -14,7 +16,8 @@ GRAPH_DIR = PROJECT_ROOT / "kestrel-kb" / "graph"
 GRAPH_FILE = GRAPH_DIR / "graph.json"
 
 
-def build_kestrel_graph(chunk_size=800, overlap=80):
+@indexing_operation
+def build_kestrel_graph(chunk_size=800, overlap=80, *, trace: TraceContext | None = None):
     """Extract graph triples from all Kestrel documents."""
 
     if not KESTREL_DOCS.exists():
@@ -31,19 +34,21 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
     total_prompt_tokens = 0
     total_completion_tokens = 0
     token_usage_available = True
+    total_cost_usd = 0.0
+    cost_usage_available = True
     successful_calls = 0
 
     start_time = time.perf_counter()
 
     for document_path in documents:
-        text = document_path.read_text(encoding="utf-8")
+        with trace.span("load_documents", attributes={"dataset": "kestrel"}) as span:
+            text = document_path.read_text(encoding="utf-8")
+            span.set_attribute("document_count", 1)
 
         source = document_path.relative_to(KESTREL_DOCS).as_posix()
-        chunks = chunk_text(
-            text,
-            chunk_size=chunk_size,
-            overlap=overlap,
-        )
+        with trace.span("chunking", attributes={"chunk_size": chunk_size, "overlap": overlap}) as span:
+            chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+            span.set_attribute("chunk_count", len(chunks))
 
         print(f"\nProcessing {source}: {len(chunks)} chunks")
 
@@ -60,7 +65,7 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
             }
 
             try:
-                result = extract_graph_from_chunk(chunk_data)
+                result = extract_graph_from_chunk(chunk_data, trace=trace)
 
                 successful_calls += result["llm_calls"]
                 all_triples.extend(
@@ -68,11 +73,19 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
                     for triple in result["triples"]
                 )
 
-                if result["prompt_tokens"] is None or result["completion_tokens"] is None:
+                if (
+                    result["prompt_tokens"] is None
+                    or result["completion_tokens"] is None
+                ):
                     token_usage_available = False
                 else:
                     total_prompt_tokens += result["prompt_tokens"]
                     total_completion_tokens += result["completion_tokens"]
+
+                if result.get("cost_usd") is None:
+                    cost_usage_available = False
+                else:
+                    total_cost_usd += result["cost_usd"]
 
                 print(
                     f"  Chunk {chunk['position'] + 1}/{len(chunks)}: "
@@ -105,6 +118,10 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
                 total_prompt_tokens + total_completion_tokens
                 if token_usage_available else None
             ),
+            "cost_usd": (
+                round(total_cost_usd, 8)
+                if cost_usage_available else None
+            ),
             "build_time_seconds": round(build_time, 2),
             "chunk_size": chunk_size,
             "overlap": overlap,
@@ -126,7 +143,8 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
     return graph_data
 
 
-def retry_failed_graph_chunks(delay_seconds=5):
+@indexing_operation
+def retry_failed_graph_chunks(delay_seconds=5, *, trace: TraceContext | None = None):
     """Retry failed Kestrel chunks without rebuilding or losing the existing graph."""
 
     if not GRAPH_FILE.exists():
@@ -151,10 +169,14 @@ def retry_failed_graph_chunks(delay_seconds=5):
     )
 
     for document_path in documents:
-        text = document_path.read_text(encoding="utf-8")
+        with trace.span("load_documents", attributes={"dataset": "kestrel"}) as span:
+            text = document_path.read_text(encoding="utf-8")
+            span.set_attribute("document_count", 1)
         source = document_path.relative_to(KESTREL_DOCS).as_posix()
 
-        chunks = chunk_text(text, chunk_size=800, overlap=80)
+        with trace.span("chunking", attributes={"chunk_size": 800, "overlap": 80}) as span:
+            chunks = chunk_text(text, chunk_size=800, overlap=80)
+            span.set_attribute("chunk_count", len(chunks))
 
         for chunk in chunks:
             chunk_id = make_chunk_id(source, chunk["position"])
@@ -176,6 +198,8 @@ def retry_failed_graph_chunks(delay_seconds=5):
     retry_prompt_tokens = 0
     retry_completion_tokens = 0
     token_usage_available = True
+    retry_cost_usd = 0.0
+    cost_usage_available = True
 
     start_time = time.perf_counter()
 
@@ -195,7 +219,7 @@ def retry_failed_graph_chunks(delay_seconds=5):
             time.sleep(delay_seconds)
 
         try:
-            result = extract_graph_from_chunk(chunk)
+            result = extract_graph_from_chunk(chunk, trace=trace)
 
             successful_calls += result["llm_calls"]
 
@@ -220,6 +244,11 @@ def retry_failed_graph_chunks(delay_seconds=5):
             else:
                 retry_prompt_tokens += result["prompt_tokens"]
                 retry_completion_tokens += result["completion_tokens"]
+
+            if result.get("cost_usd") is None:
+                cost_usage_available = False
+            else:
+                retry_cost_usd += result["cost_usd"]
 
             print(
                 f"  {chunk_id}: "
@@ -276,6 +305,21 @@ def retry_failed_graph_chunks(delay_seconds=5):
             statistics["retry_completion_tokens"] = retry_completion_tokens
     else:
         statistics["total_tokens"] = None
+
+    statistics["retry_cost_usd"] = (
+        round(retry_cost_usd, 8)
+        if cost_usage_available else None
+    )
+
+    original_cost = statistics.get("cost_usd")
+
+    if original_cost is not None and cost_usage_available:
+        statistics["cost_usd"] = round(
+            original_cost + retry_cost_usd,
+            8,
+        )
+    else:
+        statistics["cost_usd"] = None
 
     GRAPH_FILE.write_text(
         json.dumps(graph_data, indent=2, ensure_ascii=False),

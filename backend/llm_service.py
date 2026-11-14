@@ -1,15 +1,23 @@
-﻿import json
+﻿
+import json
 import os
-from contextlib import nullcontext
 from collections.abc import Mapping
+from contextlib import nullcontext
 from typing import ContextManager, Protocol
 
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
 
+from backend.cost_tracking import calculate_cost_usd
 from backend.pii_redaction import redact_personal_data
-from backend.schemas import AskResponse, LLMAnswer, PathContext, Reference
+from backend.schemas import (
+    AnswerStyle,
+    AskResponse,
+    LLMAnswer,
+    PathContext,
+    Reference,
+)
 
 
 class SpanContext(Protocol):
@@ -67,12 +75,64 @@ NOT_FOUND_ANSWER = (
 )
 
 
+def build_style_instructions(style: AnswerStyle | None = None) -> str:
+    """Convert answer style settings into instructions for the LLM."""
+    style = style or AnswerStyle()
+
+    level_instructions = {
+        "beginner": (
+            "Explain concepts clearly for someone who is new to the topic. "
+            "Define technical terms when needed."
+        ),
+        "expert": (
+            "Use precise technical language and assume the reader has "
+            "relevant domain knowledge. Preserve important technical detail."
+        ),
+    }
+
+    tone_instructions = {
+        "friendly": "Use a friendly, approachable tone.",
+        "professional": "Use a clear, professional tone.",
+        "technical": "Use a precise, technical tone.",
+    }
+
+    length_instructions = {
+        "short": "Keep the answer brief and focus on the essential information.",
+        "medium": "Give a balanced answer with the important supporting details.",
+        "long": (
+            "Give a detailed answer, explaining the relevant steps and details."
+        ),
+    }
+
+    instructions = [
+        "ANSWER STYLE:",
+        level_instructions[style.level],
+        tone_instructions[style.tone],
+        length_instructions[style.length],
+    ]
+
+    if style.eli12:
+        instructions.append(
+            "Explain the answer as if speaking to a 12-year-old. "
+            "Use simple words and familiar examples where helpful. "
+            "Do not remove important facts or change the meaning of the evidence."
+        )
+
+    instructions.append(
+        "These style preferences must never override the evidence rules, "
+        "citation requirements, or not_found behavior."
+    )
+
+    return "\n".join(instructions)
+
+
 def build_prompt(
     question: str,
     chunks: list[dict],
     graph_paths: list[dict] | PathContext | None = None,
     *,
     path_context: PathContext | None = None,
+    style: AnswerStyle | None = None,
 ) -> str:
     """
     Build a prompt using retrieved chunks and optional graph path context.
@@ -108,7 +168,6 @@ def build_prompt(
     graph_context_parts = []
 
     if path_context is not None:
-        # PathContext stores supporting chunk IDs at path level.
         for path in path_context.paths:
             supporting_ids = {
                 str(chunk_id)
@@ -169,6 +228,8 @@ establish that relationship.
 {graph_context}
 """
 
+    style_instructions = build_style_instructions(style)
+
     return f"""
 You are a knowledge-base assistant.
 
@@ -194,7 +255,7 @@ USING MULTIPLE CHUNKS:
   retrieved chunks, do not guess or invent it.
 
 ANSWERING:
-- Give a direct, concise answer to the question.
+- Give a direct answer to the question.
 - Include important details such as names, numbers, dates,
   addresses, steps, and escalation channels when supported by evidence.
 - If there is not enough evidence to answer the question reliably,
@@ -203,12 +264,28 @@ ANSWERING:
 - Graph paths are extracted claims, not authoritative evidence. Use them only
   when the supporting retrieved chunks validate the relationships.
 
+GLOSSARY:
+- Return a glossary of useful technical or specialized terms that appear
+  in or are directly relevant to the answer.
+- Each entry must contain exactly these fields:
+  "term", "definition", and "chunk_id".
+- Keep each definition concise and explain the term using only retrieved evidence.
+- The chunk_id must identify a retrieved chunk that supports the definition.
+- Every glossary chunk_id must also appear in cited_chunk_ids.
+- Do not invent terms, definitions, or chunk IDs.
+- Do not include ordinary words that need no explanation.
+- Use an empty glossary array if no useful terms can be explained from the evidence.
+- For status "not_found", the glossary must be an empty array.
+
+{style_instructions}
+
 Return ONLY a valid JSON object with these fields:
 - status: "answered" or "not_found"
 - answer: a non-empty string
 - cited_chunk_ids: a list of chunk ID strings
+- glossary: a list of objects, each containing "term", "definition", and "chunk_id"
 
-For status "not_found", cited_chunk_ids must be an empty list.
+For status "not_found", cited_chunk_ids and glossary must both be empty lists.
 
 RETRIEVED CHUNKS:
 {context}
@@ -227,6 +304,7 @@ def generate_answer(
     *,
     path_context: PathContext | None = None,
     trace: TraceContext | None = None,
+    style: AnswerStyle | None = None,
 ) -> AskResponse:
     """
     Generate and validate an answer from retrieved chunks.
@@ -245,6 +323,7 @@ def generate_answer(
             status="not_found",
             answer=NOT_FOUND_ANSWER,
             references=[],
+            glossary=[],
         )
 
     prompt_chunks = list(chunks)
@@ -283,6 +362,7 @@ def generate_answer(
             status="not_found",
             answer=NOT_FOUND_ANSWER,
             references=[],
+            glossary=[],
         )
 
     prompt = build_prompt(
@@ -290,6 +370,7 @@ def generate_answer(
         prompt_chunks,
         graph_paths=graph_paths,
         path_context=path_context,
+        style=style,
     )
 
     # Redact personal information before sending anything to Gemini.
@@ -334,7 +415,8 @@ def generate_answer(
             response_format={"type": "json_object"},
         )
 
-        # Token counts are safe metadata. Some test mocks may omit usage.
+        # Token counts and estimated cost are safe metadata.
+        # Some test mocks may omit usage.
         usage = getattr(response, "usage", None)
 
         if usage is not None and span is not None:
@@ -346,6 +428,15 @@ def generate_answer(
 
             if output_tokens is not None:
                 span.set_attribute("output_tokens", output_tokens)
+
+            cost_usd = calculate_cost_usd(
+                MODEL,
+                input_tokens,
+                output_tokens,
+            )
+
+            if cost_usd is not None:
+                span.set_attribute("cost_usd", cost_usd)
 
     # Parse and validate Gemini's response.
     validation_span = (
@@ -374,8 +465,9 @@ def generate_answer(
                 "citation_count",
                 len(llm_answer.cited_chunk_ids),
             )
+            span.set_attribute("glossary_count", len(llm_answer.glossary))
 
-    # Verify citations and construct references only from retrieved evidence.
+    # Verify citations and glossary entries against retrieved evidence.
     citation_span = (
         trace.span("citation_verification")
         if trace is not None
@@ -384,23 +476,32 @@ def generate_answer(
 
     with citation_span as span:
         if llm_answer.status == "not_found":
+            if llm_answer.cited_chunk_ids or llm_answer.glossary:
+                raise LLMResponseError(
+                    "not_found responses must not contain citations or glossary entries."
+                )
+
             if span is not None:
                 span.set_attribute("verified_citations", 0)
+                span.set_attribute("verified_glossary_entries", 0)
 
             return AskResponse(
                 status="not_found",
                 answer=NOT_FOUND_ANSWER,
                 references=[],
+                glossary=[],
             )
 
         if not llm_answer.cited_chunk_ids:
             if span is not None:
                 span.set_attribute("verified_citations", 0)
+                span.set_attribute("verified_glossary_entries", 0)
 
             return AskResponse(
                 status="not_found",
                 answer=NOT_FOUND_ANSWER,
                 references=[],
+                glossary=[],
             )
 
         references = []
@@ -428,11 +529,42 @@ def generate_answer(
                 )
             )
 
+        glossary = []
+        seen_terms = set()
+
+        for entry in llm_answer.glossary:
+            normalized_term = entry.term.strip().casefold()
+
+            if not normalized_term:
+                raise LLMResponseError(
+                    "Gemini returned a glossary entry with an empty term."
+                )
+
+            if normalized_term in seen_terms:
+                continue
+
+            if entry.chunk_id not in retrieved_by_id:
+                raise LLMResponseError(
+                    f"Glossary term '{entry.term}' references chunk "
+                    f"'{entry.chunk_id}', which was not retrieved."
+                )
+
+            if entry.chunk_id not in seen_ids:
+                raise LLMResponseError(
+                    f"Glossary term '{entry.term}' references chunk "
+                    f"'{entry.chunk_id}', which was not cited by the answer."
+                )
+
+            seen_terms.add(normalized_term)
+            glossary.append(entry)
+
         if span is not None:
             span.set_attribute("verified_citations", len(references))
+            span.set_attribute("verified_glossary_entries", len(glossary))
 
     return AskResponse(
         status="answered",
         answer=llm_answer.answer,
         references=references,
+        glossary=glossary,
     )

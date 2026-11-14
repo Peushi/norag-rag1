@@ -1,3 +1,5 @@
+
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -252,6 +254,121 @@ class LLMTracingTests(unittest.TestCase):
                 if isinstance(value, str):
                     for sensitive_value in sensitive_values:
                         self.assertNotIn(sensitive_value, value)
+
+    def test_valid_glossary_entry_is_returned(self):
+        response_content = json.dumps({
+            "status": "answered",
+            "answer": "Use 200 grams of flour.",
+            "cited_chunk_ids": ["chunk-1"],
+            "glossary": [
+                {
+                    "term": "Flour",
+                    "definition": "A powdered ingredient used in the recipe.",
+                    "chunk_id": "chunk-1",
+                }
+            ],
+        })
+
+        client = self.mock_client(content=response_content)
+
+        with patch.object(llm_service, "client", client):
+            result = llm_service.generate_answer(
+                "How much flour is required?",
+                [self.chunk],
+            )
+
+        self.assertEqual(len(result.glossary), 1)
+        self.assertEqual(result.glossary[0].term, "Flour")
+        self.assertEqual(result.glossary[0].chunk_id, "chunk-1")
+
+    def test_glossary_rejects_nonexistent_chunk(self):
+        response_content = json.dumps({
+            "status": "answered",
+            "answer": "Use 200 grams of flour.",
+            "cited_chunk_ids": ["chunk-1"],
+            "glossary": [
+                {
+                    "term": "Flour",
+                    "definition": "A powdered ingredient.",
+                    "chunk_id": "invented-chunk",
+                }
+            ],
+        })
+
+        client = self.mock_client(content=response_content)
+
+        with (
+            patch.object(llm_service, "client", client),
+            self.assertRaises(llm_service.LLMResponseError),
+        ):
+            llm_service.generate_answer(
+                "How much flour is required?",
+                [self.chunk],
+            )
+
+    def test_glossary_rejects_retrieved_but_uncited_chunk(self):
+        second_chunk = {
+            "id": "chunk-2",
+            "text": "Sugar adds sweetness to the recipe.",
+            "source": "recipe.pdf",
+            "position": 1,
+        }
+
+        response_content = json.dumps({
+            "status": "answered",
+            "answer": "Use 200 grams of flour.",
+            "cited_chunk_ids": ["chunk-1"],
+            "glossary": [
+                {
+                    "term": "Sugar",
+                    "definition": "An ingredient that adds sweetness.",
+                    "chunk_id": "chunk-2",
+                }
+            ],
+        })
+
+        client = self.mock_client(content=response_content)
+
+        with (
+            patch.object(llm_service, "client", client),
+            self.assertRaises(llm_service.LLMResponseError),
+        ):
+            llm_service.generate_answer(
+                "How much flour is required?",
+                [self.chunk, second_chunk],
+            )
+
+    def test_not_found_response_has_empty_glossary(self):
+        response_content = json.dumps({
+            "status": "not_found",
+            "answer": "I could not find the information.",
+            "cited_chunk_ids": [],
+            "glossary": [],
+        })
+
+        client = self.mock_client(content=response_content)
+
+        with patch.object(llm_service, "client", client):
+            result = llm_service.generate_answer(
+                "What is the unavailable ingredient?",
+                [self.chunk],
+            )
+
+        self.assertEqual(result.status, "not_found")
+        self.assertEqual(result.glossary, [])
+
+    def test_prompt_requests_grounded_glossary(self):
+        prompt = llm_service.build_prompt(
+            "How much flour is required?",
+            [self.chunk],
+        )
+
+        self.assertIn("GLOSSARY:", prompt)
+        self.assertIn('"term", "definition", and "chunk_id"', prompt)
+        self.assertIn(
+            "Every glossary chunk_id must also appear in cited_chunk_ids.",
+            prompt,
+        )
 
 
 if __name__ == "__main__":

@@ -13,12 +13,14 @@ from backend.index_settings import load_settings
 from backend.llm_service import TraceContext, generate_answer
 from backend.bm25 import retrieve_bm25
 from backend.retrieval import (
+    DATASET_DIRECTORIES,
     ensure_index_current,
     filter_by_relevance,
     get_chunk,
     rebuild_index,
     retrieve_chunks as search_chunks,
     update_index_settings,
+    validate_chunk_id,
 )
 from backend.retrieval_orchestrator import (
     OrchestratedRetrieval,
@@ -27,6 +29,7 @@ from backend.retrieval_orchestrator import (
     orchestrate_retrieval,
 )
 from backend.schemas import (
+    AnswerStyle,
     AskResponse,
     PathContext,
     PathSupportingChunk,
@@ -101,21 +104,28 @@ def list_documents() -> list[dict[str, str | int]]:
     return documents
 
 
-def read_text_document(document_id: str) -> str:
-    """Read one corpus document by its relative source path."""
+def read_text_document(document_id: str, dataset: EvaluationDataset = "baking") -> str:
+    """Read an original document safely within the selected indexed corpus."""
     from backend.documents import resolve_document_path
 
-    return resolve_document_path(document_id).read_text(encoding="utf-8")
+    if dataset not in DATASET_DIRECTORIES:
+        raise ValueError("Unknown retrieval dataset")
+    path = resolve_document_path(document_id, corpus_dir=DATASET_DIRECTORIES[dataset])
+    if not path.is_file():
+        raise FileNotFoundError("Document not found")
+    return path.read_text(encoding="utf-8")
 
 
 def index_all_documents(
     chunk_size: int | None = None,
     overlap: int | None = None,
+    *, trace: TraceContext | None = None,
 ) -> dict[str, int]:
     """Rebuild the corpus index; the retrieval implementation indexes all files."""
     stats = rebuild_index(
         chunk_size=chunk_size if chunk_size is not None else APP_SETTINGS.chunk_size,
         overlap=overlap if overlap is not None else APP_SETTINGS.overlap,
+        trace=trace,
     )
     return stats
 
@@ -125,9 +135,10 @@ def retrieve_chunks(
     document_ids: list[str] | None = None,
     top_k: int | None = None,
     dataset: EvaluationDataset = "baking",
+    *, trace: TraceContext | None = None,
 ) -> list[RetrievedChunk]:
     """Search the Chroma index and apply the configured cosine-distance limit."""
-    ensure_index_current(dataset, APP_SETTINGS.chunk_size, APP_SETTINGS.overlap)
+    ensure_index_current(dataset, APP_SETTINGS.chunk_size, APP_SETTINGS.overlap, trace=trace)
 
     chunks = search_chunks(
         question=question,
@@ -146,6 +157,7 @@ def retrieve_selected_chunks(
     document_ids: list[str] | None = None,
     top_k: int | None = None,
     dataset: EvaluationDataset = "baking",
+    trace: TraceContext | None = None,
 ) -> OrchestratedRetrieval:
     """Dispatch selected retrievers and fuse their ranked chunk results."""
     selected_retrievers = tuple(["dense"] if retrievers is None else retrievers)
@@ -161,6 +173,7 @@ def retrieve_selected_chunks(
             ),
             top_k=query.top_k,
             dataset=query.dataset,
+            trace=trace,
         )
         return RetrieverOutput(
             chunks=[
@@ -221,6 +234,7 @@ def ask_question(
     include_path_context: bool = False,
     dataset: EvaluationDataset = "baking",
     trace: TraceContext | None = None,
+    style: AnswerStyle | None = None,
 ) -> AskResponse:
     """Retrieve through selected methods and delegate grounded answer generation."""
     selected_retrievers = ["dense"] if retrievers is None else retrievers
@@ -252,19 +266,24 @@ def ask_question(
                 document_ids=document_ids,
                 top_k=top_k,
                 dataset=dataset,
+                trace=trace,
             )
             _record_retrieval_results(span, retrieval)
+
     path_context = (
         _build_path_context(retrieval.graph_paths, retrieval.graph_chunks)
         if include_path_context
         else None
     )
+
     answer = generate_answer(
         question,
         retrieval.chunks,
         path_context=path_context,
         trace=trace,
+        style=style,
     )
+
     return answer.model_copy(
         update={
             "retrieval": RetrieveResponse(
@@ -388,16 +407,15 @@ def _build_path_context(
     )
 
 
-def get_chunk_by_id(chunk_id: str) -> SourceChunk | None:
-    """Look up one indexed chunk for a source preview."""
-    if get_collection().count() == 0 and list_document_paths():
-        index_all_documents()
-
-    chunk: dict[str, Any] | None = get_chunk(chunk_id)
+def get_chunk_by_id(chunk_id: str, dataset: EvaluationDataset = "baking") -> SourceChunk | None:
+    """Preview evidence from the selected corpus at the active chunk settings."""
+    validate_chunk_id(chunk_id)
+    ensure_index_current(dataset, APP_SETTINGS.chunk_size, APP_SETTINGS.overlap)
+    chunk: dict[str, Any] | None = get_chunk(chunk_id, dataset=dataset)
     return SourceChunk.model_validate(chunk) if chunk is not None else None
 
 
-def delete_document(document_id: str) -> bool:
+def delete_document(document_id: str, *, trace: TraceContext | None = None) -> bool:
     """Delete a corpus file and rebuild the index."""
     from backend.documents import delete_document_and_reindex
 
@@ -406,6 +424,7 @@ def delete_document(document_id: str) -> bool:
             document_id,
             chunk_size=APP_SETTINGS.chunk_size,
             overlap=APP_SETTINGS.overlap,
+            trace=trace,
         )
     except FileNotFoundError:
         return False
@@ -417,9 +436,10 @@ def update_settings(
     overlap: int,
     top_k: int,
     relevance_threshold: float | None,
+    *, trace: TraceContext | None = None,
 ) -> dict[str, int]:
     """Persist indexing settings and update runtime retrieval preferences."""
-    stats = update_index_settings(chunk_size, overlap)
+    stats = update_index_settings(chunk_size, overlap, trace=trace)
     APP_SETTINGS.chunk_size = chunk_size
     APP_SETTINGS.overlap = overlap
     APP_SETTINGS.top_k = top_k

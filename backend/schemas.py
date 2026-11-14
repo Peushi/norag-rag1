@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -6,6 +7,15 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 RetrieverName = Literal["dense", "bm25", "graph"]
 EvaluationDataset = Literal["baking", "kestrel"]
+
+
+class AnswerStyle(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    level: Literal["beginner", "expert"] = "beginner"
+    tone: Literal["friendly", "professional", "technical"] = "friendly"
+    length: Literal["short", "medium", "long"] = "medium"
+    eli12: bool = False
 
 
 class RetrievedChunk(BaseModel):
@@ -39,6 +49,7 @@ class RetrieveRequest(BaseModel):
 
 class AskRequest(RetrieveRequest):
     include_path_context: bool = False
+    style: AnswerStyle = Field(default_factory=AnswerStyle)
 
     @model_validator(mode="after")
     def validate_path_context_selection(self):
@@ -127,12 +138,21 @@ class Reference(BaseModel):
 AnswerReference = Reference
 
 
+class GlossaryEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    term: str = Field(min_length=1)
+    definition: str = Field(min_length=1)
+    chunk_id: str = Field(min_length=1)
+
+
 class AskResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["answered", "not_found"]
     answer: str
     references: list[Reference] = Field(default_factory=list)
+    glossary: list[GlossaryEntry] = Field(default_factory=list)
     retrieval: RetrieveResponse | None = None
     trace_id: str | None = None
 
@@ -142,6 +162,8 @@ class AskResponse(BaseModel):
             raise ValueError("not_found responses must not contain references.")
         if self.status == "answered" and not self.references:
             raise ValueError("answered responses must include at least one reference.")
+        if self.status == "not_found" and self.glossary:
+            raise ValueError("not_found responses must not contain glossary entries.")
         return self
 
 
@@ -175,6 +197,7 @@ class LLMAnswer(BaseModel):
     status: Literal["answered", "not_found"]
     answer: str = Field(min_length=1, pattern=r".*\S.*")
     cited_chunk_ids: list[str] = Field(default_factory=list)
+    glossary: list[GlossaryEntry] = Field(default_factory=list)
 
 
 class APIErrorDetail(BaseModel):

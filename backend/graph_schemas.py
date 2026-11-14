@@ -66,3 +66,27 @@ class GraphExtraction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     triples: list[ExtractedTriple] = Field(default_factory=list)
+
+
+class GraphConcept(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str
+    type: EntityType
+
+
+class ConceptNeighbour(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    concept: GraphConcept
+    relation: RelationType
+    direction: Literal["incoming", "outgoing"]
+    chunk_ids: list[str]
+
+
+class ConceptNeighbourhood(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    concept: GraphConcept
+    neighbours: list[ConceptNeighbour]
