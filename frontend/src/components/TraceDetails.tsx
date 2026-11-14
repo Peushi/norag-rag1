@@ -10,6 +10,7 @@ type TraceDetailsProps = {
 const OPERATION_LABELS: Record<TraceDetail["operation"], string> = {
   question: "Question",
   indexing: "Indexing run",
+  concept_map: "Concept map",
 };
 
 /** A "Details" toggle that loads and shows one stored trace on demand. */

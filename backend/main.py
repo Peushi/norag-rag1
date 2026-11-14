@@ -4,13 +4,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from openai import APIConnectionError, APIStatusError, APITimeoutError
 
+from backend.concept_map import (
+    ConceptNotFoundError,
+    GraphUnavailableError,
+    get_concept_neighbourhood,
+    list_concepts,
+)
 from backend.documents import add_document_and_reindex
+from backend.graph_schemas import ConceptListResponse, ConceptNeighbourhoodResponse
 from backend.evaluation_runs import (
     EvaluationAlreadyRunningError,
     EvaluationRunNotFoundError,
@@ -38,6 +45,7 @@ from backend.retrieval_comparison import (
 from backend.schemas import (
     APIErrorDetail,
     APIErrorResponse,
+    DocumentTextResponse,
     AskRequest,
     AskResponse,
     ChunkResponse,
@@ -50,6 +58,8 @@ from backend.schemas import (
     RetrieveResponse,
     RetrievalComparisonResponse,
     SettingsRequest,
+    QuarantineListResponse,
+    QuarantineReleaseRequest,
     TraceResponse,
     WordChunksResponse,
     WordQuestionAnalysisRequest,
@@ -80,6 +90,11 @@ async def trace_pipeline_requests(request: Request, call_next):
         (request.method == "POST" and request.url.path == "/api/documents")
         or (request.method == "DELETE" and request.url.path.startswith("/api/documents/"))
         or (request.method == "PUT" and request.url.path == "/api/settings")
+        or (
+            request.method == "POST"
+            and request.url.path.startswith("/api/quarantine/")
+            and request.url.path.endswith(("/release", "/reject"))
+        )
     )
     if not (is_ask or is_indexing):
         return await call_next(request)
@@ -130,7 +145,31 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     content = APIErrorResponse(
         error=APIErrorDetail(code="HTTP_ERROR", message=exc.detail, retryable=False)
     ).model_dump()
-    return JSONResponse(status_code=exc.status_code, content=content)
+    # Keep headers set on the error (e.g. X-Trace-ID) instead of dropping them.
+    return JSONResponse(
+        status_code=exc.status_code, content=content, headers=exc.headers
+    )
+
+
+def _graph_unavailable_response(
+    exc: GraphUnavailableError, trace_id: str | None = None
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content=APIErrorResponse(
+            error=APIErrorDetail(
+                code="GRAPH_UNAVAILABLE",
+                message=str(exc),
+                retryable=False,
+            )
+        ).model_dump(),
+        headers={"X-Trace-ID": trace_id} if trace_id else None,
+    )
+
+
+@app.exception_handler(GraphUnavailableError)
+async def graph_unavailable_handler(request: Request, exc: GraphUnavailableError):
+    return _graph_unavailable_response(exc)
 
 
 @app.exception_handler(LLMServiceUnavailable)
@@ -405,6 +444,59 @@ async def delete_document_endpoint(document_id: str):
     return {"status": "deleted", "document_id": document_id}
 
 
+@app.get("/api/quarantine", response_model=QuarantineListResponse)
+async def quarantine_list():
+    """Documents held by the injection scanner and still awaiting review."""
+    from backend.quarantine import list_quarantined_documents
+
+    return QuarantineListResponse(items=list_quarantined_documents())
+
+
+@app.post("/api/quarantine/{quarantine_id}/release")
+async def quarantine_release(quarantine_id: str, payload: QuarantineReleaseRequest):
+    """Index a held document after the reviewer explicitly approves it."""
+    from backend.quarantine import QuarantineStateError, release_quarantined_document
+
+    if not payload.approved:
+        raise HTTPException(
+            status_code=422,
+            detail="Confirm that you reviewed this document before adding it.",
+        )
+    try:
+        return release_quarantined_document(
+            quarantine_id,
+            approved=True,
+            chunk_size=APP_SETTINGS.chunk_size,
+            overlap=APP_SETTINGS.overlap,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="This held document no longer exists.") from exc
+    except FileExistsError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="A document with the same name is already in your library. Remove it first, then add this one.",
+        ) from exc
+    except QuarantineStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/quarantine/{quarantine_id}/reject")
+async def quarantine_reject(quarantine_id: str):
+    """Discard a held document; only its metadata is kept."""
+    from backend.quarantine import QuarantineStateError, reject_quarantined_document
+
+    try:
+        return reject_quarantined_document(quarantine_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="This held document no longer exists.") from exc
+    except QuarantineStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @app.put("/api/settings")
 async def update_settings(payload: SettingsRequest):
     stats = update_rag_settings(
@@ -479,6 +571,55 @@ async def trace_endpoint(trace_id: str):
     if trace is None:
         raise HTTPException(status_code=404, detail="Trace not found.")
     return trace
+
+
+@app.get("/api/concepts", response_model=ConceptListResponse)
+async def concepts(query: str = Query(default="", max_length=100)):
+    """Search the Kestrel concept map; browsing is not traced (no LLM, no index change)."""
+    return ConceptListResponse(concepts=list_concepts(query))
+
+
+@app.get("/api/concepts/{concept_id}", response_model=ConceptNeighbourhoodResponse)
+async def concept_neighbourhood(concept_id: str, response: Response):
+    """Open one concept: its relationships and the passages they were extracted from."""
+    trace = create_trace("concept_map")
+    response.headers["X-Trace-ID"] = trace.trace_id
+    try:
+        neighbourhood = get_concept_neighbourhood(concept_id, trace=trace)
+    except ConceptNotFoundError as exc:
+        trace.set_outcome("not_found")
+        trace.finish("failed")
+        raise HTTPException(
+            status_code=404,
+            detail="This concept is not in the concept map.",
+            headers={"X-Trace-ID": trace.trace_id},
+        ) from exc
+    except GraphUnavailableError as exc:
+        trace.set_outcome("unavailable")
+        trace.finish("failed")
+        return _graph_unavailable_response(exc, trace.trace_id)
+    trace.set_outcome("found")
+    trace.finish("completed")
+    return ConceptNeighbourhoodResponse(
+        **neighbourhood.model_dump(), trace_id=trace.trace_id
+    )
+
+
+@app.get("/api/document-text", response_model=DocumentTextResponse)
+async def document_text(
+    document_id: str = Query(min_length=1, max_length=300),
+    dataset: Literal["baking", "kestrel"] = "baking",
+):
+    """Read one whole document from the selected corpus (never from quarantine)."""
+    from backend.rag_service import read_text_document
+
+    try:
+        text = read_text_document(document_id, dataset=dataset)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="This document no longer exists.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return DocumentTextResponse(document_id=document_id, dataset=dataset, text=text)
 
 
 # looks up 1 indexed chunk

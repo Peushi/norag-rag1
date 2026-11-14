@@ -127,7 +127,7 @@ export type TraceSpan = {
 
 export type TraceDetail = {
   trace_id: string;
-  operation: "question" | "indexing";
+  operation: "question" | "indexing" | "concept_map";
   status: "running" | "completed" | "failed";
   outcome?: string | null;
   started_at: string;
@@ -191,6 +191,35 @@ export function getApiErrorMessage(value: unknown, fallback: string): string {
 
   return typeof error.message === "string" ? error.message : fallback;
 }
+
+/** A concept (entity) from the Kestrel concept graph. */
+export type GraphConcept = {
+  id: string;
+  name: string;
+  type: string;
+};
+
+/** One relationship of the open concept, and the passages it was extracted from. */
+export type ConceptNeighbour = {
+  concept: GraphConcept;
+  relation: string;
+  direction: "incoming" | "outgoing";
+  chunk_ids: string[];
+};
+
+export type ConceptNeighbourhood = {
+  concept: GraphConcept;
+  neighbours: ConceptNeighbour[];
+  trace_id: string;
+};
+
+/** A passage (chunk) of a source document. */
+export type SourcePassage = {
+  id: string;
+  text: string;
+  source: string;
+  position: number;
+};
 
 /** One passage the injection scanner flagged; the excerpt is short and masked. */
 export type QuarantineFinding = {
@@ -351,7 +380,7 @@ export function isTraceDetail(value: unknown): value is TraceDetail {
     !("trace_id" in value) ||
     typeof value.trace_id !== "string" ||
     !("operation" in value) ||
-    (value.operation !== "question" && value.operation !== "indexing") ||
+    !["question", "indexing", "concept_map"].includes(String(value.operation)) ||
     !("status" in value) ||
     !["running", "completed", "failed"].includes(String(value.status)) ||
     !("started_at" in value) ||

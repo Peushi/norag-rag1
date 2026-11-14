@@ -90,3 +90,15 @@ class ConceptNeighbourhood(BaseModel):
 
     concept: GraphConcept
     neighbours: list[ConceptNeighbour]
+
+
+class ConceptListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    concepts: list[GraphConcept]
+
+
+class ConceptNeighbourhoodResponse(ConceptNeighbourhood):
+    """A concept's neighbourhood plus the trace recorded for opening it."""
+
+    trace_id: str
