@@ -353,6 +353,134 @@
   font-weight: 700;
 }
 
+/* Documents held for review by the injection scanner */
+.quarantine {
+  margin: 14px 0 16px;
+  padding: 10px 12px;
+  border: 1px solid #e2c39a;
+  border-radius: 12px;
+  background: #fbf1df;
+}
+
+.quarantine-count {
+  border-color: #b9894a;
+  background: #f5dfb8;
+  color: #7a5320;
+}
+
+.quarantine-help,
+.quarantine-note {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.quarantine-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quarantine-item + .quarantine-item {
+  border-top: 1px dashed #e2c39a;
+}
+
+.quarantine-item summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+  padding: 7px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.quarantine-item summary:focus-visible,
+.quarantine-trust:focus-within {
+  outline: 3px solid rgba(82, 115, 107, 0.42);
+  outline-offset: 2px;
+}
+
+.quarantine-meta {
+  color: #7a5320;
+  font-weight: 700;
+}
+
+.quarantine-findings {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.quarantine-findings li {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 12px;
+}
+
+.finding-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.finding-severity {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.finding-severity.high {
+  background: var(--rose-wash);
+  color: var(--terracotta-dark);
+}
+
+.finding-severity.medium {
+  background: #f5dfb8;
+  color: #7a5320;
+}
+
+.finding-line {
+  color: var(--muted);
+}
+
+.finding-excerpt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.quarantine-trust {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.quarantine-trust input {
+  margin-top: 2px;
+}
+
+.quarantine-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
 @media (max-width: 520px) {
   .insights-label {
     width: 100%;

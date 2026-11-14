@@ -192,6 +192,57 @@ export function getApiErrorMessage(value: unknown, fallback: string): string {
   return typeof error.message === "string" ? error.message : fallback;
 }
 
+/** One passage the injection scanner flagged; the excerpt is short and masked. */
+export type QuarantineFinding = {
+  rule_id: string;
+  message: string;
+  severity: string;
+  line: number;
+  excerpt: string;
+};
+
+/** A document held for review; its full text never leaves the backend. */
+export type QuarantineItem = {
+  id: string;
+  source: string;
+  dataset: string;
+  status: "quarantined" | "releasing";
+  findings: QuarantineFinding[];
+  created_at: string;
+  trace_id?: string | null;
+};
+
+function isQuarantineFinding(value: unknown): value is QuarantineFinding {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "rule_id" in value &&
+    typeof value.rule_id === "string" &&
+    "message" in value &&
+    typeof value.message === "string" &&
+    "line" in value &&
+    typeof value.line === "number" &&
+    "excerpt" in value &&
+    typeof value.excerpt === "string"
+  );
+}
+
+export function isQuarantineItem(value: unknown): value is QuarantineItem {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    "source" in value &&
+    typeof value.source === "string" &&
+    "status" in value &&
+    (value.status === "quarantined" || value.status === "releasing") &&
+    "findings" in value &&
+    Array.isArray(value.findings) &&
+    value.findings.every(isQuarantineFinding)
+  );
+}
+
 /** The result of a change that rebuilds the index (upload, removal, settings). */
 export type IndexingActivity = {
   message: string;

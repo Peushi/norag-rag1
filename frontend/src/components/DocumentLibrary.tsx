@@ -1,11 +1,14 @@
-import { useState, type FormEvent, type ChangeEvent } from "react";
+import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import {
   getApiErrorMessage,
   getTraceId,
   readJson,
   type DocumentSummary,
   type IndexingActivity,
+  type QuarantineItem,
 } from "../types/api";
+import { useQuarantine } from "../hooks/useQuarantine";
+import { QuarantineReview } from "./QuarantineReview";
 import { TraceDetails } from "./TraceDetails";
 
 type DocumentLibraryProps = {
@@ -28,6 +31,29 @@ export function DocumentLibrary({
   const [activity, setActivity] = useState<IndexingActivity | null>(null);
   const [busyDocumentId, setBusyDocumentId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const {
+    heldItems,
+    quarantineLoadError,
+    loadQuarantine,
+    releaseItem,
+    rejectItem,
+  } = useQuarantine();
+
+  useEffect(() => {
+    void loadQuarantine();
+  }, []);
+
+  async function handleRelease(item: QuarantineItem) {
+    const outcome = await releaseItem(item);
+    setActivity(outcome);
+    if (outcome.tone === "success") {
+      await onUploaded().catch(() => undefined);
+    }
+  }
+
+  async function handleReject(item: QuarantineItem) {
+    setActivity(await rejectItem(item));
+  }
 
   async function handleDelete(document: DocumentSummary) {
     setConfirmingId(null);
@@ -56,9 +82,21 @@ export function DocumentLibrary({
         </div>
       </div>
 
-      <DocumentUpload onUploaded={onUploaded} onActivity={setActivity} />
+      <DocumentUpload
+        onUploaded={onUploaded}
+        onQuarantined={loadQuarantine}
+        onActivity={setActivity}
+      />
 
       {activity && <IndexingActivityNote activity={activity} />}
+
+      <QuarantineReview
+        items={heldItems}
+        loadError={quarantineLoadError}
+        onRetryLoad={() => void loadQuarantine()}
+        onRelease={handleRelease}
+        onReject={handleReject}
+      />
 
       <div className="library-documents">
         <div className="library-label">
@@ -159,10 +197,15 @@ function isUploadResponse(value: unknown): value is UploadResponse {
 
 type DocumentUploadProps = {
   onUploaded: () => Promise<void>;
+  onQuarantined: () => Promise<void>;
   onActivity: (activity: IndexingActivity | null) => void;
 };
 
-function DocumentUpload({ onUploaded, onActivity }: DocumentUploadProps) {
+function DocumentUpload({
+  onUploaded,
+  onQuarantined,
+  onActivity,
+}: DocumentUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -210,12 +253,13 @@ function DocumentUpload({ onUploaded, onActivity }: DocumentUploadProps) {
       form.reset();
 
       if (data.status === "quarantined") {
+        await onQuarantined();
         const count = data.findings?.length ?? 0;
         onActivity({
           message:
             `“${fileName}” was held for review and is not searchable yet. ` +
             `It contains ${count === 1 ? "a passage" : `${count} passages`} ` +
-            "that look like instructions aimed at the assistant.",
+            "that look like instructions aimed at the assistant. Review it below.",
           tone: "warning",
           traceId,
         });
