@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -175,27 +176,6 @@ def retrieve_chunks(
     return chunks
 
 
-def get_chunk(chunk_id):
-    """Fetch one stored chunk by its deterministic ID."""
-    collection = get_collection()
-    if collection.count() == 0:
-        return None
-
-    result = collection.get(ids=[chunk_id], include=["documents", "metadatas"])
-    if not result.get("ids") or not result["ids"]:
-        return None
-
-    document = result["documents"][0]
-    metadata = result["metadatas"][0]
-
-    return {
-        "id": chunk_id,
-        "text": document,
-        "source": metadata["source"],
-        "position": metadata["position"],
-    }
-
-
 def filter_by_relevance(chunks, max_distance=None):
     """optionally remove chunks that are too far from the query."""
 
@@ -208,9 +188,17 @@ def filter_by_relevance(chunks, max_distance=None):
     return [chunk for chunk in chunks if chunk["distance"] <= max_distance]
 
 
-def get_chunk(chunk_id: str):
-    """Return one indexed chunk by its ID, or None if it doesn't exist."""
-    collection = get_collection()
+def validate_chunk_id(chunk_id: str) -> None:
+    if not isinstance(chunk_id, str) or not re.fullmatch(r"[0-9a-f]{12}::chunk_[0-9]{4,}", chunk_id):
+        raise ValueError("Invalid chunk ID")
+
+
+def get_chunk(chunk_id: str, dataset: EvaluationDataset = "baking"):
+    """Look only in the explicitly selected corpus; Baking remains the default."""
+    validate_chunk_id(chunk_id)
+    if dataset not in DATASET_DIRECTORIES:
+        raise ValueError("Unknown retrieval dataset")
+    collection = get_collection(dataset)
 
     if collection.count() == 0:
         return None

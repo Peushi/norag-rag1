@@ -51,7 +51,7 @@ def load_documents(corpus_dir: Path = CORPUS_DIR) -> list[dict[str, str]]:
     return documents
 
 
-def resolve_document_path(source: str) -> Path:
+def resolve_document_path(source: str, *, corpus_dir: Path | None = None) -> Path:
     """resolve a supported document path that remains inside corpus/."""
     if not source or not source.strip():
         raise ValueError("Document name cannot be empty")
@@ -59,7 +59,10 @@ def resolve_document_path(source: str) -> Path:
     if Path(source).is_absolute():
         raise ValueError("Absolute paths are not allowed")
 
-    root = CORPUS_DIR.resolve()
+    if "\\" in source or "\0" in source or ".." in Path(source).parts:
+        raise ValueError("Invalid document identifier")
+
+    root = (CORPUS_DIR if corpus_dir is None else Path(corpus_dir)).resolve()
     path = (root / source).resolve()
 
     if not path.is_relative_to(root):

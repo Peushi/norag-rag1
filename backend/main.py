@@ -478,11 +478,28 @@ async def trace_endpoint(trace_id: str):
 
 # looks up 1 indexed chunk
 @app.get("/api/chunks/{chunk_id:path}", response_model=ChunkResponse)
-async def chunk_by_id(chunk_id: str):
-    chunk = get_chunk_by_id(chunk_id)
+async def chunk_by_id(
+    chunk_id: str,
+    dataset: Literal["baking", "kestrel"] = "baking",
+    graph_evidence: bool = False,
+):
+    try:
+        if graph_evidence:
+            if dataset != "kestrel":
+                raise ValueError("Graph evidence is Kestrel-only.")
+            from backend.concept_map import get_supporting_chunk
+
+            chunk = get_supporting_chunk(chunk_id)
+        else:
+            chunk = get_chunk_by_id(chunk_id, dataset=dataset)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Graph supporting chunk not found.") from exc
     if not chunk:
         raise HTTPException(status_code=404, detail=f"Chunk '{chunk_id}' not found.")
     return ChunkResponse(chunk=chunk)
+
 
 
 if __name__ == "__main__":

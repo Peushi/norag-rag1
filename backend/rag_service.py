@@ -13,12 +13,14 @@ from backend.index_settings import load_settings
 from backend.llm_service import TraceContext, generate_answer
 from backend.bm25 import retrieve_bm25
 from backend.retrieval import (
+    DATASET_DIRECTORIES,
     ensure_index_current,
     filter_by_relevance,
     get_chunk,
     rebuild_index,
     retrieve_chunks as search_chunks,
     update_index_settings,
+    validate_chunk_id,
 )
 from backend.retrieval_orchestrator import (
     OrchestratedRetrieval,
@@ -101,11 +103,16 @@ def list_documents() -> list[dict[str, str | int]]:
     return documents
 
 
-def read_text_document(document_id: str) -> str:
-    """Read one corpus document by its relative source path."""
+def read_text_document(document_id: str, dataset: EvaluationDataset = "baking") -> str:
+    """Read an original document safely within the selected indexed corpus."""
     from backend.documents import resolve_document_path
 
-    return resolve_document_path(document_id).read_text(encoding="utf-8")
+    if dataset not in DATASET_DIRECTORIES:
+        raise ValueError("Unknown retrieval dataset")
+    path = resolve_document_path(document_id, corpus_dir=DATASET_DIRECTORIES[dataset])
+    if not path.is_file():
+        raise FileNotFoundError("Document not found")
+    return path.read_text(encoding="utf-8")
 
 
 def index_all_documents(
@@ -328,12 +335,11 @@ def _build_path_context(
     )
 
 
-def get_chunk_by_id(chunk_id: str) -> SourceChunk | None:
-    """Look up one indexed chunk for a source preview."""
-    if get_collection().count() == 0 and list_document_paths():
-        index_all_documents()
-
-    chunk: dict[str, Any] | None = get_chunk(chunk_id)
+def get_chunk_by_id(chunk_id: str, dataset: EvaluationDataset = "baking") -> SourceChunk | None:
+    """Preview evidence from the selected corpus at the active chunk settings."""
+    validate_chunk_id(chunk_id)
+    ensure_index_current(dataset, APP_SETTINGS.chunk_size, APP_SETTINGS.overlap)
+    chunk: dict[str, Any] | None = get_chunk(chunk_id, dataset=dataset)
     return SourceChunk.model_validate(chunk) if chunk is not None else None
 
 
