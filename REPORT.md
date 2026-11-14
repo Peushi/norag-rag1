@@ -1,4 +1,4 @@
-# BakeFix — V1, V2, and V3 Report
+# BakeFix — V1, V2, V3 and V4 Report
 
 BakeFix is a document-grounded question answering application. It began as a
 baking troubleshooting baseline and grew to include the Kestrel knowledge base,
@@ -67,6 +67,7 @@ configuration match.
 | V3 Dense/BM25 comparison | Original question sets; 800/80; Dense and Dense+BM25 | [`evaluation/results/v3/COMPARISON.md`](evaluation/results/v3/COMPARISON.md) and `*_800_80*.jsonl` files. |
 | Expanded Kestrel Graph comparison | 12 questions (10 answerable, 2 unanswerable), including q11/q12 additions; 800/80; Dense, Dense+BM25, Dense+BM25+Graph | [`evaluation/results/v3/COMPARISON.md`](evaluation/results/v3/COMPARISON.md) and `*12q*.jsonl` files. |
 | Generation and manual review | Baking/Kestrel no-context and RAG runs, with reviewed result files | `*_no_context.jsonl`, `*_rag.jsonl`, and `*_rag_reviewed.jsonl`; analysis tools in `evaluation/`. |
+| V4 PII-redaction Kestrel run | Kestrel; 10 questions (8 answerable, 2 not in corpus); 800/80; Dense only; top-k=5; generation enabled | `evaluation/results/v4/kestrel_rag_redaction_current_summary.jsonl`; retrieval metrics do not directly measure redaction effectiveness. |
 
 For V2/V3 retrieval metrics, a passage matches an expected evidence item when
 the expected source and complete quoted text occur in that passage after
@@ -84,7 +85,7 @@ benchmarks.
 | Member              | Responsibilities                                                                                  |
 | ------------------- | ------------------------------------------------------------------------------------------------- |
 | Karma Soliman       | Document management, chunking, embeddings, ChromaDB indexing, retrieval, and retrieval evaluation |
-| Peushi Ariyawansa   | Gemini integration, grounded generation, Pydantic validation, and citation verification           |
+| Peushi Ariyawansa   | Gemini integration, grounded generation, Pydantic validation, citation verification, knowledge-graph construction, Path as Context, and V4 PII redaction |
 | Aleksandra Temereva | FastAPI routes, React frontend, shared API schema, integration, and error handling                |
 
 ## Decision Log
@@ -528,6 +529,67 @@ Gemini or graph-extraction calls were made. Refreshed expanded-result JSONLs con
 single-run latency samples; they do not establish a speed improvement. Person A's
 required retrieval comparisons,
 including Graph and the expanded two-hop set, are complete for this checkout.
+
+## V4 — PII Redaction and Evaluation
+
+### Objective and Implementation
+
+V4 adds privacy-oriented redaction before LLM generation. The implementation uses Presidio to detect and redact personal data in the user's question before it is passed to the language model.
+
+Retrieved document context and graph paths receive additional conservative filtering for email addresses and phone-number patterns. This filtering is deliberately narrower than full personal-data detection so that technical identifiers, product names, error codes, and team names are preserved.
+
+The original retrieved evidence is not modified. It remains available for local citation verification, while the redacted content is used to construct the LLM prompt.
+
+### Verification
+
+The implementation was covered by automated tests for personal-data redaction, contact-pattern filtering, and citation verification. The complete backend test suite passed **235 tests** after the changes.
+
+### V4 Retrieval Evaluation
+
+A Kestrel RAG run with answer generation enabled was recorded using the following configuration. The metrics below describe retrieval performance, not redaction effectiveness.
+
+| Parameter | Value |
+| --- | --- |
+| Corpus | Kestrel |
+| Documents / chunks | 5 / 43 |
+| Chunk size / overlap | 800 / 80 |
+| Embedding model | `all-MiniLM-L6-v2` |
+| Distance metric | Cosine |
+| Retriever | Dense only |
+| Top-k | 5 |
+| Questions | 10 |
+| Path as Context | Disabled |
+| Answer generation | Enabled |
+| Answerable / excluded questions | 8 / 2 |
+
+The recorded retrieval metrics were:
+
+| Metric | HitRate | Recall |
+| --- | ---: | ---: |
+| @1 | 62.5% | 40.625% |
+| @3 | 87.5% | 81.25% |
+| @5 | 87.5% | 81.25% |
+| @10 | 100% | 93.75% |
+
+### Latency Observations
+
+| Operation | Samples | Mean | Median |
+| --- | ---: | ---: | ---: |
+| Total retrieval | 10 | 18.073 ms | 14.803 ms |
+| Dense adapter | 10 | 17.943 ms | 14.693 ms |
+| Generation without path context | 10 | 1838.424 ms | 1515.059 ms |
+
+No generation samples with path context were recorded in this run.
+
+These timings are observational measurements from one run, not controlled performance benchmarks.
+
+### Limitations
+
+The retrieval metrics describe evidence retrieval and do not directly measure whether personal data was successfully detected or removed. No dedicated quantitative redaction-effectiveness evaluation was performed.
+
+Contact-pattern filtering in retrieved context and graph paths targets email addresses and phone numbers. It does not establish coverage for every possible sensitive identifier, such as arbitrary IP addresses, payment-card numbers, or IBANs.
+
+The raw evaluation trace is intentionally excluded from version control because it contains raw questions, retrieved chunks, and generated outputs. The committed aggregate summary is available at `evaluation/results/v4/kestrel_rag_redaction_current_summary.jsonl`.
 
 ## Conclusion and Remaining Scope
 
