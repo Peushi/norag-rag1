@@ -296,13 +296,37 @@ class EvidenceLookupTests(unittest.TestCase):
         quarantine = self.root / 'quarantine'
         quarantine.mkdir()
         (quarantine / 'suspicious.md').write_text('Outside indexed directories')
-        (self.kestrel / 'linked.md').symlink_to(quarantine / 'suspicious.md')
+
+        symlink_created = True
+        try:
+            (self.kestrel / 'linked.md').symlink_to(
+                quarantine / 'suspicious.md'
+            )
+        except OSError as error:
+            if getattr(error, 'winerror', None) != 1314:
+                raise
+            symlink_created = False
+
+        # Traversal and quarantine protections must always work.
         with self.assertRaises(ValueError):
-            rag_service.read_text_document('../quarantine/suspicious.md', dataset='kestrel')
-        with self.assertRaises(ValueError):
-            rag_service.read_text_document('linked.md', dataset='kestrel')
+            rag_service.read_text_document(
+                '../quarantine/suspicious.md',
+                dataset='kestrel',
+            )
+
         with self.assertRaises(FileNotFoundError):
-            rag_service.read_text_document('suspicious.md', dataset='kestrel')
+            rag_service.read_text_document(
+                'suspicious.md',
+                dataset='kestrel',
+            )
+
+        # Check symlink protection on systems where symlinks are permitted.
+        if symlink_created:
+            with self.assertRaises(ValueError):
+                rag_service.read_text_document(
+                    'linked.md',
+                    dataset='kestrel',
+                )
 
     def test_missing_document_error_does_not_expose_filesystem_path(self):
         with self.assertRaises(FileNotFoundError) as error:

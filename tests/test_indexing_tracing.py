@@ -2,6 +2,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -43,7 +44,7 @@ class IndexingTraceTests(unittest.TestCase):
         return response.json()
 
     def trace_count(self):
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             return connection.execute('SELECT COUNT(*) FROM traces').fetchone()[0]
 
     def test_manual_rebuild_records_counts_and_preserves_ids(self):
@@ -64,7 +65,7 @@ class IndexingTraceTests(unittest.TestCase):
         self.collection.add.side_effect = RuntimeError(self.private)
         with self.assertRaises(RuntimeError):
             retrieval.rebuild_index()
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             trace_id = connection.execute('SELECT trace_id FROM traces').fetchone()[0]
         saved = self.saved(trace_id)
         serialized = json.dumps(saved)
@@ -80,7 +81,7 @@ class IndexingTraceTests(unittest.TestCase):
         with patch('backend.retrieval.load_documents', side_effect=OSError('private path')):
             with self.assertRaises(OSError):
                 retrieval.rebuild_index()
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             trace_id = connection.execute('SELECT trace_id FROM traces').fetchone()[0]
         saved = self.saved(trace_id)
         self.assertEqual(saved['status'], 'failed')
@@ -92,7 +93,7 @@ class IndexingTraceTests(unittest.TestCase):
         with patch('backend.retrieval.chunk_text', side_effect=ValueError('private contents')):
             with self.assertRaises(ValueError):
                 retrieval.rebuild_index()
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             trace_id = connection.execute('SELECT trace_id FROM traces').fetchone()[0]
         self.assertEqual(self.saved(trace_id)['spans'][-1]['name'], 'chunking')
         self.assertEqual(self.saved(trace_id)['spans'][-1]['status'], 'failed')
@@ -102,7 +103,7 @@ class IndexingTraceTests(unittest.TestCase):
         self.collection.add.side_effect = [None, RuntimeError('private')]
         with self.assertRaises(RuntimeError):
             retrieval.rebuild_index(chunk_size=1, overlap=0, documents=[{'source': 'guide.md', 'text': 'x' * 101}])
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             trace_id = connection.execute('SELECT trace_id FROM traces').fetchone()[0]
         span = self.saved(trace_id)['spans'][-1]
         self.assertEqual(span['status'], 'failed')
@@ -132,7 +133,7 @@ class IndexingTraceTests(unittest.TestCase):
         self.assertEqual(self.saved(response.headers['X-Trace-ID'])['status'], 'failed')
         self.assertNotIn('private', response.text)
         self.assertFalse((self.corpus / 'new.md').exists())
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             trace_id = connection.execute('SELECT trace_id FROM traces').fetchone()[0]
         self.assertEqual(self.saved(trace_id)['status'], 'failed')
         self.assertEqual(self.trace_count(), 1)
@@ -150,7 +151,7 @@ class IndexingTraceTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             documents.delete_document_and_reindex('guide.md')
         self.assertEqual((self.corpus / 'guide.md').read_text(), self.private)
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             trace_id = connection.execute('SELECT trace_id FROM traces').fetchone()[0]
         self.assertEqual(self.saved(trace_id)['status'], 'failed')
 
@@ -168,7 +169,7 @@ class IndexingTraceTests(unittest.TestCase):
         with patch('backend.retrieval.save_settings', side_effect=OSError('private')):
             with self.assertRaises(OSError):
                 retrieval.update_index_settings(800, 80)
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             trace_id = connection.execute('SELECT trace_id FROM traces').fetchone()[0]
         self.assertEqual(self.saved(trace_id)['status'], 'failed')
 
@@ -211,7 +212,7 @@ class IndexingTraceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             retrieval.rebuild_index(chunk_size=80, overlap=80)
         self.reset.assert_not_called()
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             trace_id = connection.execute('SELECT trace_id FROM traces').fetchone()[0]
         self.assertEqual(self.saved(trace_id)['status'], 'failed')
 
@@ -244,7 +245,7 @@ class IndexingTraceTests(unittest.TestCase):
         with patch.object(rag_evaluation, 'EVALUATION_DIR', self.root / 'evaluation'), patch.object(rag_evaluation.chromadb, 'PersistentClient', side_effect=RuntimeError('private')):
             with self.assertRaises(RuntimeError):
                 rag_evaluation.build_isolated_index('kestrel', documents.load_documents(self.corpus), 800, 80)
-        with sqlite3.connect(self.db) as connection:
+        with closing(sqlite3.connect(self.db)) as connection:
             trace_id = connection.execute('SELECT trace_id FROM traces').fetchone()[0]
         saved = self.saved(trace_id)
         self.assertEqual(saved['status'], 'failed')
