@@ -10,6 +10,7 @@ from backend.llm_service import (
     client,
     LLMServiceUnavailable,
     LLMResponseError,
+    TraceContext,
 )
 
 
@@ -55,7 +56,21 @@ CHUNK TEXT:
 """.strip()
 
 
-def extract_graph_from_chunk(chunk: dict) -> dict:
+def extract_graph_from_chunk(chunk: dict, *, trace: TraceContext | None = None) -> dict:
+    """Optional shared tracing; extraction and evidence validation are unchanged."""
+    if trace is None:
+        return _extract_graph_from_chunk(chunk)
+    with trace.span("graph_extraction") as span:
+        result = _extract_graph_from_chunk(chunk)
+        span.set_attribute("triple_count", len(result["triples"]))
+        span.set_attribute("llm_calls", result["llm_calls"])
+        for key, attribute in (("prompt_tokens", "input_tokens"), ("completion_tokens", "output_tokens")):
+            if result[key] is not None:
+                span.set_attribute(attribute, result[key])
+        return result
+
+
+def _extract_graph_from_chunk(chunk: dict) -> dict:
     """Extract and validate triples from one chunk."""
 
     if client is None:

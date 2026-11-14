@@ -111,11 +111,13 @@ def read_text_document(document_id: str) -> str:
 def index_all_documents(
     chunk_size: int | None = None,
     overlap: int | None = None,
+    *, trace: TraceContext | None = None,
 ) -> dict[str, int]:
     """Rebuild the corpus index; the retrieval implementation indexes all files."""
     stats = rebuild_index(
         chunk_size=chunk_size if chunk_size is not None else APP_SETTINGS.chunk_size,
         overlap=overlap if overlap is not None else APP_SETTINGS.overlap,
+        trace=trace,
     )
     return stats
 
@@ -125,9 +127,10 @@ def retrieve_chunks(
     document_ids: list[str] | None = None,
     top_k: int | None = None,
     dataset: EvaluationDataset = "baking",
+    *, trace: TraceContext | None = None,
 ) -> list[RetrievedChunk]:
     """Search the Chroma index and apply the configured cosine-distance limit."""
-    ensure_index_current(dataset, APP_SETTINGS.chunk_size, APP_SETTINGS.overlap)
+    ensure_index_current(dataset, APP_SETTINGS.chunk_size, APP_SETTINGS.overlap, trace=trace)
 
     chunks = search_chunks(
         question=question,
@@ -146,6 +149,7 @@ def retrieve_selected_chunks(
     document_ids: list[str] | None = None,
     top_k: int | None = None,
     dataset: EvaluationDataset = "baking",
+    trace: TraceContext | None = None,
 ) -> OrchestratedRetrieval:
     """Dispatch selected retrievers and fuse their ranked chunk results."""
     selected_retrievers = tuple(["dense"] if retrievers is None else retrievers)
@@ -161,6 +165,7 @@ def retrieve_selected_chunks(
             ),
             top_k=query.top_k,
             dataset=query.dataset,
+            trace=trace,
         )
         return RetrieverOutput(
             chunks=[
@@ -249,6 +254,7 @@ def ask_question(
                 document_ids=document_ids,
                 top_k=top_k,
                 dataset=dataset,
+                trace=trace,
             )
     path_context = (
         _build_path_context(retrieval.graph_paths, retrieval.graph_chunks)
@@ -331,7 +337,7 @@ def get_chunk_by_id(chunk_id: str) -> SourceChunk | None:
     return SourceChunk.model_validate(chunk) if chunk is not None else None
 
 
-def delete_document(document_id: str) -> bool:
+def delete_document(document_id: str, *, trace: TraceContext | None = None) -> bool:
     """Delete a corpus file and rebuild the index."""
     from backend.documents import delete_document_and_reindex
 
@@ -340,6 +346,7 @@ def delete_document(document_id: str) -> bool:
             document_id,
             chunk_size=APP_SETTINGS.chunk_size,
             overlap=APP_SETTINGS.overlap,
+            trace=trace,
         )
     except FileNotFoundError:
         return False
@@ -351,9 +358,10 @@ def update_settings(
     overlap: int,
     top_k: int,
     relevance_threshold: float | None,
+    *, trace: TraceContext | None = None,
 ) -> dict[str, int]:
     """Persist indexing settings and update runtime retrieval preferences."""
-    stats = update_index_settings(chunk_size, overlap)
+    stats = update_index_settings(chunk_size, overlap, trace=trace)
     APP_SETTINGS.chunk_size = chunk_size
     APP_SETTINGS.overlap = overlap
     APP_SETTINGS.top_k = top_k

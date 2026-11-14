@@ -62,7 +62,7 @@ from backend.words_analytics import (
     get_word_chunks,
     list_questions,
 )
-from backend.tracing import create_trace, get_trace
+from backend.tracing import create_trace, get_trace, use_indexing_trace
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT_DIR / "frontend"
@@ -73,18 +73,37 @@ app = FastAPI(title="BakeFix RAG API")
 
 
 @app.middleware("http")
-async def trace_ask_requests(request: Request, call_next):
-    if request.method != "POST" or request.url.path != "/api/ask":
+async def trace_pipeline_requests(request: Request, call_next):
+    is_ask = request.method == "POST" and request.url.path == "/api/ask"
+    is_indexing = (
+        (request.method == "POST" and request.url.path == "/api/documents")
+        or (request.method == "DELETE" and request.url.path.startswith("/api/documents/"))
+        or (request.method == "PUT" and request.url.path == "/api/settings")
+    )
+    if not (is_ask or is_indexing):
         return await call_next(request)
 
-    trace = create_trace("question")
+    trace = create_trace("question" if is_ask else "indexing")
     request.state.ask_trace = trace
     try:
-        response = await call_next(request)
+        with use_indexing_trace(trace):
+            response = await call_next(request)
     except Exception:
+        if is_indexing:
+            trace.set_outcome("failed")
         trace.finish("failed")
+        if is_indexing:
+            return JSONResponse(
+                status_code=500,
+                content=APIErrorResponse(error=APIErrorDetail(
+                    code="INDEXING_ERROR", message="Indexing failed.", retryable=True,
+                )).model_dump(),
+                headers={"X-Trace-ID": trace.trace_id},
+            )
         raise
 
+    if is_indexing:
+        trace.set_outcome("failed" if response.status_code >= 400 else "indexed")
     trace.finish("failed" if response.status_code >= 400 else "completed")
     response.headers["X-Trace-ID"] = trace.trace_id
     return response

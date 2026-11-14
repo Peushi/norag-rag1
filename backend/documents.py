@@ -1,4 +1,10 @@
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+from .tracing import indexing_operation
+
+if TYPE_CHECKING:
+    from .llm_service import TraceContext
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CORPUS_DIR = PROJECT_ROOT / "corpus"
@@ -92,8 +98,14 @@ def delete_document(source: str) -> str:
     return source
 
 
+@indexing_operation
 def add_document_and_reindex(
-    source: str, content: str, *, chunk_size: int | None = None, overlap: int | None = None
+    source: str,
+    content: str,
+    *,
+    chunk_size: int | None = None,
+    overlap: int | None = None,
+    trace: "TraceContext | None" = None,
 ) -> dict:
     """Add a document and rebuild using saved settings unless overridden.
 
@@ -103,7 +115,7 @@ def add_document_and_reindex(
 
     add_document(source, content)
     try:
-        stats = rebuild_index(chunk_size=chunk_size, overlap=overlap)
+        stats = rebuild_index(chunk_size=chunk_size, overlap=overlap, trace=trace)
     except Exception:
         resolve_document_path(source).unlink(missing_ok=True)
         raise
@@ -111,8 +123,13 @@ def add_document_and_reindex(
     return {"source": source, "index": stats}
 
 
+@indexing_operation
 def delete_document_and_reindex(
-    source: str, *, chunk_size: int | None = None, overlap: int | None = None
+    source: str,
+    *,
+    chunk_size: int | None = None,
+    overlap: int | None = None,
+    trace: "TraceContext | None" = None,
 ) -> dict:
     """Delete a document and rebuild using saved settings unless overridden.
 
@@ -127,7 +144,7 @@ def delete_document_and_reindex(
     original_content = path.read_bytes()
     path.unlink()
     try:
-        stats = rebuild_index(chunk_size=chunk_size, overlap=overlap)
+        stats = rebuild_index(chunk_size=chunk_size, overlap=overlap, trace=trace)
     except Exception:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(original_content)

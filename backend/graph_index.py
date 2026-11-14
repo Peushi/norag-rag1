@@ -6,6 +6,8 @@ from pathlib import Path
 from backend.chunking import chunk_text
 from backend.retrieval import make_chunk_id
 from backend.graph_extraction import extract_graph_from_chunk
+from backend.llm_service import TraceContext
+from backend.tracing import indexing_operation
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -14,7 +16,8 @@ GRAPH_DIR = PROJECT_ROOT / "kestrel-kb" / "graph"
 GRAPH_FILE = GRAPH_DIR / "graph.json"
 
 
-def build_kestrel_graph(chunk_size=800, overlap=80):
+@indexing_operation
+def build_kestrel_graph(chunk_size=800, overlap=80, *, trace: TraceContext | None = None):
     """Extract graph triples from all Kestrel documents."""
 
     if not KESTREL_DOCS.exists():
@@ -36,14 +39,14 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
     start_time = time.perf_counter()
 
     for document_path in documents:
-        text = document_path.read_text(encoding="utf-8")
+        with trace.span("load_documents", attributes={"dataset": "kestrel"}) as span:
+            text = document_path.read_text(encoding="utf-8")
+            span.set_attribute("document_count", 1)
 
         source = document_path.relative_to(KESTREL_DOCS).as_posix()
-        chunks = chunk_text(
-            text,
-            chunk_size=chunk_size,
-            overlap=overlap,
-        )
+        with trace.span("chunking", attributes={"chunk_size": chunk_size, "overlap": overlap}) as span:
+            chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+            span.set_attribute("chunk_count", len(chunks))
 
         print(f"\nProcessing {source}: {len(chunks)} chunks")
 
@@ -60,7 +63,7 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
             }
 
             try:
-                result = extract_graph_from_chunk(chunk_data)
+                result = extract_graph_from_chunk(chunk_data, trace=trace)
 
                 successful_calls += result["llm_calls"]
                 all_triples.extend(
@@ -126,7 +129,8 @@ def build_kestrel_graph(chunk_size=800, overlap=80):
     return graph_data
 
 
-def retry_failed_graph_chunks(delay_seconds=5):
+@indexing_operation
+def retry_failed_graph_chunks(delay_seconds=5, *, trace: TraceContext | None = None):
     """Retry failed Kestrel chunks without rebuilding or losing the existing graph."""
 
     if not GRAPH_FILE.exists():
@@ -151,10 +155,14 @@ def retry_failed_graph_chunks(delay_seconds=5):
     )
 
     for document_path in documents:
-        text = document_path.read_text(encoding="utf-8")
+        with trace.span("load_documents", attributes={"dataset": "kestrel"}) as span:
+            text = document_path.read_text(encoding="utf-8")
+            span.set_attribute("document_count", 1)
         source = document_path.relative_to(KESTREL_DOCS).as_posix()
 
-        chunks = chunk_text(text, chunk_size=800, overlap=80)
+        with trace.span("chunking", attributes={"chunk_size": 800, "overlap": 80}) as span:
+            chunks = chunk_text(text, chunk_size=800, overlap=80)
+            span.set_attribute("chunk_count", len(chunks))
 
         for chunk in chunks:
             chunk_id = make_chunk_id(source, chunk["position"])
@@ -195,7 +203,7 @@ def retry_failed_graph_chunks(delay_seconds=5):
             time.sleep(delay_seconds)
 
         try:
-            result = extract_graph_from_chunk(chunk)
+            result = extract_graph_from_chunk(chunk, trace=trace)
 
             successful_calls += result["llm_calls"]
 

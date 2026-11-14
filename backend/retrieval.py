@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 import hashlib
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .documents import PROJECT_ROOT, load_documents
 from .chunking import chunk_text
 from .vector_store import get_collection, reset_collection
 from .index_settings import load_settings, save_settings, validate_settings
 from .schemas import EvaluationDataset
+from .tracing import indexing_operation
+if TYPE_CHECKING:
+    from .llm_service import TraceContext
 
 DATASET_DIRECTORIES: dict[EvaluationDataset, Path] = {
     "baking": PROJECT_ROOT / "corpus",
@@ -30,7 +36,7 @@ def _index_metadata(documents, chunk_size, overlap):
     }
 
 
-def ensure_index_current(dataset, chunk_size, overlap):
+def ensure_index_current(dataset, chunk_size, overlap, *, trace: TraceContext | None = None):
     """Rebuild legacy/stale Dense indexes before retrieval or fusion."""
     validate_settings(chunk_size, overlap)
     if dataset not in DATASET_DIRECTORIES:
@@ -39,70 +45,63 @@ def ensure_index_current(dataset, chunk_size, overlap):
     expected = _index_metadata(documents, chunk_size, overlap)
     collection = get_collection(dataset)
     if any((collection.metadata or {}).get(key) != value for key, value in expected.items()):
-        rebuild_index(chunk_size, overlap, dataset, documents=documents)
+        rebuild_index(chunk_size, overlap, dataset, trace=trace)
 
 
-def rebuild_index(chunk_size=None, overlap=None, dataset: EvaluationDataset = "baking", *, documents=None):
-    """Read the selected corpus and rebuild its vector index."""
+@indexing_operation
+def rebuild_index(
+    chunk_size=None,
+    overlap=None,
+    dataset: EvaluationDataset = "baking",
+    *,
+    documents=None,
+    trace: TraceContext | None = None,
+):
+    """Rebuild using one shared trace; implicit Chroma embedding stays unchanged."""
     if dataset not in DATASET_DIRECTORIES:
-        raise ValueError(f"Unknown retrieval dataset: {dataset}")
-
+        raise ValueError("Unknown retrieval dataset")
     settings = load_settings()
-
-    if chunk_size is None:
-        chunk_size = settings["chunk_size"]
-
-    if overlap is None:
-        overlap = settings["overlap"]
-
+    chunk_size = settings["chunk_size"] if chunk_size is None else chunk_size
+    overlap = settings["overlap"] if overlap is None else overlap
     validate_settings(chunk_size, overlap)
 
-    if documents is None:
-        documents = load_documents(DATASET_DIRECTORIES[dataset])
-    collection = reset_collection(dataset)
-    total_chunks = 0
+    with trace.span("load_documents", attributes={"dataset": dataset}) as span:
+        preloaded = documents is not None
+        if documents is None:
+            documents = load_documents(DATASET_DIRECTORIES[dataset])
+        span.set_attribute("document_count", len(documents))
+        span.set_attribute("preloaded", preloaded)
 
-    for document in documents:
-        source = document["source"]
-
-        chunks = chunk_text(
-            document["text"],
-            chunk_size=chunk_size,
-            overlap=overlap,
-        )
-
-        if not chunks:
-            continue
-
-        ids = [make_chunk_id(source, chunk["position"]) for chunk in chunks]
-
-        texts = [chunk["text"] for chunk in chunks]
-
-        metadatas = [
-            {
-                "source": source,
-                "position": chunk["position"],
-                "start": chunk["start"],
-            }
-            for chunk in chunks
-        ]
-
-        # use batches to avoid oversized Chroma requests.
-        batch_size = 100
-
-        for start in range(0, len(chunks), batch_size):
-            end = start + batch_size
-
-            collection.add(
-                ids=ids[start:end],
-                documents=texts[start:end],
-                metadatas=metadatas[start:end],
+    with trace.span("chunking", attributes={"chunk_size": chunk_size, "overlap": overlap}) as span:
+        prepared = [
+            (
+                document["source"],
+                chunk_text(document["text"], chunk_size=chunk_size, overlap=overlap),
             )
+            for document in documents
+        ]
+        total_chunks = sum(len(chunks) for _, chunks in prepared)
+        span.set_attribute("chunk_count", total_chunks)
 
-        total_chunks += len(chunks)
-
-    # Publish the fingerprint only once the full build succeeds.
-    collection.modify(metadata=_index_metadata(documents, chunk_size, overlap))
+    with trace.span("embedding_indexing", attributes={
+        "model": "all-MiniLM-L6-v2", "vector_count": 0,
+    }) as span:
+        collection = reset_collection(dataset)
+        indexed = 0
+        for source, chunks in prepared:
+            for start in range(0, len(chunks), 100):
+                batch = chunks[start:start + 100]
+                collection.add(
+                    ids=[make_chunk_id(source, chunk["position"]) for chunk in batch],
+                    documents=[chunk["text"] for chunk in batch],
+                    metadatas=[
+                        {"source": source, "position": chunk["position"], "start": chunk["start"]}
+                        for chunk in batch
+                    ],
+                )
+                indexed += len(batch)
+                span.set_attribute("vector_count", indexed)
+        collection.modify(metadata=_index_metadata(documents, chunk_size, overlap))
     return {
         "documents": len(documents),
         "chunks": total_chunks,
@@ -112,13 +111,12 @@ def rebuild_index(chunk_size=None, overlap=None, dataset: EvaluationDataset = "b
     }
 
 
-def update_index_settings(chunk_size: int, overlap: int):
-    """Rebuild using new settings, then save them if the rebuild succeeds."""
+@indexing_operation
+def update_index_settings(chunk_size: int, overlap: int, *, trace: TraceContext | None = None):
+    """Rebuild and save settings under the same operation trace."""
     validate_settings(chunk_size, overlap)
-
-    stats = rebuild_index(chunk_size=chunk_size, overlap=overlap)
+    stats = rebuild_index(chunk_size=chunk_size, overlap=overlap, trace=trace)
     save_settings(chunk_size=chunk_size, overlap=overlap)
-
     return stats
 
 
