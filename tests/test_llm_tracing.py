@@ -197,6 +197,49 @@ class LLMTracingTests(unittest.TestCase):
         self.assertNotIn("jane@example.com", sent_prompt)
         self.assertIn("[REDACTED_EMAIL_ADDRESS]", sent_prompt)
 
+    def test_credentials_and_contact_details_are_redacted_before_gemini(self):
+        trace = FakeTrace()
+
+        private_chunk = {
+            "id": "chunk-1",
+            "text": (
+                "API_KEY=synthetic-demo-secret. "
+                "Contact jane@example.com. "
+                "Call +1 415-555-0132. "
+                "Investigate KST-2044."
+            ),
+            "source": "private.pdf",
+            "position": 0,
+        }
+
+        client = self.mock_client()
+
+        with patch.object(llm_service, "client", client):
+            llm_service.generate_answer(
+                "What does the document say?",
+                [private_chunk],
+                trace=trace,
+            )
+
+        sent_prompt = (
+            client.chat.completions.create.call_args.kwargs[
+                "messages"
+            ][1]["content"]
+        )
+
+        # Credential values must never reach the provider.
+        self.assertIn("API_KEY=[REDACTED_SECRET]", sent_prompt)
+        self.assertNotIn("synthetic-demo-secret", sent_prompt)
+
+        # Contact information must also be redacted.
+        self.assertNotIn("jane@example.com", sent_prompt)
+        self.assertNotIn("+1 415-555-0132", sent_prompt)
+        self.assertIn("[REDACTED_EMAIL_ADDRESS]", sent_prompt)
+        self.assertIn("[REDACTED_PHONE_NUMBER]", sent_prompt)
+
+        # Technical identifiers must remain usable.
+        self.assertIn("KST-2044", sent_prompt)
+
     def test_validation_failure_marks_span_as_failed(self):
         trace = FakeTrace()
         client = self.mock_client(content="This is not JSON")

@@ -45,6 +45,19 @@ PLACEHOLDER_PATTERN = re.compile(
     r"\b(?:Person|Location|Entity)\s+[A-Z]\b"
 )
 
+# Known domain terms that Presidio may incorrectly classify as person names.
+DOMAIN_TERMS = [
+    "Kestrel",
+    "Platform team",
+]
+
+DOMAIN_TERM_PATTERN = re.compile(
+    r"\b(?:"
+    + "|".join(re.escape(term) for term in DOMAIN_TERMS)
+    + r")\b",
+    re.IGNORECASE,
+)
+
 EMAIL_PATTERN = re.compile(
     r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
     re.IGNORECASE,
@@ -61,6 +74,31 @@ PHONE_PATTERN = re.compile(
     r"(?!\w)"
 )
 
+# Match credential values assigned to common secret-related keys.
+# Preserve the key name and redact only its value.
+SECRET_ASSIGNMENT_PATTERN = re.compile(
+    r"""
+    \b
+    (?P<label>
+        api[_-]?key
+        |client[_-]?secret
+        |secret[_-]?key
+        |access[_-]?token
+        |auth[_-]?token
+        |refresh[_-]?token
+        |password
+        |passwd
+        |private[_-]?key
+    )
+    \b
+    (?P<separator>\s*[:=]\s*)
+    (?P<quote>["']?)
+    (?P<value>[A-Za-z0-9][A-Za-z0-9._~+/=-]{7,})
+    (?P=quote)
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 
 def redact_personal_data(text: str) -> str:
     """
@@ -73,6 +111,12 @@ def redact_personal_data(text: str) -> str:
     analysis_text = PLACEHOLDER_PATTERN.sub(
         lambda match: " " * len(match.group()),
         text,
+    )
+
+    # Preserve domain terms while keeping their original character offsets.
+    analysis_text = DOMAIN_TERM_PATTERN.sub(
+        lambda match: " " * len(match.group()),
+        analysis_text,
     )
 
     results = get_analyzer().analyze(
@@ -107,13 +151,23 @@ def redact_personal_data(text: str) -> str:
 
 def redact_contact_patterns(text: str) -> str:
     """
-    Redact email addresses and common phone formats without
-    applying person-name detection to document content.
+    Redact email addresses, common phone formats, and assigned
+    credential values without applying person-name detection
+    to document content.
     """
     if not text:
         return text
 
     text = EMAIL_PATTERN.sub("[REDACTED_EMAIL_ADDRESS]", text)
     text = PHONE_PATTERN.sub("[REDACTED_PHONE_NUMBER]", text)
+
+    text = SECRET_ASSIGNMENT_PATTERN.sub(
+        lambda match: (
+            f"{match.group('label')}"
+            f"{match.group('separator')}"
+            "[REDACTED_SECRET]"
+        ),
+        text,
+    )
 
     return text
