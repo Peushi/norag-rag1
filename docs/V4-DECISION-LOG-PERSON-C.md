@@ -97,6 +97,37 @@ rejected. To be rewritten in my own words for the report.
   sources are numbered `[1]`, `[2]` under "Where this comes from" with a clean
   quote; example questions match the selected knowledge base.
 
+### UI/UX review of the running app (15 Nov)
+Checked at desktop and phone width with live answers, an off-topic question,
+and the Kestrel sample. The look held up; the problems were in use:
+- **Correct refusals showed "Something went wrong"** (off-topic question):
+  Gemini returned `not_found` with an empty answer, which the schema
+  rejected. Answer text is now required only for `answered` (the not-found
+  text is ours anyway). Reproduced live, covered by two tests.
+- **Phones scrolled sideways once an answer appeared:** a long URL in a
+  source stretched both grid cards to 440 px on a 390 px screen. Cards now
+  have `min-width: 0` and long words wrap. Measured after: page = screen width.
+- **The answer appeared below the fold with no movement:** it now scrolls
+  into view (instant if the user prefers reduced motion) and takes focus so
+  screen readers announce it.
+- **File paths as names:** documents show "Bread not rising" with the folder
+  "Bread" as a category (the path stays in the tooltip); sources read
+  "[1] Cookies spreading · Cookies · part 3" instead of "… .md · passage 3".
+- **Quotes started or ended mid-word and showed metadata** ("Source: https://…
+  Author: …"): quotes now drop metadata lines and URLs and start/end on whole
+  words, with "…" where text was cut.
+- **Upload used the browser's default control** with "(.md or .txt)": now a
+  styled "Choose a file" button, the chosen name, and "A text file (.txt) or
+  Markdown file (.md), up to 1 MB".
+- **"Details" under an answer said nothing:** it is now "Show the steps behind
+  this answer" (short status messages keep "Details").
+- **Kestrel mode still said "Kitchen questions":** the hero and footer now
+  describe the Kestrel sample.
+- **Not fixed, acknowledged:** graph extraction errors are visible in the
+  Concept Map ("Jonas Berg" as a team, "Payments Core" as both service and
+  team, three "Billing and Refund Policy" concepts). No question history,
+  copy button, feedback, or drag-and-drop upload yet.
+
 ## New feature: answer style controls (Part B, integration)
 
 - **Decision:** a folded "Answer style" control next to the question shows the

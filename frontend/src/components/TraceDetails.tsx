@@ -10,6 +10,8 @@ import "../../styles/retriever-controls.css";
 
 type TraceDetailsProps = {
   traceId?: string | null;
+  /** Button text; "Details" fits short status messages, answers say more. */
+  label?: string;
 };
 
 const OPERATION_LABELS: Record<TraceDetail["operation"], string> = {
@@ -19,7 +21,7 @@ const OPERATION_LABELS: Record<TraceDetail["operation"], string> = {
 };
 
 /** A "Details" toggle that loads and shows one stored trace on demand. */
-export function TraceDetails({ traceId }: TraceDetailsProps) {
+export function TraceDetails({ traceId, label = "Details" }: TraceDetailsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [trace, setTrace] = useState<TraceDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -74,7 +76,7 @@ export function TraceDetails({ traceId }: TraceDetailsProps) {
         aria-expanded={isOpen}
         onClick={() => void toggleDetails()}
       >
-        {isOpen ? "Hide trace" : "Details"}
+        {isOpen ? "Hide steps" : label}
       </button>
       {isOpen && (
         <div className="trace-details-content" aria-live="polite">

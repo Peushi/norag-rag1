@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { documentTitle } from "../utils/documentNames";
 import {
   describeRequestError,
   getApiErrorMessage,
@@ -63,20 +64,20 @@ export function useDocuments() {
 
       if (!response.ok) {
         throw new Error(
-          getApiErrorMessage(data, `“${document.name}” could not be removed.`),
+          getApiErrorMessage(data, `“${documentTitle(document.name)}” could not be removed.`),
         );
       }
 
       await loadDocuments().catch(() => undefined);
       return {
-        message: `“${document.name}” was removed and is no longer searched.`,
+        message: `“${documentTitle(document.name)}” was removed and is no longer searched.`,
         tone: "success",
         traceId,
       };
     } catch (error) {
       return {
         message:
-          describeRequestError(error, `“${document.name}” could not be removed.`),
+          describeRequestError(error, `“${documentTitle(document.name)}” could not be removed.`),
         tone: "error",
         traceId,
       };

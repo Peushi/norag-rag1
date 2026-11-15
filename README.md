@@ -1,7 +1,33 @@
 # BakeFix
 
-BakeFix is a retrieval-augmented generation (RAG) application for answering
-questions from document collections. It combines a FastAPI backend with a
+BakeFix answers kitchen questions from your own documents: recipes, baking
+notes, and appliance manuals. Every answer shows the passages it came from,
+and when your documents don't cover a question, BakeFix says so instead of
+guessing. A fictional software company's help documents (Kestrel Analytics)
+are included as a larger sample, with a Concept Map of how its services,
+teams, and error codes connect.
+
+## Using BakeFix
+
+1. **Add documents** in "Your documents": a text (`.txt`) or Markdown (`.md`)
+   file, up to 1 MB. Files that look like they contain instructions aimed at
+   the assistant are held for review instead of being added; open them under
+   "Held for review" and decide.
+2. **Ask a question**, or pick one of the examples. "Answer style" sets the
+   reading level, tone, and length, or "Explain it like I'm 12".
+3. **Read the answer and its sources.** Numbered sources show the exact
+   passages used; "Words to know" explains specialist terms.
+4. **See how it was made:** "Show the steps behind this answer" opens the
+   trace (what was searched, what was found, model, tokens, and cost).
+5. **Try the Kestrel sample** from "Search in" to explore the Concept Map and
+   ask about a concept.
+
+Retrieval settings live under "Search options"; developer tools (word
+analytics and evaluation runs) are under "Behind the answers" in the header.
+
+## How it works
+
+BakeFix is a retrieval-augmented generation (RAG) application. It combines a FastAPI backend with a
 React/Vite frontend. Dense vector search is available for both the baking and
 Kestrel datasets; BM25 and knowledge-graph retrieval can also be selected, with
 graph retrieval limited to Kestrel. Retrieved passages are the evidence for
@@ -25,15 +51,18 @@ contains interface planning notes.
 | `kestrel-kb/` | Kestrel source documents, evaluation starter questions, graph data, and corpus guide. |
 | `evaluation/` | Evaluation commands, question sets, metric code, committed results, and comparisons. |
 | `design/` | UI and UX planning material. |
+| `aibom/` | AI bill of materials (CycloneDX), vulnerability decisions, and the VEX file. See [AI-BOM](#ai-bom-ai-bill-of-materials). |
+| `scripts/` | AI-BOM generator and vulnerability scan. |
 | `chroma_db/` | Local persistent Chroma storage created at runtime; ignored by Git. |
+| `.bakefix/` | Local traces and documents held for review, created at runtime; ignored by Git. |
 
 ## Requirements and configuration
 
 Python 3.12 is the verified environment (the application uses Python 3.10+
 syntax). Use Node.js 22.12+ or Node 20.x at least 20.19, as required by the
-installed Vite version; verification used Node 24.10.0. Python requirements are
-not fully pinned, so these checks are not a guarantee for every future resolver
-combination.
+installed Vite version; verification used Node 24.10.0. `requirements.txt`
+sets compatible ranges; `requirements.lock.txt` pins the exact versions that
+were tested (see below).
 
 From the repository root, install dependencies and create a local environment file:
 
@@ -69,6 +98,21 @@ Backend imports initialize this embedder, so first startup can require network
 access. After caching, `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1` enables offline
 model loading; Gemini generation still requires network access. No hosted
 embedding API is used.
+
+> **If the backend hangs at startup with no output**, it is usually waiting
+> on huggingface.co. Once the model is cached, start it offline:
+> `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python -m uvicorn backend.main:app`
+
+### Settings
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `GOOGLE_API_KEY` | (none) | Gemini key; required for answers. Keep it in `.env` only. |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Gemini model name. |
+| `GEMINI_TIMEOUT_SECONDS` | `30` | Time limit per Gemini call (one retry). |
+| `BAKEFIX_TRACE_DB` | `.bakefix/traces.sqlite3` | Where traces are stored. |
+| `BAKEFIX_ALLOWED_ORIGINS` | (none) | Extra comma-separated origins allowed to change data, if the UI is served from somewhere other than localhost. |
+| `HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE` | unset | Set to `1` to load the cached embedding model without network access. |
 
 ## Run locally
 
@@ -140,8 +184,8 @@ route list.
 Every `POST /api/ask` request receives a trace, including invalid requests,
 abstentions, and failed generations. Successful Ask responses contain a
 `trace_id`; error responses expose it in the `X-Trace-ID` header. Fetch the
-trace with `GET /api/traces/{trace_id}`, or use the answer's **Details** button
-in the UI.
+trace with `GET /api/traces/{trace_id}`, or use **Show the steps behind this
+answer** in the UI (other messages use a **Details** button).
 
 Traces are stored in a local SQLite database at `.bakefix/traces.sqlite3` by
 default. Set `BAKEFIX_TRACE_DB` to use another local path. Expired traces are
@@ -388,6 +432,39 @@ higher.
 - `POST /api/words/analyze-question` accepts dataset, question, chunk size, and
   overlap, then returns found/missing words and matching chunks.
 
+## Security and privacy
+
+BakeFix is a local, single-user app: the backend listens on `127.0.0.1` and
+has no login, so do not expose it on a network. The main threat it defends
+against is a document containing instructions aimed at the model. Each layer
+assumes the one before it can fail:
+
+1. **Upload checks:** `.md`/`.txt` only, safe file name, UTF-8, at most 1 MB.
+2. **Injection scanner and review:** suspicious uploads are held in
+   `.bakefix/quarantine/` (outside every corpus) until you approve them.
+3. **Prompt framing:** passages and the question are wrapped in tags that
+   document text cannot fake; the model is told that text inside them is data,
+   and never to pass on requests to log in, reset an account, or visit a site.
+4. **Output checks:** every cited passage must have been retrieved, or the
+   answer is not shown.
+5. **Safe display:** answers never load images, and links are shown as text.
+6. **Request limits:** questions up to 2,000 characters, at most 4,096 output
+   tokens per answer, 30-second timeout.
+7. **Cross-site check:** requests that change data are refused (403) when
+   another website's page sends them.
+
+**What leaves your machine:** to write an answer, the question (with personal
+data removed by Presidio) and the retrieved passages (with emails and phone
+numbers removed) are sent to Google's Gemini API. Other personal data inside
+your documents is not removed, so do not upload documents you would not share
+with Google. Traces stay local, contain no document text or questions, and
+expire after 30 days.
+
+The layers are tested end to end against real Gemini in
+`python -m evaluation.defence_evaluation` (5 attacks, 3 runs each; results in
+`evaluation/results/v4/`), and the scanner alone in
+`python -m evaluation.injection_evaluation`.
+
 ## AI-BOM (AI bill of materials)
 
 `aibom/bakefix.cdx.json` lists every model, dataset, and external AI service
@@ -457,6 +534,12 @@ document) or if the cached model weights do not match the recorded hash.
   missing supporting evidence requires a deliberately reviewed graph update.
 - **A `style` request returns 422:** use accepted level/tone/length values and
   boolean `eli12`; inspect `/docs` for the current schema.
+- **The app says "BakeFix can't reach its server":** the backend is not
+  running or not on port 8000; start it (see the startup-hang note above).
+- **Changes are refused with `FORBIDDEN_ORIGIN` (403):** the UI is served from
+  a host other than localhost; add it to `BAKEFIX_ALLOWED_ORIGINS`.
+- **"The answer service returned an error" during many quick questions:**
+  Gemini's free tier limits requests per minute (HTTP 429); wait a minute.
 - **An index seems stale or corrupted:** the Chroma directory is local generated
   state. Stop the backend, remove `chroma_db/`, then restart and let the index
   rebuild from source documents.

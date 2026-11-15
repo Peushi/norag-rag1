@@ -9,6 +9,7 @@ import type {
 import { SafeMarkdown } from "./SafeMarkdown";
 import { describeStyle } from "./AnswerStyleControls";
 import { TraceDetails } from "./TraceDetails";
+import { documentCategory, documentTitle } from "../utils/documentNames";
 import "../../styles/retriever-controls.css";
 
 type AnswerPanelProps = {
@@ -16,18 +17,38 @@ type AnswerPanelProps = {
   onRetry: () => void;
 };
 
-/** Make the start of a passage readable as a quote: drop Markdown markers. */
-function cleanQuote(text: string): string {
-  const plain = text
+// Front-matter lines at the top of bundled documents ("Source: https://…").
+const METADATA_LINE = /^\s*(source|source title|publisher|published|author|topic|updated|url)\s*:.*$/gim;
+
+/**
+ * Make a passage readable as a quote: drop Markdown markers and metadata
+ * lines, and start and end on whole words. Passages are cut by character
+ * count, so one that is not the first can start in the middle of a word.
+ */
+export function cleanQuote(text: string, position = 0): string {
+  let plain = text
+    .replace(METADATA_LINE, "")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/\*\*|__|`/g, "")
+    .replace(/https?:\/\/\S+/g, "")
     .replace(/\s+/g, " ")
     .trim();
+  let leading = "";
+  if (position > 0 && /^[a-z]/.test(plain)) {
+    const firstSpace = plain.indexOf(" ");
+    plain = firstSpace > 0 ? plain.slice(firstSpace + 1) : plain;
+    leading = "…";
+  }
   if (plain.length < 240) {
-    return plain;
+    // Stored quotes are cut by length too: end on a whole word.
+    const lastSpace = plain.lastIndexOf(" ");
+    const endsCleanly = /[.!?:;)"”’]$/.test(plain);
+    return endsCleanly || lastSpace < 0
+      ? leading + plain
+      : `${leading}${plain.slice(0, lastSpace)}…`;
   }
   const cut = plain.slice(0, 240);
-  return `${cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : 240)}…`;
+  return `${leading}${cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : 240)}…`;
 }
 
 export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
@@ -52,7 +73,11 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
             Try again
           </button>
         )}
-        <TraceDetails key={answer.trace_id ?? "none"} traceId={answer.trace_id} />
+        <TraceDetails
+        key={answer.trace_id ?? "none"}
+        traceId={answer.trace_id}
+        label="Show the steps behind this answer"
+      />
       </div>
     );
   }
@@ -101,12 +126,15 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
           <ul>
             {answer.references.map((reference, index) => (
               <li key={`${reference.chunk_id}-${reference.position}`}>
-                <span className="reference-meta">
-                  [{index + 1}] {reference.source} · passage{" "}
-                  {reference.position + 1}
+                <span className="reference-meta" title={reference.source}>
+                  [{index + 1}] {documentTitle(reference.source)}
+                  {documentCategory(reference.source)
+                    ? ` · ${documentCategory(reference.source)}`
+                    : ""}
+                  {` · part ${reference.position + 1}`}
                 </span>
                 <span className="reference-quote">
-                  “{cleanQuote(reference.quote)}”
+                  “{cleanQuote(reference.quote, reference.position)}”
                 </span>
               </li>
             ))}
@@ -117,7 +145,11 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
         <Glossary entries={answer.glossary} references={answer.references} />
       )}
       {answer.retrieval && <RetrievalDetails retrieval={answer.retrieval} />}
-      <TraceDetails key={answer.trace_id ?? "none"} traceId={answer.trace_id} />
+      <TraceDetails
+        key={answer.trace_id ?? "none"}
+        traceId={answer.trace_id}
+        label="Show the steps behind this answer"
+      />
     </>
   );
 }
