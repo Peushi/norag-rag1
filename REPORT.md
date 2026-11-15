@@ -68,6 +68,7 @@ configuration match.
 | Expanded Kestrel Graph comparison | 12 questions (10 answerable, 2 unanswerable), including q11/q12 additions; 800/80; Dense, Dense+BM25, Dense+BM25+Graph | [`evaluation/results/v3/COMPARISON.md`](evaluation/results/v3/COMPARISON.md) and `*12q*.jsonl` files. |
 | Generation and manual review | Baking/Kestrel no-context and RAG runs, with reviewed result files | `*_no_context.jsonl`, `*_rag.jsonl`, and `*_rag_reviewed.jsonl`; analysis tools in `evaluation/`. |
 | V4 PII-redaction Kestrel run | Kestrel; 10 questions (8 answerable, 2 not in corpus); 800/80; Dense only; top-k=5; generation enabled | `evaluation/results/v4/kestrel_rag_redaction_current_summary.jsonl`; retrieval metrics do not directly measure redaction effectiveness. |
+| V4 labelled redaction effectiveness | 20 synthetic questions: 10 with personal data, 10 with technical terms; calls `redact_personal_data()` directly, no LLM | `evaluation/redaction_cases_v4.json` and `evaluation/results/v4/redaction_effectiveness_summary.json`: 10/10 personal-data targets removed, 10/10 technical terms preserved. |
 
 For V2/V3 retrieval metrics, a passage matches an expected evidence item when
 the expected source and complete quoted text occur in that passage after
@@ -791,7 +792,7 @@ Runtime outputs and audit snapshots stayed in temporary/ignored locations.
 | --- | --- |
 | Unexpected Ask failure trace header | **Resolved (Sasha).** An unexpected exception now returns a JSON `INTERNAL_ERROR` 500 with `X-Trace-ID`, so Details opens the failed trace; covered by `tests/test_api_errors.py`. |
 | Retrieved-content privacy scope | A mock-provider inspection retained a synthetic document person name and synthetic key while masking email/phone. Current context filtering is deliberately narrower than question Presidio detection. Peushi should confirm or extend that policy; this is not proof of complete document PII/secret removal. |
-| Question technical-name false positives | `What is Kestrel?` was changed by question redaction, although document technical terms, error code and documentation IPs were preserved. Peushi owns terminology-aware detection without disabling personal-data protection. |
+| Question technical-name false positives | **Resolved (Peushi).** `What is Kestrel?` was previously changed by question redaction. With the current redaction it is unchanged, as are `Vellora Duo` and `KST-5031` (re-checked on 15 November 2026); the labelled evaluation preserved all 10 technical-term cases (T01–T10). |
 
 ## Conclusion and Remaining Scope
 
