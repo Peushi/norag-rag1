@@ -7,8 +7,12 @@ import {
   type ConceptNeighbour,
   type ConceptNeighbourhood,
   type GraphConcept,
+  type GraphStatus,
   type SourcePassage,
 } from "../types/api";
+import type { EvaluationDataset } from "../types/evaluations";
+import { documentTitle } from "../utils/documentNames";
+import { GraphBuildPanel } from "./GraphBuildPanel";
 import { TraceDetails } from "./TraceDetails";
 
 /** Plural, everyday names for the graph's entity types. */
@@ -22,6 +26,12 @@ const TYPE_LABELS: Record<string, string> = {
   FEATURE: "Features",
   ROLE: "Roles",
   CHANNEL: "Support channels",
+  DISH: "Dishes",
+  INGREDIENT: "Ingredients",
+  EQUIPMENT: "Equipment",
+  TECHNIQUE: "Techniques",
+  PROBLEM: "Problems",
+  CONDITION: "Conditions",
 };
 
 const TYPE_SINGULAR: Record<string, string> = {
@@ -34,6 +44,12 @@ const TYPE_SINGULAR: Record<string, string> = {
   FEATURE: "Feature",
   ROLE: "Role",
   CHANNEL: "Support channel",
+  DISH: "Dish",
+  INGREDIENT: "Ingredient",
+  EQUIPMENT: "Equipment",
+  TECHNIQUE: "Technique",
+  PROBLEM: "Problem",
+  CONDITION: "Condition",
 };
 
 /** How each relation reads from the open concept's side: [outgoing, incoming]. */
@@ -50,6 +66,13 @@ const RELATION_PHRASES: Record<string, [string, string]> = {
   AFFECTS_SERVICE: ["affects", "is affected by"],
   HAS_CAUSE: ["is caused by", "causes"],
   RESOLVED_BY: ["is resolved by", "resolves"],
+  CAUSES: ["causes", "is caused by"],
+  FIXES: ["fixes", "is fixed by"],
+  PREVENTS: ["prevents", "is prevented by"],
+  USES: ["uses", "is used for"],
+  AFFECTS: ["affects", "is affected by"],
+  PART_OF: ["is part of", "includes"],
+  SUBSTITUTES_FOR: ["can replace", "can be replaced by"],
 };
 
 function relationPhrase(neighbour: ConceptNeighbour): string {
@@ -64,17 +87,39 @@ function relationPhrase(neighbour: ConceptNeighbour): string {
 function conceptError(data: unknown, fallback: string): string {
   const detail = getApiErrorDetail(data);
   if (detail?.code === "GRAPH_UNAVAILABLE") {
-    return "The concept map was built for passages of 800 characters with an 80-character overlap. Your “Search options” use different settings: set them back to 800 and 80 to explore the map.";
+    return "The concept map was built with different passage settings than your “Search options” now use. Set them back (800 and 80 by default), or update the map of your documents.";
   }
   return detail?.message || fallback;
 }
 
-type ConceptMapProps = {
-  onAskAbout: (concept: GraphConcept) => void;
+type GraphBuild = {
+  status: GraphStatus | null;
+  isStarting: boolean;
+  startError: { message: string; traceId: string | null } | null;
+  startBuild: () => void;
 };
 
-/** Kestrel concept explorer: search concepts, open one, follow its relationships to their sources. */
-export function ConceptMap({ onAskAbout }: ConceptMapProps) {
+type ConceptMapProps = {
+  dataset: EvaluationDataset;
+  onAskAbout: (concept: GraphConcept) => void;
+  /** For the user's documents: the graph's state and how to build it. */
+  build?: GraphBuild;
+};
+
+const COPY: Record<EvaluationDataset, { intro: string; placeholder: string }> = {
+  kestrel: {
+    intro: "How the sample’s services, teams, error codes and policies connect, with the passage behind each link.",
+    placeholder: "For example: KST-5031, Billing, postroom",
+  },
+  baking: {
+    intro: "How the dishes, ingredients, techniques and problems in your documents connect, with the passage behind each link.",
+    placeholder: "For example: dough, butter, spreading",
+  },
+};
+
+/** Concept explorer: search concepts, open one, follow its relationships to their sources. */
+export function ConceptMap({ dataset, onAskAbout, build }: ConceptMapProps) {
+  const notBuiltYet = build !== undefined && build.status !== null && !build.status.built;
   const [concepts, setConcepts] = useState<GraphConcept[]>([]);
   const [listError, setListError] = useState("");
   const [isLoadingList, setIsLoadingList] = useState(true);
@@ -87,7 +132,7 @@ export function ConceptMap({ onAskAbout }: ConceptMapProps) {
   async function loadConcepts() {
     setIsLoadingList(true);
     try {
-      const response = await fetch("/api/concepts");
+      const response = await fetch(`/api/concepts?dataset=${dataset}`);
       const data = await readJson(response);
       if (!response.ok) {
         throw new Error(conceptError(data, "The concept map couldn’t be loaded."));
@@ -111,14 +156,21 @@ export function ConceptMap({ onAskAbout }: ConceptMapProps) {
   }
 
   useEffect(() => {
+    if (notBuiltYet || (build !== undefined && build.status === null)) {
+      setIsLoadingList(false);
+      return;
+    }
     void loadConcepts();
-  }, []);
+    // Reload when a build of the user's graph finishes.
+  }, [dataset, notBuiltYet, build?.status?.built_at]);
 
   async function openConcept(concept: GraphConcept, mode: "push" | "back" | "root") {
     setIsOpening(true);
     setOpenError(null);
     try {
-      const response = await fetch(`/api/concepts/${encodeURIComponent(concept.id)}`);
+      const response = await fetch(
+        `/api/concepts/${encodeURIComponent(concept.id)}?dataset=${dataset}`,
+      );
       const data = await readJson(response);
       if (!response.ok) {
         setOpenError({
@@ -177,14 +229,20 @@ export function ConceptMap({ onAskAbout }: ConceptMapProps) {
         </span>
         <div>
           <h2 id="concept-map-title">Concept map</h2>
-          <p>
-            How the sample’s services, teams, error codes and policies connect,
-            with the passage behind each link.
-          </p>
+          <p>{COPY[dataset].intro}</p>
         </div>
       </div>
 
-      {neighbourhood ? (
+      {build?.status && (
+        <GraphBuildPanel
+          status={build.status}
+          isStarting={build.isStarting}
+          startError={build.startError}
+          onBuild={build.startBuild}
+        />
+      )}
+
+      {notBuiltYet ? null : neighbourhood ? (
         <div className="concept-detail" key={neighbourhood.concept.id}>
           <div className="concept-nav">
             <button type="button" className="back-to-ask" onClick={closeConcept}>
@@ -224,6 +282,7 @@ export function ConceptMap({ onAskAbout }: ConceptMapProps) {
               {neighbourhood.neighbours.map((neighbour) => (
                 <RelationRow
                   key={`${neighbour.relation}-${neighbour.direction}-${neighbour.concept.id}`}
+                  dataset={dataset}
                   subject={neighbourhood.concept}
                   neighbour={neighbour}
                   disabled={isOpening}
@@ -243,7 +302,7 @@ export function ConceptMap({ onAskAbout }: ConceptMapProps) {
               id="concept-search"
               type="search"
               value={query}
-              placeholder="For example: KST-5031, Billing, postroom"
+              placeholder={COPY[dataset].placeholder}
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
@@ -301,11 +360,13 @@ function ConceptError({ error }: { error: { message: string; traceId: string | n
 }
 
 function RelationRow({
+  dataset,
   subject,
   neighbour,
   disabled,
   onOpen,
 }: {
+  dataset: EvaluationDataset;
   subject: GraphConcept;
   neighbour: ConceptNeighbour;
   disabled: boolean;
@@ -343,7 +404,7 @@ function RelationRow({
       {showEvidence && (
         <div className="concept-evidence">
           {neighbour.chunk_ids.map((chunkId) => (
-            <EvidencePassage key={chunkId} chunkId={chunkId} />
+            <EvidencePassage key={chunkId} chunkId={chunkId} dataset={dataset} />
           ))}
         </div>
       )}
@@ -352,7 +413,7 @@ function RelationRow({
 }
 
 /** One passage a relationship was extracted from, with a way to read the whole document. */
-function EvidencePassage({ chunkId }: { chunkId: string }) {
+function EvidencePassage({ chunkId, dataset }: { chunkId: string; dataset: EvaluationDataset }) {
   const [passage, setPassage] = useState<SourcePassage | null>(null);
   const [error, setError] = useState("");
   const [documentText, setDocumentText] = useState<string | null>(null);
@@ -364,7 +425,7 @@ function EvidencePassage({ chunkId }: { chunkId: string }) {
     void (async () => {
       try {
         const response = await fetch(
-          `/api/chunks/${encodeURIComponent(chunkId)}?dataset=kestrel&graph_evidence=true`,
+          `/api/chunks/${encodeURIComponent(chunkId)}?dataset=${dataset}&graph_evidence=true`,
         );
         const data = await readJson(response);
         if (!response.ok) {
@@ -386,7 +447,7 @@ function EvidencePassage({ chunkId }: { chunkId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [chunkId]);
+  }, [chunkId, dataset]);
 
   async function toggleDocument() {
     if (documentText !== null) {
@@ -399,7 +460,7 @@ function EvidencePassage({ chunkId }: { chunkId: string }) {
     setIsLoadingDocument(true);
     setDocumentError("");
     try {
-      const params = new URLSearchParams({ document_id: passage.source, dataset: "kestrel" });
+      const params = new URLSearchParams({ document_id: passage.source, dataset });
       const response = await fetch(`/api/document-text?${params.toString()}`);
       const data = await readJson(response);
       if (!response.ok) {
@@ -427,7 +488,8 @@ function EvidencePassage({ chunkId }: { chunkId: string }) {
   return (
     <article className="concept-passage">
       <span className="reference-meta">
-        {passage.source} · passage {passage.position + 1}
+        {dataset === "baking" ? documentTitle(passage.source) : passage.source} · part{" "}
+        {passage.position + 1}
       </span>
       <div className="fused-chunk-text">
         <SafeMarkdown>{passage.text}</SafeMarkdown>

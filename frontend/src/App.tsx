@@ -13,6 +13,7 @@ import { useAnswerStyle } from "./hooks/useAnswerStyle";
 import { useAskQuestion } from "./hooks/useAskQuestion";
 import { useDocumentSelection } from "./hooks/useDocumentSelection";
 import { useDocuments } from "./hooks/useDocuments";
+import { useGraphStatus } from "./hooks/useGraphStatus";
 import { useRetrievalSettings } from "./hooks/useRetrievalSettings";
 import type { EvaluationDataset } from "./types/evaluations";
 import type { GraphConcept, RetrieverName } from "./types/api";
@@ -100,10 +101,15 @@ export default function App() {
     setSelectedRetrievers([...selectedRetrievers, retriever]);
   }
 
+  // The user's own documents get a concept graph once they build it.
+  const documentsVersion = documents.map((document) => `${document.id}:${document.size_bytes}`).join("|");
+  const userGraph = useGraphStatus("baking", documentsVersion);
+  const userGraphBuilt = userGraph.status?.built ?? false;
+
   function changeAskDataset(dataset: EvaluationDataset) {
     setAskDataset(dataset);
-    if (dataset !== "kestrel") {
-      // Graph search is Kestrel-only; never leave the user with no method.
+    if (dataset !== "kestrel" && !userGraphBuilt) {
+      // No graph for these documents yet; never leave the user with no method.
       setSelectedRetrievers((current) => {
         const remaining = current.filter((retriever) => retriever !== "graph");
         return remaining.length > 0 ? remaining : ["dense"];
@@ -276,17 +282,30 @@ export default function App() {
       )}
 
       <div className="workspace" hidden={!isAskView}>
-        {isKestrel && <ConceptMap onAskAbout={askAboutConcept} />}
+        {isKestrel && <ConceptMap key="kestrel" dataset="kestrel" onAskAbout={askAboutConcept} />}
 
         {!isKestrel && (
-          <DocumentLibrary
-            documents={documents}
-            isLoading={isLoadingDocuments}
-            loadError={documentLoadError}
-            onRetryLoad={() => void loadDocuments().catch(() => undefined)}
-            onDelete={deleteDocument}
-            onUploaded={loadDocuments}
-          />
+          <div className="side-column">
+            <DocumentLibrary
+              documents={documents}
+              isLoading={isLoadingDocuments}
+              loadError={documentLoadError}
+              onRetryLoad={() => void loadDocuments().catch(() => undefined)}
+              onDelete={deleteDocument}
+              onUploaded={loadDocuments}
+            />
+            <ConceptMap
+              key="baking"
+              dataset="baking"
+              onAskAbout={askAboutConcept}
+              build={{
+                status: userGraph.status,
+                isStarting: userGraph.isStarting,
+                startError: userGraph.startError,
+                startBuild: () => void userGraph.startBuild(),
+              }}
+            />
+          </div>
         )}
 
         <main className="card question-card">
@@ -425,6 +444,7 @@ export default function App() {
 
             <RetrieverControls
               dataset={askDataset}
+              graphAvailable={isKestrel || userGraphBuilt}
               selectedRetrievers={selectedRetrievers}
               onToggleRetriever={toggleRetriever}
               includePathContext={includePathContext}

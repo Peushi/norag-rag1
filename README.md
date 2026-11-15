@@ -76,9 +76,21 @@ python -m spacy download en_core_web_sm
 cp .env.example .env
 ```
 
-Set `GOOGLE_API_KEY` in `.env` to enable answer generation and Gemini-backed
-graph extraction. The backend uses Gemini through its OpenAI-compatible API;
-`GEMINI_MODEL` is optional and defaults to `gemini-3.5-flash-lite`. Retrieval
+Set `LLM_URL`, `LLM_API_KEY` and `LLM_MODEL` in `.env` (or `.env.local`, which
+takes precedence) to enable answers and concept-graph extraction. BakeFix works
+with **any OpenAI-compatible chat-completions API**; Google Gemini is only the
+default:
+
+| LLM | `LLM_URL` | `LLM_API_KEY` | `LLM_MODEL` (example) |
+| --- | --- | --- | --- |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | your key | `gemini-3.5-flash-lite` |
+| OpenAI | `https://api.openai.com/v1` | your key | `gpt-4.1-mini` |
+| Local Ollama | `http://localhost:11434/v1` | leave empty | `gpt-oss:20b` |
+
+Verified with Gemini and with a local Ollama `gpt-oss:20b` (no key). For a
+server that does not support JSON mode, BakeFix asks for JSON through the
+prompt instead, and it accepts JSON wrapped in Markdown fences. Older `.env`
+files with `GOOGLE_API_KEY` / `GEMINI_MODEL` still work. Retrieval
 embeddings use the local `all-MiniLM-L6-v2` Sentence Transformers model, which
 may be downloaded on first use. The `.env` file contains a secret and should
 remain local. Set the key only in your local file; do not commit it. The
@@ -109,9 +121,10 @@ embedding API is used.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `GOOGLE_API_KEY` | (none) | Gemini key; required for answers. Keep it in `.env` only. |
-| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Gemini model name. |
-| `GEMINI_TIMEOUT_SECONDS` | `30` | Time limit per Gemini call (one retry). |
+| `LLM_URL` | Google Gemini's OpenAI-compatible URL | Base URL of any OpenAI-compatible API. |
+| `LLM_API_KEY` | (none) | API key; may be empty for local servers. Keep it in `.env`/`.env.local` only. |
+| `LLM_MODEL` | `gemini-3.5-flash-lite` | Model name as the server knows it. |
+| `LLM_TIMEOUT_SECONDS` | `60` | Time limit per LLM call (one retry); raise it for slow local models. |
 | `BAKEFIX_TRACE_DB` | `.bakefix/traces.sqlite3` | Where traces are stored. |
 | `BAKEFIX_ALLOWED_ORIGINS` | (none) | Extra comma-separated origins allowed to change data, if the UI is served from somewhere other than localhost. |
 | `HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE` | unset | Set to `1` to load the cached embedding model without network access. |
@@ -245,15 +258,42 @@ to Dense/BM25 after indexing; Graph needs a separate reviewed extraction update.
 
 ## Concept Map and original sources
 
-Select **Kestrel** in the Ask interface to open the concept explorer. Search or
-select a concept, follow a relationship, expand its supporting passage and open
-the original document. The graph requires matching 800/80 settings.
+Both corpora have a concept explorer: search or select a concept, follow a
+relationship, expand its supporting passage and open the original document.
 
-Available endpoints:
+- **Kestrel sample:** uses its committed, manually reviewed graph (800/80).
+- **My documents:** build the graph yourself. Upload documents, then press
+  **Build the concept map** in the Concept map panel (under your documents).
+  BakeFix sends each passage to the configured LLM once and extracts links
+  between dishes, ingredients, equipment, techniques, problems and conditions
+  (e.g. *cold oven → causes → pale, flat biscuits*), each with its exact quote.
+  - **Incremental:** after uploading, changing or removing documents the panel
+    says what is out of date; **Update the map** reads only new or changed
+    documents (one LLM call per passage) and drops links from removed ones.
+  - **Bounded:** at most 150 LLM calls per build; the rest can be added with
+    another update. The panel shows the expected number of calls before you start.
+  - **Use in search:** once built, **Concept graph** (and Path as Context) can be
+    selected under Search options for your documents. Graph matching accepts
+    word forms ("cookies keep spreading" finds *cookies spreading*).
+  - The graph is stored locally in `.bakefix/graphs/baking/graph.json` (not in
+    Git). Each build is an indexing trace (open it with "Details of the last build").
+  - With a local LLM, extraction is slower (about 40 s per passage for
+    `gpt-oss:20b` on a laptop): test with a few small documents first.
+  - Extraction by a small model is useful but imperfect (e.g. it can miss a
+    negation such as "little or no baking powder"); every link shows its quote
+    so it can be checked.
 
-- `GET /api/concepts?query=postroom` returns `{ "concepts": [...] }`.
-- `GET /api/concepts/{id}` returns the concept, neighbours and `trace_id`.
-- `GET /api/chunks/{id}?dataset=kestrel&graph_evidence=true` checks graph settings
+Available endpoints (`dataset` is `kestrel` by default, or `baking`):
+
+- `GET /api/concepts?query=postroom&dataset=kestrel` returns `{ "concepts": [...] }`;
+  for an unbuilt graph it returns 409 `GRAPH_NOT_BUILT`.
+- `GET /api/concepts/{id}?dataset=…` returns the concept, neighbours and `trace_id`.
+- `GET /api/graphs/baking/status` reports whether the graph is built, up to
+  date, being built (with progress), and how many LLM calls an update needs.
+- `POST /api/graphs/baking/build` starts an incremental build (202 with
+  `trace_id`; 409 if one is running; 503 if no LLM is configured). The Kestrel
+  graph cannot be rebuilt from the app.
+- `GET /api/chunks/{id}?dataset=…&graph_evidence=true` checks graph settings
   and the original supporting quote before returning evidence.
 - `GET /api/document-text?document_id=service-catalog.md&dataset=kestrel`
   returns original text from the selected corpus.
@@ -457,7 +497,8 @@ assumes the one before it can fail:
 
 **What leaves your machine:** to write an answer, the question (with personal
 data removed by Presidio) and the retrieved passages (with emails and phone
-numbers removed) are sent to Google's Gemini API. Other personal data inside
+numbers removed) are sent to the configured LLM API (Google Gemini by default;
+nothing leaves the machine if `LLM_URL` points to a local server). Other personal data inside
 your documents is not removed, so do not upload documents you would not share
 with Google. Traces stay local, contain no document text or questions, and
 expire after 30 days.
@@ -517,8 +558,11 @@ document) or if the cached model weights do not match the recorded hash.
 
 ## Troubleshooting
 
-- **Answer generation or graph extraction is unavailable:** check that `.env`
-  contains a valid `GOOGLE_API_KEY`, then restart the backend.
+- **Answer generation or graph extraction is unavailable:** check `LLM_URL`,
+  `LLM_API_KEY` and `LLM_MODEL` in `.env` or `.env.local`, then restart the
+  backend. For a local server, check that it is running (e.g. `ollama serve`)
+  and that the model is pulled.
+- **A local model times out:** raise `LLM_TIMEOUT_SECONDS` (e.g. `300`).
 - **First retrieval is slow or fails while loading embeddings:** ensure the
   machine can download the Sentence Transformers model and retry after the
   download completes.
@@ -555,7 +599,7 @@ python -m unittest discover -s tests -t . -p 'test_*.py' -v
 ```
 
 Tests use the local embedding model; download it once before running offline.
-Generation calls in the automated suite are mocked and do not require a Gemini key.
+Generation calls in the automated suite are mocked and do not require an LLM.
 
 For a manual retrieval smoke check (rebuilds the baking index):
 

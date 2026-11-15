@@ -3551,9 +3551,9 @@
       "provider": {
         "name": "Google"
       },
-      "name": "Google Gemini API (OpenAI-compatible endpoint)",
+      "name": "LLM API (OpenAI-compatible; default Google Gemini)",
       "version": "gemini-3.5-flash-lite",
-      "description": "Writes the answer, citations, and glossary from the retrieved passages. Model chosen with GEMINI_MODEL; the default is recorded here. Google may update the model behind a name.",
+      "description": "Writes the answer, citations, and glossary from the retrieved passages, and extracts concept graphs. The server and model are chosen with LLM_URL, LLM_API_KEY and LLM_MODEL (any OpenAI-compatible API, including a local one); the default recorded here is Google Gemini. A provider may update the model behind a name.",
       "endpoints": [
         "https://generativelanguage.googleapis.com/v1beta/openai/"
       ],
@@ -3622,5 +3622,5 @@
       ]
     }
   ],
-  "serialNumber": "urn:uuid:42b60314-9ddc-5960-8c51-7fa6035d2612"
+  "serialNumber": "urn:uuid:b7dd806e-cbbd-5c13-b728-ce14d5c4591b"
 }
