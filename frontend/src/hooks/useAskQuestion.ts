@@ -166,9 +166,9 @@ function describeAskFailure(data: unknown): { text: string; retryable: boolean }
   const detail = getApiErrorDetail(data);
   switch (detail?.code) {
     case "LLM_UNAVAILABLE":
-      if (detail.message.includes("GOOGLE_API_KEY")) {
+      if (detail.message.includes("LLM_URL")) {
         return {
-          text: "BakeFix isn’t set up to write answers yet: add your GOOGLE_API_KEY to the .env file (see the README), then restart the server.",
+          text: "BakeFix isn’t set up to write answers yet: set LLM_URL, LLM_API_KEY and LLM_MODEL in the .env file (see .env.example), then restart the server.",
           retryable: false,
         };
       }

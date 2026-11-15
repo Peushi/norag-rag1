@@ -808,3 +808,74 @@
   color: var(--muted);
   font-size: 12px;
 }
+
+/* "My documents": the library and the concept map stack in the side column. */
+:root .side-column {
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  /* Question first on phones; documents and map below it. */
+  :root .side-column {
+    order: 2;
+  }
+}
+
+/* Building or updating the concept map of the user's documents. */
+:root .graph-build {
+  margin: 4px 0 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper-warm);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+:root .graph-build p {
+  margin: 0 0 10px;
+}
+
+:root .graph-build.built {
+  background: var(--sage-wash);
+  border-color: #d8dfcc;
+}
+
+:root .graph-build-title {
+  font-weight: 700;
+}
+
+:root .graph-build-button {
+  width: 100%;
+}
+
+:root .graph-build-cost {
+  margin: 8px 0 0 !important;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+:root .graph-progress {
+  height: 8px;
+  margin: 4px 0 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+:root .graph-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--terracotta);
+  transition: width .4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .graph-progress span {
+    transition: none;
+  }
+}
