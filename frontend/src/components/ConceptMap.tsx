@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { SafeMarkdown } from "./SafeMarkdown";
 import {
   describeRequestError,
   getApiErrorDetail,
@@ -430,7 +430,7 @@ function EvidencePassage({ chunkId }: { chunkId: string }) {
         {passage.source} · passage {passage.position + 1}
       </span>
       <div className="fused-chunk-text">
-        <ReactMarkdown skipHtml>{passage.text}</ReactMarkdown>
+        <SafeMarkdown>{passage.text}</SafeMarkdown>
       </div>
       <button
         type="button"
@@ -448,7 +448,7 @@ function EvidencePassage({ chunkId }: { chunkId: string }) {
       {documentError && <p className="error">{documentError}</p>}
       {documentText !== null && (
         <div className="concept-document" tabIndex={0} aria-label={`Full text of ${passage.source}`}>
-          <ReactMarkdown skipHtml>{documentText}</ReactMarkdown>
+          <SafeMarkdown>{documentText}</SafeMarkdown>
         </div>
       )}
     </article>

@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from "react";
 import {
   getApiErrorDetail,
   isAskResponse,
+  MAX_QUESTION_LENGTH,
   readJson,
   toGlossary,
   type AnswerStyle,
@@ -41,6 +42,13 @@ export function useAskQuestion({
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) {
       setStatus("Write a question first, and we’ll take it from there.");
+      return;
+    }
+
+    if (trimmedQuestion.length > MAX_QUESTION_LENGTH) {
+      setStatus(
+        `That question is too long. Keep it under ${MAX_QUESTION_LENGTH.toLocaleString()} characters.`,
+      );
       return;
     }
 
@@ -182,7 +190,7 @@ function describeAskFailure(data: unknown): { text: string; retryable: boolean }
       };
     case "VALIDATION_ERROR":
       return {
-        text: "That question couldn’t be sent. Check that it isn’t empty, then try again.",
+        text: `That question couldn’t be sent. Check that it isn’t empty and is under ${MAX_QUESTION_LENGTH.toLocaleString()} characters, then try again.`,
         retryable: false,
       };
     case "INDEXING_ERROR":

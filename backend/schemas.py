@@ -28,10 +28,15 @@ class RetrievedChunk(BaseModel):
     distance: float
 
 
+# A real question is a sentence or two; the cap keeps one request from
+# sending pages of text (and their cost) to Gemini. Same value in the frontend.
+MAX_QUESTION_LENGTH = 2000
+
+
 class RetrieveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    question: str = Field(min_length=1)
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_LENGTH)
     dataset: EvaluationDataset = "baking"
     document_ids: list[str] | None = None
     top_k: int = Field(default=3, ge=1, le=20)

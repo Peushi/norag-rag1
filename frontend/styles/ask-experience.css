@@ -676,3 +676,31 @@
     flex-wrap: wrap;
   }
 }
+
+/* Character count, shown only near the question length limit. */
+:root .question-length {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+:root .question-length.too-long {
+  color: var(--terracotta-dark);
+  font-weight: 600;
+}
+
+/* Images and links from answers or documents are shown as text only (SafeMarkdown). */
+:root .md-blocked {
+  color: var(--muted);
+  font-style: italic;
+}
+
+:root .md-link {
+  text-decoration: underline dotted;
+}
+
+:root .md-link-address {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}

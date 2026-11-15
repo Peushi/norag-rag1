@@ -16,6 +16,7 @@ import { useDocuments } from "./hooks/useDocuments";
 import { useRetrievalSettings } from "./hooks/useRetrievalSettings";
 import type { EvaluationDataset } from "./types/evaluations";
 import type { GraphConcept, RetrieverName } from "./types/api";
+import { MAX_QUESTION_LENGTH } from "./types/api";
 import "../styles/base.css";
 import "../styles/option-1.css";
 import "../styles/ask-experience.css";
@@ -277,7 +278,23 @@ export default function App() {
                 ? "For example: what does error KST-4012 mean?"
                 : "For example: why are my brownies cakey instead of fudgy?"
             }
+            aria-describedby={
+              question.length > MAX_QUESTION_LENGTH * 0.8 ? "question-length" : undefined
+            }
           />
+          {question.length > MAX_QUESTION_LENGTH * 0.8 && (
+            <p
+              id="question-length"
+              className={
+                question.length > MAX_QUESTION_LENGTH
+                  ? "question-length too-long"
+                  : "question-length"
+              }
+            >
+              {question.length.toLocaleString()} /{" "}
+              {MAX_QUESTION_LENGTH.toLocaleString()} characters
+            </p>
+          )}
 
           <div className="example-questions" aria-label="Example questions">
             <span>Try:</span>
