@@ -57,8 +57,13 @@ installing it avoids a download during the first redaction request.
 To cache the local embedding model before offline use:
 
 ```bash
-python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2', revision='1110a243fdf4706b3f48f1d95db1a4f5529b4d41')"
 ```
+
+The model is pinned to that Hugging Face commit in `backend/vector_store.py`,
+so embeddings and evaluation results cannot change if the model is updated on
+the Hub. To install the exact package versions BakeFix was tested with (macOS, Python 3.12), use
+`python -m pip install -r requirements.lock.txt` instead of `requirements.txt`.
 
 Backend imports initialize this embedder, so first startup can require network
 access. After caching, `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1` enables offline
@@ -382,6 +387,54 @@ higher.
   set.
 - `POST /api/words/analyze-question` accepts dataset, question, chunk size, and
   overlap, then returns found/missing words and matching chunks.
+
+## AI-BOM (AI bill of materials)
+
+`aibom/bakefix.cdx.json` lists every model, dataset, and external AI service
+BakeFix depends on, plus all pinned Python and npm packages, in the
+[CycloneDX 1.6](https://cyclonedx.org/capabilities/mlbom/) format:
+
+| Component | Type | Pinned by | Data leaves the machine? |
+|---|---|---|---|
+| `all-MiniLM-L6-v2` (embeddings) | model, with model card | Hugging Face commit + SHA-256 of the weights | No |
+| `en_core_web_sm` (personal-data detection for Presidio) | model, with model card | wheel version + SHA-256 in `requirements.lock.txt` | No |
+| Gemini API (answers; built the Kestrel graph) | external service + model card | default model name in `backend/llm_service.py` | **Yes:** the redacted question and retrieved passages |
+| Baking corpus, Kestrel KB, Kestrel graph, evaluation sets | datasets | SHA-256 of the git-tracked files | No |
+
+Each of the three model cards records the model's training data (as published),
+limits, trade-offs, who could be served worse by it, and results measured on
+our own evaluation sets: MiniLM's retrieval hit rate and recall, and Gemini's
+manually graded answers (12/12 baking, 7/10 Kestrel). spaCy's card uses the
+published OntoNotes scores and says so. Documents uploaded at runtime are not part of the
+BOM. Gemini is pinned by name only: Google can update the model behind a name.
+
+The BOM is generated, not written by hand. Descriptions, licences, and model
+cards live in `aibom/ai-components.json`; versions, revisions, and hashes are
+read from the code, the lock files, and the files themselves.
+
+```bash
+python scripts/generate_aibom.py                     # regenerate after a change
+python -m pip install -r requirements-dev.txt        # once, for schema validation
+python scripts/generate_aibom.py --check --validate  # up to date + valid CycloneDX
+```
+
+### Known vulnerabilities (VEX)
+
+```bash
+python scripts/scan_vulnerabilities.py   # needs network; pip-audit + npm audit
+```
+
+This checks every pinned package against the public advisory databases and
+writes `aibom/bakefix.vex.cdx.json`: each finding with our decision from
+`aibom/vulnerability-triage.json` (CycloneDX VEX states: `not_affected` with
+the reason, or `resolved` by upgrading). It exits 1 if a finding has no
+decision yet. Last scan (15 Nov 2026): no npm findings; 6 Python findings,
+of which 2 were fixed by upgrading `oauthlib` and the OpenTelemetry packages,
+and 4 are in Chroma's HTTP server, which BakeFix never runs (it embeds Chroma).
+
+`tests/test_aibom.py` fails if the BOM no longer matches the code (for example,
+after changing the model revision, updating a package, or editing a bundled
+document) or if the cached model weights do not match the recorded hash.
 
 ## Troubleshooting
 

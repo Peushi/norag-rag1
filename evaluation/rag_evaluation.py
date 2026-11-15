@@ -18,6 +18,7 @@ from backend.documents import PROJECT_ROOT, load_documents
 from backend.tracing import indexing_operation
 from backend.index_settings import validate_settings
 from backend.llm_service import MODEL, generate_answer
+from backend.vector_store import EMBEDDING_MODEL, EMBEDDING_MODEL_REVISION
 from backend.rag_service import _build_path_context, graph_retriever_output, validate_graph_chunking
 from backend.retrieval import make_chunk_id, filter_by_relevance
 from backend.retrieval_orchestrator import (
@@ -78,7 +79,9 @@ def build_isolated_index(dataset, documents, chunk_size, overlap, *, trace=None)
             client.delete_collection("rag_evaluation")
         except chromadb.errors.NotFoundError:
             pass
-        embedding_fn = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+        embedding_fn = SentenceTransformerEmbeddingFunction(
+            model_name=EMBEDDING_MODEL, revision=EMBEDDING_MODEL_REVISION
+        )
         collection = client.create_collection(
             name="rag_evaluation",
             embedding_function=embedding_fn,

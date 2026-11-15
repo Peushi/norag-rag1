@@ -10,7 +10,16 @@ COLLECTION_NAMES = {
     "kestrel": "bakefix_chunks_kestrel",
 }
 
-_embedding_fn = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+# Pinned to one Hugging Face commit so embeddings (and the evaluation results
+# measured with them) cannot change if the model is updated on the Hub.
+# Listed in the AI-BOM (aibom/); tests/test_aibom.py fails if they disagree.
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL_REPO = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL_REVISION = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+
+_embedding_fn = SentenceTransformerEmbeddingFunction(
+    model_name=EMBEDDING_MODEL, revision=EMBEDDING_MODEL_REVISION
+)
 
 _client = chromadb.PersistentClient(path=str(DB_PATH))
 

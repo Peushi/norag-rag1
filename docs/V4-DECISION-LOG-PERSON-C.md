@@ -225,6 +225,70 @@ before it can fail.
   questions, and expire after 30 days.
 - **The bundled corpora are trusted** and are not scanned; only uploads are.
 
+## Supply chain: AI-BOM (my own addition)
+
+- **Decision:** BakeFix ships a CycloneDX 1.6 AI-BOM (`aibom/bakefix.cdx.json`)
+  listing the two local models (with model cards), the Gemini service (with
+  what data it receives), the five bundled datasets (with hashes), and all
+  pinned Python and npm packages.
+- **Why:** defence in depth also covers what we depend on. Writing the
+  inventory showed two real gaps, both fixed: the embedding model was not
+  pinned (the Hub could change it, silently changing embeddings and making our
+  V3 results unreproducible; the start-up hang was this version check), and
+  `requirements.txt` only had minimum versions.
+- **Pinned now:** MiniLM to Hugging Face commit `1110a243…` (also in the
+  evaluation script), with the weights' SHA-256; exact packages in
+  `requirements.lock.txt`, including the spaCy model wheel and its hash.
+- **Generated, not hand-written:** `scripts/generate_aibom.py` reads
+  revisions, versions, and hashes from the code, lock files, and files; only
+  descriptions, licences, and model cards are written by hand. The output is
+  deterministic, so a test can compare it exactly.
+- **Kept honest by a test:** `tests/test_aibom.py` fails if the code, lock
+  files, or a bundled dataset change without regenerating, if the app loads a
+  different revision than the BOM says, or if the cached weights do not match.
+  Schema validation runs when the dev tool is installed.
+- **Model cards use our numbers:** MiniLM's card reports hit rate and recall
+  at 5 from our V3 evaluation, not the model's public benchmarks.
+- **Limits, stated in the BOM:** Gemini is pinned by name only (Google can
+  change the model behind it); `graph.json` does not record which Gemini model
+  built it; uploads are not covered (only git-tracked files are hashed).
+  Deleting a bundled document through the app makes the BOM test fail, which
+  is intended: the shipped dataset changed.
+- **Rejected:** a hand-written BOM (it would drift); including uploads
+  (they change at runtime and may contain personal data); SPDX 3.0 AI profile
+  (same content, less tooling for validation).
+- **Model cards (3):** MiniLM, spaCy, and the hosted Gemini model. Each
+  states its published training data, limits, trade-offs, a fairness note
+  (who could be served worse: non-English writers for MiniLM, people with
+  uncommon names for spaCy), and measured results: MiniLM's hit rate at 1 and
+  5 and recall at 5 from V3; Gemini's manually graded answers (12/12 baking,
+  7/10 Kestrel, both errors were over-refusals); spaCy's published OntoNotes
+  scores, labelled as not measured by us. Small test sets are flagged as
+  indications only, and Gemini's numbers as measured before the V4 prompt.
+
+### Vulnerability scan (VEX)
+- **Decision:** `scripts/scan_vulnerabilities.py` runs `pip-audit` on the
+  lock file and `npm audit` on the frontend lock, and records each finding
+  with our decision in a CycloneDX VEX file. It fails if any finding has no
+  decision, so a new CVE cannot be ignored silently.
+- **First scan (15 Nov 2026):** npm clean; 6 Python findings in 3 packages.
+  - `oauthlib` 4.0.0 (device-code grant) and `opentelemetry-api` 1.45.1
+    (ReDoS on a crafted `traceparent` header): **upgraded** to 4.0.1 and
+    1.45.2. The OpenTelemetry one was worth checking: FastAPI would parse that
+    header on every request if telemetry were on; I checked at runtime that
+    no tracer provider is configured, so it was not reachable, but a fix
+    existed. All tests pass after the upgrade.
+  - 4 in `chromadb` 1.5.9 (code injection and missing tenant checks), no fix
+    released: **not affected**, because all four are in Chroma's HTTP server,
+    and BakeFix embeds Chroma (`PersistentClient`) and never starts it. To be
+    re-checked if Chroma is ever run as a server.
+- **Why a VEX file rather than a list of CVEs:** a scanner only says a
+  vulnerable version is present; the VEX records whether it matters to us
+  and why, which is the decision a reviewer actually needs.
+- **Not a unit test:** the scan needs network and its result changes as
+  advisories are published. The test suite checks the committed VEX instead
+  (valid, every finding decided, every finding points at a shipped component).
+
 ## Open points to resolve with the team
 
 - Person B: record the answer style in the `llm_generation` span; consider

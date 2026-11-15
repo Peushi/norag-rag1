@@ -1,0 +1,3626 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "app:bakefix",
+      "name": "BakeFix",
+      "version": "4.0.0",
+      "description": "Question answering over the user's own kitchen documents (recipes, baking notes, appliance manuals), with sources, traces, and a Kestrel sample knowledge base."
+    },
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "scripts/generate_aibom.py"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "bakefix:scope",
+        "value": "Bundled models, datasets, services, and pinned packages. Documents uploaded at runtime are not included."
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "model:all-MiniLM-L6-v2",
+      "group": "sentence-transformers",
+      "name": "all-MiniLM-L6-v2",
+      "version": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "description": "Turns passages and questions into 384-dimensional vectors for dense (semantic) search. Runs locally; no text leaves the machine.",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:huggingface/sentence-transformers/all-MiniLM-L6-v2@1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "53aa51172d142c89d9012cce15ae4d6cc0ca6895895114379cacb4fab128d9db"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/tree/1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+        }
+      ],
+      "properties": [
+        {
+          "name": "bakefix:weights_file",
+          "value": "model.safetensors"
+        },
+        {
+          "name": "bakefix:runs",
+          "value": "locally"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": "sentence-similarity",
+          "architectureFamily": "transformer",
+          "modelArchitecture": "BertModel, 6 layers, hidden size 384, mean pooling",
+          "inputs": [
+            {
+              "format": "English text, truncated at 256 word pieces"
+            }
+          ],
+          "outputs": [
+            {
+              "format": "384-dimensional embedding vector, compared by cosine distance"
+            }
+          ],
+          "approach": {
+            "type": "self-supervised"
+          },
+          "datasets": [
+            {
+              "type": "dataset",
+              "name": "Sentence pairs used to fine-tune all-MiniLM-L6-v2",
+              "description": "Over 1 billion sentence pairs (Reddit comments 2015-2018, S2ORC, WikiAnswers, Stack Exchange, MS MARCO, and others) with a contrastive objective, per the model's published card. Not inspected by us."
+            }
+          ]
+        },
+        "quantitativeAnalysis": {
+          "performanceMetrics": [
+            {
+              "type": "hit_rate@1",
+              "value": "0.500",
+              "slice": "Baking corpus, 10 answerable questions, dense only, chunks 800/80 (evaluation/results/v3/baking_dense_800_80_summary.jsonl)"
+            },
+            {
+              "type": "hit_rate@5",
+              "value": "1.000",
+              "slice": "Baking corpus, same run"
+            },
+            {
+              "type": "evidence_recall@5",
+              "value": "0.792",
+              "slice": "Baking corpus, same run"
+            },
+            {
+              "type": "hit_rate@1",
+              "value": "0.625",
+              "slice": "Kestrel KB, 8 answerable questions, dense only, chunks 800/80 (evaluation/results/v3/kestrel_dense_800_80_summary.jsonl)"
+            },
+            {
+              "type": "hit_rate@5",
+              "value": "0.875",
+              "slice": "Kestrel KB, same run"
+            },
+            {
+              "type": "evidence_recall@5",
+              "value": "0.812",
+              "slice": "Kestrel KB, same run"
+            }
+          ],
+          "graphics": {
+            "description": "No graphics. Small evaluation sets (8 to 10 questions): one question changes hit rate by 0.10 to 0.125, so these are indications, not precise scores."
+          }
+        },
+        "considerations": {
+          "users": [
+            "Home cooks using BakeFix on their own computer"
+          ],
+          "useCases": [
+            "Ranking document passages by meaning for a question, fused with BM25 keyword search"
+          ],
+          "technicalLimitations": [
+            "Trained mainly on English web text (Reddit, Stack Exchange, and other sentence pairs, over 1 billion in total, per the model's own card); other languages retrieve poorly.",
+            "Text after 256 word pieces is ignored, so the end of an 800-character passage can be missed.",
+            "Weak on exact identifiers such as error codes (KST-5031); BM25 is used alongside it for that reason."
+          ],
+          "ethicalConsiderations": [
+            {
+              "name": "Training data may carry biases from web text",
+              "mitigationStrategy": "Used only to rank passages; every answer cites the passages it used, so a poor ranking is visible."
+            }
+          ],
+          "performanceTradeoffs": [
+            "Small (about 22 million parameters, 6 layers) so it embeds on a laptop CPU in milliseconds, at lower accuracy than larger embedding models.",
+            "The right passage is in the top 5 far more often than at rank 1, so BakeFix gives the model several passages instead of one."
+          ],
+          "fairnessAssessments": [
+            {
+              "groupAtRisk": "People who write questions or documents in languages other than English",
+              "benefits": "Fast, private search for English kitchen documents",
+              "harms": "Poorer retrieval, so more 'not in your documents' answers",
+              "mitigationStrategy": "BM25 keyword search runs alongside it; the limitation is stated in the README and report."
+            }
+          ],
+          "environmentalConsiderations": {
+            "properties": [
+              {
+                "name": "bakefix:energy",
+                "value": "Runs locally on CPU; re-embedding the bundled corpus (68 baking chunks) takes seconds. No GPU or data-centre use."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "model:en_core_web_sm",
+      "group": "spacy",
+      "name": "en_core_web_sm",
+      "version": "3.8.0",
+      "description": "spaCy English pipeline used by Microsoft Presidio to find personal data (names, places) in the question before it is sent to Gemini. Runs locally.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/en-core-web-sm@3.8.0",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "bakefix:runs",
+          "value": "locally"
+        },
+        {
+          "name": "bakefix:used_by",
+          "value": "presidio-analyzer"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": "token-classification",
+          "architectureFamily": "convolutional neural network (spaCy tok2vec)",
+          "modelArchitecture": "spaCy small English pipeline with named-entity recognition",
+          "inputs": [
+            {
+              "format": "English text (the user's question only)"
+            }
+          ],
+          "outputs": [
+            {
+              "format": "Entity spans (PERSON, LOCATION, ...) that Presidio replaces with placeholders"
+            }
+          ],
+          "approach": {
+            "type": "supervised"
+          },
+          "datasets": [
+            {
+              "type": "dataset",
+              "name": "spaCy en_core_web_sm training data",
+              "description": "OntoNotes 5, ClearNLP Constituent-to-Dependency Conversion, and WordNet 3.0, per the model's meta.json. Not inspected by us."
+            }
+          ]
+        },
+        "considerations": {
+          "useCases": [
+            "Redacting personal data from questions before they leave the machine"
+          ],
+          "technicalLimitations": [
+            "Small model: misses some names and tags some product names as people (e.g. 'Vellora' was tagged PERSON in V4 testing). For this reason it runs on the question only; document passages get email and phone patterns only.",
+            "English only."
+          ],
+          "ethicalConsiderations": [
+            {
+              "name": "Personal data that is not detected is sent to Google",
+              "mitigationStrategy": "Documented as an accepted risk; users are told not to upload documents they would not share with Google."
+            }
+          ],
+          "performanceTradeoffs": [
+            "Small and fast (runs on every question in milliseconds) at the cost of missed and false entities; the large spaCy model would catch more but needs about 500 MB."
+          ],
+          "fairnessAssessments": [
+            {
+              "groupAtRisk": "People whose names are uncommon in English news and web text",
+              "benefits": "Names that are detected are not sent to Google",
+              "harms": "Their names are detected less reliably, so they are more likely to reach Google unredacted",
+              "mitigationStrategy": "Questions rarely need names; documented as an accepted risk."
+            }
+          ]
+        },
+        "quantitativeAnalysis": {
+          "performanceMetrics": [
+            {
+              "type": "ner_precision",
+              "value": "0.843",
+              "slice": "Published by spaCy for OntoNotes 5 (meta.json of en_core_web_sm 3.8.0); not measured on BakeFix questions"
+            },
+            {
+              "type": "ner_recall",
+              "value": "0.844",
+              "slice": "Same source"
+            },
+            {
+              "type": "ner_f1",
+              "value": "0.843",
+              "slice": "Same source"
+            }
+          ],
+          "graphics": {
+            "description": "News-style benchmark scores; product names in kitchen manuals (e.g. 'Vellora') are outside that domain, which is why redaction runs on the question only."
+          }
+        }
+      },
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85"
+        }
+      ]
+    },
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "model:gemini",
+      "group": "google",
+      "name": "gemini-3.5-flash-lite",
+      "version": "gemini-3.5-flash-lite",
+      "description": "The hosted Gemini model that writes BakeFix's answers. Weights, training data, and version history are Google's and not visible to us; listed so its limits and our measurements are recorded next to the other models.",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://ai.google.dev/gemini-api/docs/models"
+        }
+      ],
+      "properties": [
+        {
+          "name": "bakefix:runs",
+          "value": "hosted by Google (see service:gemini)"
+        },
+        {
+          "name": "bakefix:pinned",
+          "value": "by name only"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": "text-generation",
+          "architectureFamily": "transformer (not published in detail by Google)",
+          "inputs": [
+            {
+              "format": "Prompt with tagged retrieved passages, graph paths (Kestrel only), answer-style instructions, and the redacted question"
+            }
+          ],
+          "outputs": [
+            {
+              "format": "JSON: status, answer, cited chunk IDs, glossary; rejected if invalid or if it cites passages that were not retrieved"
+            }
+          ]
+        },
+        "quantitativeAnalysis": {
+          "performanceMetrics": [
+            {
+              "type": "manually_graded_correct",
+              "value": "12/12",
+              "slice": "Baking, 10 answerable + 2 out-of-scope questions; both refusals correct (evaluation/results/baking_rag_reviewed.jsonl)"
+            },
+            {
+              "type": "manually_graded_correct",
+              "value": "7/10 (1 partial, 2 wrong)",
+              "slice": "Kestrel, 10 questions; both wrong answers were 'not found' although the evidence had been retrieved (evaluation/results/kestrel_rag_reviewed.jsonl)"
+            }
+          ],
+          "graphics": {
+            "description": "Measured before the V4 prompt framing and answer-style changes; small sets, so indications only."
+          }
+        },
+        "considerations": {
+          "users": [
+            "Home cooks using BakeFix"
+          ],
+          "useCases": [
+            "Answering from the retrieved passages only, with citations"
+          ],
+          "technicalLimitations": [
+            "Can refuse when the answer is in the passages (both Kestrel errors), or state something the passages do not support; citations are checked to exist, not that they support each sentence.",
+            "Can follow instructions hidden in a document (prompt injection). Mitigated by the upload scanner, tagged passages, output validation, and safe rendering.",
+            "Google can change the model behind the same name; results are not reproducible over time."
+          ],
+          "performanceTradeoffs": [
+            "The 'flash-lite' tier is cheap and fast (about 1.5 s per answer) at the cost of some over-refusal."
+          ],
+          "ethicalConsiderations": [
+            {
+              "name": "User data is processed by Google",
+              "mitigationStrategy": "Personal data is redacted from the question and email/phone patterns from passages before sending; stated in the README."
+            },
+            {
+              "name": "Confident wrong answers in a cooking context (temperatures, food safety)",
+              "mitigationStrategy": "Every answer shows its numbered sources and the passages behind them, so the reader can check; the answer is withheld if it cites a passage that was not retrieved."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "data",
+      "bom-ref": "data:baking-corpus",
+      "name": "BakeFix baking corpus",
+      "description": "Baking troubleshooting guides bundled with BakeFix. Files uploaded by the user at runtime are not part of the BOM (only files tracked in git are hashed).",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b5822e0492f366de69e83e6ef7144f9320b6385e837c23b7e82a8b2ee067c64b"
+        }
+      ],
+      "data": [
+        {
+          "type": "dataset",
+          "name": "BakeFix baking corpus",
+          "contents": {
+            "url": "corpus"
+          },
+          "classification": "no personal data",
+          "description": "Baking troubleshooting guides bundled with BakeFix. Files uploaded by the user at runtime are not part of the BOM (only files tracked in git are hashed)."
+        }
+      ],
+      "properties": [
+        {
+          "name": "bakefix:origin",
+          "value": "Written by the BakeFix team"
+        },
+        {
+          "name": "bakefix:path",
+          "value": "corpus"
+        },
+        {
+          "name": "bakefix:file_count",
+          "value": "10"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "data:kestrel-kb",
+      "name": "Kestrel Analytics knowledge base",
+      "description": "Fictional B2B company documents used as the sample knowledge base and for graph retrieval.",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "91b952f53fa336583e506d3d2380b0d07781d3cceae220f6bef4099a7763560a"
+        }
+      ],
+      "data": [
+        {
+          "type": "dataset",
+          "name": "Kestrel Analytics knowledge base",
+          "contents": {
+            "url": "kestrel-kb/docs"
+          },
+          "classification": "no personal data",
+          "description": "Contains invented names, *.example e-mail addresses, and 203.0.113.x documentation IP addresses."
+        }
+      ],
+      "properties": [
+        {
+          "name": "bakefix:origin",
+          "value": "Provided by the course (AI Systems Integration & Operations, EPITA)"
+        },
+        {
+          "name": "bakefix:path",
+          "value": "kestrel-kb/docs"
+        },
+        {
+          "name": "bakefix:file_count",
+          "value": "5"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "data:kestrel-graph",
+      "name": "Kestrel knowledge graph",
+      "description": "Concepts and relationships extracted from the Kestrel documents by Gemini, plus entity resolution and a manual triple-quality review. Model output, not ground truth.",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3ab7d7c9bd668c37345ace5caaeee1b545ae43b870e452fde0017545b70193fd"
+        }
+      ],
+      "data": [
+        {
+          "type": "dataset",
+          "name": "Kestrel knowledge graph",
+          "contents": {
+            "url": "kestrel-kb/graph"
+          },
+          "classification": "no personal data",
+          "description": "Concepts and relationships extracted from the Kestrel documents by Gemini, plus entity resolution and a manual triple-quality review. Model output, not ground truth."
+        }
+      ],
+      "properties": [
+        {
+          "name": "bakefix:origin",
+          "value": "Generated by the BakeFix team with Gemini (see service:gemini)"
+        },
+        {
+          "name": "bakefix:path",
+          "value": "kestrel-kb/graph"
+        },
+        {
+          "name": "bakefix:file_count",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "data:evaluation-sets",
+      "name": "Evaluation question sets",
+      "description": "Baking and injection test cases with expected sources, used for retrieval, answer, and injection-scanner evaluation.",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bc20088445720bcd19fc38e5d18fefdfa1863acdb00c073cdae61a32b9d19aac"
+        }
+      ],
+      "data": [
+        {
+          "type": "dataset",
+          "name": "Evaluation question sets",
+          "contents": {
+            "url": "evaluation"
+          },
+          "classification": "no personal data",
+          "description": "Baking and injection test cases with expected sources, used for retrieval, answer, and injection-scanner evaluation."
+        }
+      ],
+      "properties": [
+        {
+          "name": "bakefix:origin",
+          "value": "Written by the BakeFix team"
+        },
+        {
+          "name": "bakefix:path",
+          "value": "evaluation"
+        },
+        {
+          "name": "bakefix:file_count",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "data:kestrel-eval",
+      "name": "Kestrel evaluation questions",
+      "description": "Starter evaluation questions for the Kestrel knowledge base.",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "238a9e79d320910e1fefbe08a27399d5b476c5e5bc6f23286283b13219472bfa"
+        }
+      ],
+      "data": [
+        {
+          "type": "dataset",
+          "name": "Kestrel evaluation questions",
+          "contents": {
+            "url": "kestrel-kb/eval"
+          },
+          "classification": "no personal data",
+          "description": "Starter evaluation questions for the Kestrel knowledge base."
+        }
+      ],
+      "properties": [
+        {
+          "name": "bakefix:origin",
+          "value": "Provided by the course"
+        },
+        {
+          "name": "bakefix:path",
+          "value": "kestrel-kb/eval"
+        },
+        {
+          "name": "bakefix:file_count",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/aiohappyeyeballs@2.7.1",
+      "name": "aiohappyeyeballs",
+      "version": "2.7.1",
+      "purl": "pkg:pypi/aiohappyeyeballs@2.7.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/aiohttp@3.14.5",
+      "name": "aiohttp",
+      "version": "3.14.5",
+      "purl": "pkg:pypi/aiohttp@3.14.5"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/aiohttp-retry@2.9.1",
+      "name": "aiohttp-retry",
+      "version": "2.9.1",
+      "purl": "pkg:pypi/aiohttp-retry@2.9.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/aiosignal@1.4.0",
+      "name": "aiosignal",
+      "version": "1.4.0",
+      "purl": "pkg:pypi/aiosignal@1.4.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/annotated-doc@0.0.5",
+      "name": "annotated-doc",
+      "version": "0.0.5",
+      "purl": "pkg:pypi/annotated-doc@0.0.5"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/annotated-types@0.8.0",
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "purl": "pkg:pypi/annotated-types@0.8.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/anyio@4.15.1",
+      "name": "anyio",
+      "version": "4.15.1",
+      "purl": "pkg:pypi/anyio@4.15.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/attrs@26.1.0",
+      "name": "attrs",
+      "version": "26.1.0",
+      "purl": "pkg:pypi/attrs@26.1.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/bcrypt@5.0.0",
+      "name": "bcrypt",
+      "version": "5.0.0",
+      "purl": "pkg:pypi/bcrypt@5.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/blis@1.3.4",
+      "name": "blis",
+      "version": "1.3.4",
+      "purl": "pkg:pypi/blis@1.3.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/build@1.6.1",
+      "name": "build",
+      "version": "1.6.1",
+      "purl": "pkg:pypi/build@1.6.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/catalogue@2.0.10",
+      "name": "catalogue",
+      "version": "2.0.10",
+      "purl": "pkg:pypi/catalogue@2.0.10"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/certifi@2026.10.23",
+      "name": "certifi",
+      "version": "2026.10.23",
+      "purl": "pkg:pypi/certifi@2026.10.23"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/charset-normalizer@3.5.2",
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "purl": "pkg:pypi/charset-normalizer@3.5.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/chromadb@1.5.9",
+      "name": "chromadb",
+      "version": "1.5.9",
+      "purl": "pkg:pypi/chromadb@1.5.9"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/click@8.5.0",
+      "name": "click",
+      "version": "8.5.0",
+      "purl": "pkg:pypi/click@8.5.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/cloudpathlib@0.26.0",
+      "name": "cloudpathlib",
+      "version": "0.26.0",
+      "purl": "pkg:pypi/cloudpathlib@0.26.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/cloudpickle@3.1.2",
+      "name": "cloudpickle",
+      "version": "3.1.2",
+      "purl": "pkg:pypi/cloudpickle@3.1.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/confection@1.3.4",
+      "name": "confection",
+      "version": "1.3.4",
+      "purl": "pkg:pypi/confection@1.3.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/cymem@2.0.16",
+      "name": "cymem",
+      "version": "2.0.16",
+      "purl": "pkg:pypi/cymem@2.0.16"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/durationpy@0.11",
+      "name": "durationpy",
+      "version": "0.11",
+      "purl": "pkg:pypi/durationpy@0.11"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/fastapi@0.162.0",
+      "name": "fastapi",
+      "version": "0.162.0",
+      "purl": "pkg:pypi/fastapi@0.162.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/filelock@4.2.4",
+      "name": "filelock",
+      "version": "4.2.4",
+      "purl": "pkg:pypi/filelock@4.2.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/flatbuffers@25.12.19",
+      "name": "flatbuffers",
+      "version": "25.12.19",
+      "purl": "pkg:pypi/flatbuffers@25.12.19"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/frozenlist@1.8.0",
+      "name": "frozenlist",
+      "version": "1.8.0",
+      "purl": "pkg:pypi/frozenlist@1.8.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/fsspec@2026.9.0",
+      "name": "fsspec",
+      "version": "2026.9.0",
+      "purl": "pkg:pypi/fsspec@2026.9.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/googleapis-common-protos@1.76.0",
+      "name": "googleapis-common-protos",
+      "version": "1.76.0",
+      "purl": "pkg:pypi/googleapis-common-protos@1.76.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/grpcio@1.85.0",
+      "name": "grpcio",
+      "version": "1.85.0",
+      "purl": "pkg:pypi/grpcio@1.85.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/h11@0.16.0",
+      "name": "h11",
+      "version": "0.16.0",
+      "purl": "pkg:pypi/h11@0.16.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/hf-xet@1.7.1",
+      "name": "hf-xet",
+      "version": "1.7.1",
+      "purl": "pkg:pypi/hf-xet@1.7.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/httpcore@1.0.9",
+      "name": "httpcore",
+      "version": "1.0.9",
+      "purl": "pkg:pypi/httpcore@1.0.9"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/httpcore2@2.16.0",
+      "name": "httpcore2",
+      "version": "2.16.0",
+      "purl": "pkg:pypi/httpcore2@2.16.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/httptools@0.9.0",
+      "name": "httptools",
+      "version": "0.9.0",
+      "purl": "pkg:pypi/httptools@0.9.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/httpx@0.28.1",
+      "name": "httpx",
+      "version": "0.28.1",
+      "purl": "pkg:pypi/httpx@0.28.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/httpx2@2.16.0",
+      "name": "httpx2",
+      "version": "2.16.0",
+      "purl": "pkg:pypi/httpx2@2.16.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/huggingface-hub@2.3.0",
+      "name": "huggingface_hub",
+      "version": "2.3.0",
+      "purl": "pkg:pypi/huggingface-hub@2.3.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/idna@3.20",
+      "name": "idna",
+      "version": "3.20",
+      "purl": "pkg:pypi/idna@3.20"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/importlib-resources@7.1.0",
+      "name": "importlib_resources",
+      "version": "7.1.0",
+      "purl": "pkg:pypi/importlib-resources@7.1.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/jinja2@3.1.6",
+      "name": "Jinja2",
+      "version": "3.1.6",
+      "purl": "pkg:pypi/jinja2@3.1.6"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/jiter@0.18.0",
+      "name": "jiter",
+      "version": "0.18.0",
+      "purl": "pkg:pypi/jiter@0.18.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/joblib@1.6.0",
+      "name": "joblib",
+      "version": "1.6.0",
+      "purl": "pkg:pypi/joblib@1.6.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/jsonschema@4.26.0",
+      "name": "jsonschema",
+      "version": "4.26.0",
+      "purl": "pkg:pypi/jsonschema@4.26.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/jsonschema-specifications@2025.9.1",
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "purl": "pkg:pypi/jsonschema-specifications@2025.9.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/kubernetes@37.0.1",
+      "name": "kubernetes",
+      "version": "37.0.1",
+      "purl": "pkg:pypi/kubernetes@37.0.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/markdown-it-py@4.2.0",
+      "name": "markdown-it-py",
+      "version": "4.2.0",
+      "purl": "pkg:pypi/markdown-it-py@4.2.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/markupsafe@3.0.4",
+      "name": "MarkupSafe",
+      "version": "3.0.4",
+      "purl": "pkg:pypi/markupsafe@3.0.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/mdurl@0.1.2",
+      "name": "mdurl",
+      "version": "0.1.2",
+      "purl": "pkg:pypi/mdurl@0.1.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/mmh3@5.3.1",
+      "name": "mmh3",
+      "version": "5.3.1",
+      "purl": "pkg:pypi/mmh3@5.3.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/mpmath@1.3.0",
+      "name": "mpmath",
+      "version": "1.3.0",
+      "purl": "pkg:pypi/mpmath@1.3.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/multidict@7.2.1",
+      "name": "multidict",
+      "version": "7.2.1",
+      "purl": "pkg:pypi/multidict@7.2.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/murmurhash@1.0.16",
+      "name": "murmurhash",
+      "version": "1.0.16",
+      "purl": "pkg:pypi/murmurhash@1.0.16"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/narwhals@2.28.0",
+      "name": "narwhals",
+      "version": "2.28.0",
+      "purl": "pkg:pypi/narwhals@2.28.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/networkx@3.7",
+      "name": "networkx",
+      "version": "3.7",
+      "purl": "pkg:pypi/networkx@3.7"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/numpy@2.4.6",
+      "name": "numpy",
+      "version": "2.4.6",
+      "purl": "pkg:pypi/numpy@2.4.6"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/oauthlib@4.0.1",
+      "name": "oauthlib",
+      "version": "4.0.1",
+      "purl": "pkg:pypi/oauthlib@4.0.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/onnxruntime@1.31.1",
+      "name": "onnxruntime",
+      "version": "1.31.1",
+      "purl": "pkg:pypi/onnxruntime@1.31.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/openai@3.41.0",
+      "name": "openai",
+      "version": "3.41.0",
+      "purl": "pkg:pypi/openai@3.41.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/opentelemetry-api@1.45.2",
+      "name": "opentelemetry-api",
+      "version": "1.45.2",
+      "purl": "pkg:pypi/opentelemetry-api@1.45.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-common@0.66b2",
+      "name": "opentelemetry-exporter-otlp-common",
+      "version": "0.66b2",
+      "purl": "pkg:pypi/opentelemetry-exporter-otlp-common@0.66b2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-common@1.45.2",
+      "name": "opentelemetry-exporter-otlp-proto-common",
+      "version": "1.45.2",
+      "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-common@1.45.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-grpc@1.45.2",
+      "name": "opentelemetry-exporter-otlp-proto-grpc",
+      "version": "1.45.2",
+      "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-grpc@1.45.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/opentelemetry-proto@1.45.2",
+      "name": "opentelemetry-proto",
+      "version": "1.45.2",
+      "purl": "pkg:pypi/opentelemetry-proto@1.45.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/opentelemetry-sdk@1.45.2",
+      "name": "opentelemetry-sdk",
+      "version": "1.45.2",
+      "purl": "pkg:pypi/opentelemetry-sdk@1.45.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/opentelemetry-semantic-conventions@0.66b2",
+      "name": "opentelemetry-semantic-conventions",
+      "version": "0.66b2",
+      "purl": "pkg:pypi/opentelemetry-semantic-conventions@0.66b2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/orjson@3.13.0",
+      "name": "orjson",
+      "version": "3.13.0",
+      "purl": "pkg:pypi/orjson@3.13.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/overrides@7.7.0",
+      "name": "overrides",
+      "version": "7.7.0",
+      "purl": "pkg:pypi/overrides@7.7.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/packaging@26.3",
+      "name": "packaging",
+      "version": "26.3",
+      "purl": "pkg:pypi/packaging@26.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/phonenumbers@9.0.43",
+      "name": "phonenumbers",
+      "version": "9.0.43",
+      "purl": "pkg:pypi/phonenumbers@9.0.43"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/preshed@3.0.13",
+      "name": "preshed",
+      "version": "3.0.13",
+      "purl": "pkg:pypi/preshed@3.0.13"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/presidio-analyzer@2.2.366",
+      "name": "presidio_analyzer",
+      "version": "2.2.366",
+      "purl": "pkg:pypi/presidio-analyzer@2.2.366"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/propcache@0.5.4",
+      "name": "propcache",
+      "version": "0.5.4",
+      "purl": "pkg:pypi/propcache@0.5.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/protobuf@7.36.2",
+      "name": "protobuf",
+      "version": "7.36.2",
+      "purl": "pkg:pypi/protobuf@7.36.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pybase64@1.5.1",
+      "name": "pybase64",
+      "version": "1.5.1",
+      "purl": "pkg:pypi/pybase64@1.5.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pydantic@2.14.1",
+      "name": "pydantic",
+      "version": "2.14.1",
+      "purl": "pkg:pypi/pydantic@2.14.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pydantic-settings@2.16.2",
+      "name": "pydantic-settings",
+      "version": "2.16.2",
+      "purl": "pkg:pypi/pydantic-settings@2.16.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pydantic-core@2.50.1",
+      "name": "pydantic_core",
+      "version": "2.50.1",
+      "purl": "pkg:pypi/pydantic-core@2.50.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pygments@2.21.0",
+      "name": "Pygments",
+      "version": "2.21.0",
+      "purl": "pkg:pypi/pygments@2.21.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pypika@0.51.1",
+      "name": "PyPika",
+      "version": "0.51.1",
+      "purl": "pkg:pypi/pypika@0.51.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pyproject-hooks@1.3.3",
+      "name": "pyproject_hooks",
+      "version": "1.3.3",
+      "purl": "pkg:pypi/pyproject-hooks@1.3.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/python-dateutil@3.0.0",
+      "name": "python-dateutil",
+      "version": "3.0.0",
+      "purl": "pkg:pypi/python-dateutil@3.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/python-dotenv@1.2.4",
+      "name": "python-dotenv",
+      "version": "1.2.4",
+      "purl": "pkg:pypi/python-dotenv@1.2.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/python-multipart@0.0.32",
+      "name": "python-multipart",
+      "version": "0.0.32",
+      "purl": "pkg:pypi/python-multipart@0.0.32"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pyyaml@6.0.3",
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "purl": "pkg:pypi/pyyaml@6.0.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/referencing@0.37.0",
+      "name": "referencing",
+      "version": "0.37.0",
+      "purl": "pkg:pypi/referencing@0.37.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/regex@2026.9.29",
+      "name": "regex",
+      "version": "2026.9.29",
+      "purl": "pkg:pypi/regex@2026.9.29"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/requests@2.34.2",
+      "name": "requests",
+      "version": "2.34.2",
+      "purl": "pkg:pypi/requests@2.34.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/requests-file@3.0.1",
+      "name": "requests-file",
+      "version": "3.0.1",
+      "purl": "pkg:pypi/requests-file@3.0.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/requests-oauthlib@2.0.0",
+      "name": "requests-oauthlib",
+      "version": "2.0.0",
+      "purl": "pkg:pypi/requests-oauthlib@2.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/rich@15.0.0",
+      "name": "rich",
+      "version": "15.0.0",
+      "purl": "pkg:pypi/rich@15.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/rpds-py@2026.9.1",
+      "name": "rpds-py",
+      "version": "2026.9.1",
+      "purl": "pkg:pypi/rpds-py@2026.9.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/safetensors@0.8.0",
+      "name": "safetensors",
+      "version": "0.8.0",
+      "purl": "pkg:pypi/safetensors@0.8.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/scikit-learn@1.9.1",
+      "name": "scikit-learn",
+      "version": "1.9.1",
+      "purl": "pkg:pypi/scikit-learn@1.9.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/scipy@1.18.1",
+      "name": "scipy",
+      "version": "1.18.1",
+      "purl": "pkg:pypi/scipy@1.18.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/sentence-transformers@6.2.0",
+      "name": "sentence-transformers",
+      "version": "6.2.0",
+      "purl": "pkg:pypi/sentence-transformers@6.2.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/setuptools@84.2.1",
+      "name": "setuptools",
+      "version": "84.2.1",
+      "purl": "pkg:pypi/setuptools@84.2.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/shellingham@1.5.4",
+      "name": "shellingham",
+      "version": "1.5.4",
+      "purl": "pkg:pypi/shellingham@1.5.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/six@1.17.0",
+      "name": "six",
+      "version": "1.17.0",
+      "purl": "pkg:pypi/six@1.17.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/smart-open@9.0.3",
+      "name": "smart_open",
+      "version": "9.0.3",
+      "purl": "pkg:pypi/smart-open@9.0.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/sniffio@1.3.1",
+      "name": "sniffio",
+      "version": "1.3.1",
+      "purl": "pkg:pypi/sniffio@1.3.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/spacy@3.8.18",
+      "name": "spacy",
+      "version": "3.8.18",
+      "purl": "pkg:pypi/spacy@3.8.18"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/spacy-legacy@3.0.12",
+      "name": "spacy-legacy",
+      "version": "3.0.12",
+      "purl": "pkg:pypi/spacy-legacy@3.0.12"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/spacy-loggers@1.0.5",
+      "name": "spacy-loggers",
+      "version": "1.0.5",
+      "purl": "pkg:pypi/spacy-loggers@1.0.5"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/srsly@2.5.6",
+      "name": "srsly",
+      "version": "2.5.6",
+      "purl": "pkg:pypi/srsly@2.5.6"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/starlette@1.10.0",
+      "name": "starlette",
+      "version": "1.10.0",
+      "purl": "pkg:pypi/starlette@1.10.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/sympy@1.14.0",
+      "name": "sympy",
+      "version": "1.14.0",
+      "purl": "pkg:pypi/sympy@1.14.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/tenacity@9.2.1",
+      "name": "tenacity",
+      "version": "9.2.1",
+      "purl": "pkg:pypi/tenacity@9.2.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/thinc@8.3.14",
+      "name": "thinc",
+      "version": "8.3.14",
+      "purl": "pkg:pypi/thinc@8.3.14"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/threadpoolctl@3.7.0",
+      "name": "threadpoolctl",
+      "version": "3.7.0",
+      "purl": "pkg:pypi/threadpoolctl@3.7.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/tldextract@5.4.0",
+      "name": "tldextract",
+      "version": "5.4.0",
+      "purl": "pkg:pypi/tldextract@5.4.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/tokenizers@0.23.3",
+      "name": "tokenizers",
+      "version": "0.23.3",
+      "purl": "pkg:pypi/tokenizers@0.23.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/torch@2.15.0",
+      "name": "torch",
+      "version": "2.15.0",
+      "purl": "pkg:pypi/torch@2.15.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/tqdm@4.70.1",
+      "name": "tqdm",
+      "version": "4.70.1",
+      "purl": "pkg:pypi/tqdm@4.70.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/transformers@5.21.1",
+      "name": "transformers",
+      "version": "5.21.1",
+      "purl": "pkg:pypi/transformers@5.21.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/truststore@0.10.5",
+      "name": "truststore",
+      "version": "0.10.5",
+      "purl": "pkg:pypi/truststore@0.10.5"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/typer@0.27.3",
+      "name": "typer",
+      "version": "0.27.3",
+      "purl": "pkg:pypi/typer@0.27.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/typing-inspection@0.4.4",
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "purl": "pkg:pypi/typing-inspection@0.4.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/typing-extensions@4.16.0",
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "purl": "pkg:pypi/typing-extensions@4.16.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/tzdata@2026.6",
+      "name": "tzdata",
+      "version": "2026.6",
+      "purl": "pkg:pypi/tzdata@2026.6"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/urllib3@2.8.0",
+      "name": "urllib3",
+      "version": "2.8.0",
+      "purl": "pkg:pypi/urllib3@2.8.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/uvicorn@0.54.0",
+      "name": "uvicorn",
+      "version": "0.54.0",
+      "purl": "pkg:pypi/uvicorn@0.54.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/uvloop@0.23.0",
+      "name": "uvloop",
+      "version": "0.23.0",
+      "purl": "pkg:pypi/uvloop@0.23.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/wasabi@1.1.3",
+      "name": "wasabi",
+      "version": "1.1.3",
+      "purl": "pkg:pypi/wasabi@1.1.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/watchfiles@1.3.0",
+      "name": "watchfiles",
+      "version": "1.3.0",
+      "purl": "pkg:pypi/watchfiles@1.3.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/weasel@1.0.1",
+      "name": "weasel",
+      "version": "1.0.1",
+      "purl": "pkg:pypi/weasel@1.0.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/websocket-client@1.9.2",
+      "name": "websocket-client",
+      "version": "1.9.2",
+      "purl": "pkg:pypi/websocket-client@1.9.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/websockets@17.3",
+      "name": "websockets",
+      "version": "17.3",
+      "purl": "pkg:pypi/websockets@17.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/wrapt@2.5.2",
+      "name": "wrapt",
+      "version": "2.5.2",
+      "purl": "pkg:pypi/wrapt@2.5.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/yarl@1.25.1",
+      "name": "yarl",
+      "version": "1.25.1",
+      "purl": "pkg:pypi/yarl@1.25.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40oxc-project/types@0.155.0",
+      "name": "@oxc-project/types",
+      "version": "0.155.0",
+      "purl": "pkg:npm/%40oxc-project/types@0.155.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "49e13c24fc16d71b35b4778dc9c8d4b5405d868ad16bca388e5be3c24e3d47bfd9dbdd62fb80d06bb2492203a6fd3698419c7e42b3d06d527ff5cf1d30864df1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-android-arm-eabi@1.2.15",
+      "name": "@rolldown/binding-android-arm-eabi",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-android-arm-eabi@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "68b7202bd808277611bebaed7d205b45adbb1795aba624da3ee967169b073f1a541e01654a09d4e3ce78307c2844610185f4490d6092d9643b9488ec904f4e97"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-android-arm64@1.2.15",
+      "name": "@rolldown/binding-android-arm64",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-android-arm64@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c43ec37590ab6d384abb1360ee8a109afa74ef2b3827fa674843131b7fce74e5a5e9d682ebb9bf4387cbefcb111ccc531ff3787c651b62170f334305e5614792"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-darwin-arm64@1.2.15",
+      "name": "@rolldown/binding-darwin-arm64",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-darwin-arm64@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9b65ae43aaf4078393631c8fa4d2ed5da3116d10d46c6f18415d90dca4dd4922bc4e1e8a1c29c2f2354226df1bbd87920795a2be490d6dcf3998a69d69274ec4"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-darwin-x64@1.2.15",
+      "name": "@rolldown/binding-darwin-x64",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-darwin-x64@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e51b67b07337ea7a1d33d59b332fb38a9d0b192fc6fb2e70ae8e511eba4e96be1a736e3ed734a2f64895d8c3f59b265e67f89f1077ee9507168e7017cdcd82d8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-freebsd-x64@1.2.15",
+      "name": "@rolldown/binding-freebsd-x64",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-freebsd-x64@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "837974f69c85aa1bbed77e492a46e4c22286426c14e6150c50f27855d0400efbaa47c777dcbe87e7bf2b87c9bbaedc5b769f95997ffe9f323b9ef852665ce951"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-linux-arm-gnueabihf@1.2.15",
+      "name": "@rolldown/binding-linux-arm-gnueabihf",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-linux-arm-gnueabihf@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9c87b756e808f7b9c642db293f10ea038b17314a5e8a870a20ffc2aa963fbbfbe06d3f9a957f9c571bb50bfa1504f2a0e1f78d4e6628bc4f75bf80e05ef5cdc1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-linux-arm64-gnu@1.2.15",
+      "name": "@rolldown/binding-linux-arm64-gnu",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-linux-arm64-gnu@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "8930635f1f81e504af808f3d9497e6aa1e304e1f0d69b47561920837784dc78cd21b41157d5aa43af2ee94da46e36e75a5b77afc802667f2de7d5935638acf87"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-linux-arm64-musl@1.2.15",
+      "name": "@rolldown/binding-linux-arm64-musl",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-linux-arm64-musl@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b8ddba5ce9d547baea42ea46dd5f68006d841866ad5a37091ce7833875050a1e1305698fdad1d316854dd776986f07e6d1a1ea240126730840bbab28a088dfa9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-linux-ppc64-gnu@1.2.15",
+      "name": "@rolldown/binding-linux-ppc64-gnu",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-linux-ppc64-gnu@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f675a471d77e1fe5e1680ddf408c291e7288adfc7f3d0eab3b4a62bebefc3a0d3bb5795495cb41049a0460b3df85398247f431115767eae3e31d5e52ca63e177"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-linux-s390x-gnu@1.2.15",
+      "name": "@rolldown/binding-linux-s390x-gnu",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-linux-s390x-gnu@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1a08747221632f022eb0b48bcfb2d96046867713805095c8f90bb92426e13c924712df2f3fe2234404d32617a226c773cd36205221d48b0dd7d446b766930174"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-linux-x64-gnu@1.2.15",
+      "name": "@rolldown/binding-linux-x64-gnu",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-linux-x64-gnu@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "14783ad2b4ba0c178f01867d5fd17aef1f8939b15d9a09fab6ea40d42fdadc1f82b9f1664c3e265fe7bc33be6d0a200eddfa11ffac70541234290888eec9ffaf"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-linux-x64-musl@1.2.15",
+      "name": "@rolldown/binding-linux-x64-musl",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-linux-x64-musl@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "fdcbd5ffbbf9546cff9a88b3d172918f6744f03cec2b2848bb52a93af2463e3472c20df2b1c38df3cf541af01ef337e224b1eea7b54b8c176ea065a2dc7bac59"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-openharmony-arm64@1.2.15",
+      "name": "@rolldown/binding-openharmony-arm64",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-openharmony-arm64@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "332cc2e47aeffec9be67b4d218a3ff8fcd34d513b6c509b5ccea423552f88f4718fd584166f8a5b9d03660543b8b8947e99017c509b495c31d07333ef7d984ef"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-win32-arm64-msvc@1.2.15",
+      "name": "@rolldown/binding-win32-arm64-msvc",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-win32-arm64-msvc@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f8f818892f801f9a26cba2f8e592f1c9b6ac6ae25a8f733c6eea13f370fe9f33e609ac97971515f61c9d85c882295c8883407fbf406d5cf0c4d6e1aa37008fa6"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/binding-win32-x64-msvc@1.2.15",
+      "name": "@rolldown/binding-win32-x64-msvc",
+      "version": "1.2.15",
+      "purl": "pkg:npm/%40rolldown/binding-win32-x64-msvc@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1c565dd90350627d496c88be1e977b1feaff9645b171f22edbc9e2ad9e9e0a7d8b69fbaf984c4c95bfcff7a49fc79b5fee93c0af0dfd21d866085f2f995f8d85"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40rolldown/pluginutils@1.0.1",
+      "name": "@rolldown/pluginutils",
+      "version": "1.0.1",
+      "purl": "pkg:npm/%40rolldown/pluginutils@1.0.1",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "da3f5b1ade4987c863faf3ed8333ed97bda3d324711c0cae9a8a3a4cd7c08ec2c1d3852da52bcf6cf703701331cfb9fef42601d1cd46c501716118368e29aa1b"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/debug@4.1.13",
+      "name": "@types/debug",
+      "version": "4.1.13",
+      "purl": "pkg:npm/%40types/debug@4.1.13",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2925609909b33303e59ad9633a899aca847cf56e05ca70808b713c3cfb3bbe60d53def38853faf18f2a425f4e19265ecd31d2301a6bd53cb96f1b6dfc92d9f5b"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/estree-jsx@1.0.5",
+      "name": "@types/estree-jsx",
+      "version": "1.0.5",
+      "purl": "pkg:npm/%40types/estree-jsx@1.0.5",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e7609c515345c9f6f503600ba1c430fc377505014d992764b82dc1919ea2aa174c7d0cfb25638546e2459683b38e4fba5a28d4e7a9bda0a5c501773ba374e8c2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/estree@1.0.10",
+      "name": "@types/estree",
+      "version": "1.0.10",
+      "purl": "pkg:npm/%40types/estree@1.0.10",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "953c8e32739c991073742bfaff8cd4642ac4855d31aea422519059b5571b98b1c15ca2e737cabcf6fff029117f4341dbc15b2a6c81b7a391c3a0597db1db8cfa"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/hast@3.0.5",
+      "name": "@types/hast",
+      "version": "3.0.5",
+      "purl": "pkg:npm/%40types/hast@3.0.5",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "ae9fdecd259a0f59b8e1d3ca2021a18ac908d779d5afba939681700dafc86248617f99f3c0ffb3210708261dd62054813b2fc7d4fcc1e348cf8cc0e4b0de05fa"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/mdast@4.0.4",
+      "name": "@types/mdast",
+      "version": "4.0.4",
+      "purl": "pkg:npm/%40types/mdast@4.0.4",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "90668d6cf87593b005ce0a6e77f80c76f226e71b840b291147e26758a427a3d4c05d56ba5885421933ef6067a42032f8bb009941261b53134149bd5a528efda0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/ms@2.1.0",
+      "name": "@types/ms",
+      "version": "2.1.0",
+      "purl": "pkg:npm/%40types/ms@2.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1ac0822190c4fe9de2f7abed12ac7eedd054197adcef37922b7c303c721a453852fbd3a15885d1ab3b3877a93549553c83dd43acd456c56506869e4a5d06f654"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/react-dom@19.3.0",
+      "name": "@types/react-dom",
+      "version": "19.3.0",
+      "purl": "pkg:npm/%40types/react-dom@19.3.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "648edb538da66575ca1e7fea34b130d88adb888354ed7e7ebdf81d8b10479023696165e32a07d0fcffaec866f90a338b07d51c9d37a0debca542d5768729b8e1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/react@19.3.0",
+      "name": "@types/react",
+      "version": "19.3.0",
+      "purl": "pkg:npm/%40types/react@19.3.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "374ac50ae1fd628c46f7f9bad65f4c7e924a7e62ce554d1e9bb8a9233e9346049292f45e2c1f6f2fce4607ecabf01b3995eaa9be0f7a252c05e194b5b38be242"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/unist@2.0.11",
+      "name": "@types/unist",
+      "version": "2.0.11",
+      "purl": "pkg:npm/%40types/unist@2.0.11",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "0a604a88be8d368fceaa098c9fde4593d5a1969da6b6f22ff8a36940a3761784a3beb11eb2e6d34561984a0f819d664e9e509a493535b0ca6c04ece06d8867b0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/unist@3.0.3",
+      "name": "@types/unist",
+      "version": "3.0.3",
+      "purl": "pkg:npm/%40types/unist@3.0.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "928fe0205251bf5efb5e066c65c0709ea24de71fc689e9fca8d3a7d03e5b414ff303355ff59b7706571488baa157dcb801193419b4f7b675223cd8274d7cdcfd"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-aix-ppc64@7.0.2",
+      "name": "@typescript/typescript-aix-ppc64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-aix-ppc64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "31328a91607ba7fd04f718b5775b47b59e4f88b90610c22af3ca4ad82b9b6633ac2ed6132ea8602208bacdea456bef461d9ea1d3934c0a443118a88f5ccc57b5"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-darwin-arm64@7.0.2",
+      "name": "@typescript/typescript-darwin-arm64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-darwin-arm64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "828c336abf4cc12fda456a7a7f76b8294ab34630198ceb2618d08ce8b713817ba6f9d05f82c05530df8082f38209b82e5f289c93a2c986906ccf131e6c9f2cc8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-darwin-x64@7.0.2",
+      "name": "@typescript/typescript-darwin-x64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-darwin-x64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "499f716489ea02936534673db345b5552b24b5848e7bd705a8d388aa63751acf129a48ca65816dd35ec6e15c0fc404889ce0ee01d6d35bbb1788551ff3ddd180"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-freebsd-arm64@7.0.2",
+      "name": "@typescript/typescript-freebsd-arm64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-freebsd-arm64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5b9347e32fc9d29948212e5bdb1bd312453b245c72a9d3003a07fe225865d2f1d05ca3b9759a3177e0bf8c4b6ae7a738177c24ef5441e013114365dd23e6f061"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-freebsd-x64@7.0.2",
+      "name": "@typescript/typescript-freebsd-x64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-freebsd-x64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "50c183c79b13a73370dd688f79b1fb97dd0859f26080477e7a01edfeaea9eff0a6df3aa857b5719065edfb70f13c8c3c09c9af001d23dec5557db857f8ce13a7"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-linux-arm64@7.0.2",
+      "name": "@typescript/typescript-linux-arm64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-linux-arm64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "421e1e538ff2df20e39df8e3c8f62284c8f9fce0c8966b7e073bb5ece23e7e24910d6e7b4265394a237addec4f44d24f294cdc73520d6b535776b27e32a1e351"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-linux-arm@7.0.2",
+      "name": "@typescript/typescript-linux-arm",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-linux-arm@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "81f7d3df13f3f6c47b8ff6091319323e7b6b2343f610ff576cec96ced876fc6b3446cb4afbdd1105c3b49dc5e85f2fdb798965d525f0f38e8d7f6cdd9c4cf441"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-linux-loong64@7.0.2",
+      "name": "@typescript/typescript-linux-loong64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-linux-loong64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b841dc93d8bc8680335cf8984626f53bb9a23a7cf6dd2c4879597a1782d7a31faaa2fd4adf98c77045ba5472af648fa9caf97b7d910fe0c094e4b62f22ad46b9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-linux-mips64el@7.0.2",
+      "name": "@typescript/typescript-linux-mips64el",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-linux-mips64el@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4782af00c9c4e375b941ea9bd0bcb9e8ede658c588020b0ccb3dfa0c26b271de676e0ffd9339b4962c3726871f46ac8963428f9b31636ecc28cd7c96d039c860"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-linux-ppc64@7.0.2",
+      "name": "@typescript/typescript-linux-ppc64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-linux-ppc64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "0ce471e5bdec77fe12ede6b2c66e0542ff80ec2ae45081916878b023ca221d3008d5f00f5a1178274bc09640bc6e20251d2555c31310ded8d9dbf0d56e742288"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-linux-riscv64@7.0.2",
+      "name": "@typescript/typescript-linux-riscv64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-linux-riscv64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c1fd23a840ce8eb3d19cac18472c890d1a35d4a31bbcc16b53eab8cea2b20a1383073be591b84d41f2af2f14027304e974369748765356e8742680ab28250c1d"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-linux-s390x@7.0.2",
+      "name": "@typescript/typescript-linux-s390x",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-linux-s390x@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "224c097372fbca1cad59dfdec23cb13437ce9acc029bd1963094ffb9efdd53869935bc1979801eb6ae365722e6b264a3be85fbcfbe17e996980adcc0af412e1b"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-linux-x64@7.0.2",
+      "name": "@typescript/typescript-linux-x64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-linux-x64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "11875fd9c360eeb8025899f109d27e177577f4ef2285bdfb78702ed4b2bca00162ce04d06cf38aef31c75db3edf2b5f6e023aa3835de237b087f47c25c6ec7fc"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-netbsd-arm64@7.0.2",
+      "name": "@typescript/typescript-netbsd-arm64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-netbsd-arm64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "fa9a25605e0c174e1a3e93b9153907ada9fdc94403497ab2e468920caa6c965e63cb7977fa0f502e1a5fdfd4fe78fb5e7e15cb386acb9744088e440fe959de94"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-netbsd-x64@7.0.2",
+      "name": "@typescript/typescript-netbsd-x64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-netbsd-x64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f18213d041ccff776ad7464e545fc0ee973f61232d6dc79c72de2b5ad7b1ae74821ce3dca42d8a4cb5df4c247abc3a674a2635da178d6f51a237fc2ef93fc5c8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-openbsd-arm64@7.0.2",
+      "name": "@typescript/typescript-openbsd-arm64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-openbsd-arm64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "00f4fcf829589ee626d6ef7e920197a0c8f65735b37329b087680d4905724877e444318e4d592858b8c298e41268ef8fa2a439ec1d1f951a7d480fbb1a79e4cd"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-openbsd-x64@7.0.2",
+      "name": "@typescript/typescript-openbsd-x64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-openbsd-x64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c97eecf90d03967d03b7db44cd9b008d75d1ffecad04cec096095aab278c3f142ccc9d4986525d67a8cb03e23395d1ed7e55fcd5e9bb9436a8d715eef9a45192"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-sunos-x64@7.0.2",
+      "name": "@typescript/typescript-sunos-x64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-sunos-x64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "74b24319a2d9d43e073d09fadaed67f26043909444c0cb00902764c1de087aac3ec774d4c93b2a634622042b44e87e8ecf38069378ae677bc55914be13cfddd6"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-win32-arm64@7.0.2",
+      "name": "@typescript/typescript-win32-arm64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-win32-arm64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1b2975572e8eb167ac2f39aaf843f415bedbe0d89de76df602f700d9215c758ade95da4db58145a1f3e39edeb6cbd850cbb553699a7ae480898ee01045a55c21"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40typescript/typescript-win32-x64@7.0.2",
+      "name": "@typescript/typescript-win32-x64",
+      "version": "7.0.2",
+      "purl": "pkg:npm/%40typescript/typescript-win32-x64@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d014371e40071e528b4a9d6a46f7f7494846a46b03ba107f8e0170ef982ecaa6f126a11a4b40b0fd514ef22da71e094953340246d30c47f20100a137113302e2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40ungap/structured-clone@1.4.0",
+      "name": "@ungap/structured-clone",
+      "version": "1.4.0",
+      "purl": "pkg:npm/%40ungap/structured-clone@1.4.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d66119b4c28f334f6f0e642de72ed8be6376f831533fb4e0d0459776273cfc2e95467a5bdf77b88218ac0881375998ec13637c99ff9057566a87b64560b5889d"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40vitejs/plugin-react@6.1.2",
+      "name": "@vitejs/plugin-react",
+      "version": "6.1.2",
+      "purl": "pkg:npm/%40vitejs/plugin-react@6.1.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7e124d19476c7106b81e4234c45c70a275b28675517823c36d723b147ee39b3a67542ac5408ecf46b85679c3b6eb7eb5d2f3abb3db6bd98e3171ff2e01d1716f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/bail@2.0.2",
+      "name": "bail",
+      "version": "2.0.2",
+      "purl": "pkg:npm/bail@2.0.2",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d313ba99877b241d987acc432a995a7d1a6c88eccfb7d574d9d74f08b6d8d716063ce5f6e0d4f2379d2a9d4c6008f712a183212a902e0538d0a1164202450347"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/ccount@2.0.1",
+      "name": "ccount",
+      "version": "2.0.1",
+      "purl": "pkg:npm/ccount@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7b2ac5d23885a58fb776b4fadfcddfd6a8646c6b0b4a27cd02303ad4852366398b0968c8b58e8b07d7edf588680e0c1f99c941db386ee752dcefef796fc35102"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/character-entities-html4@2.1.0",
+      "name": "character-entities-html4",
+      "version": "2.1.0",
+      "purl": "pkg:npm/character-entities-html4@2.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d6fedf810463ea19d2c05a6ad44bb4ca7aff083130d2b5e8d81eb5a97acb35d1d998f2a06fb7ea4b56b6270174ac84a8f6aefb8c323c54c107a00a67f2a0e864"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/character-entities-legacy@3.0.0",
+      "name": "character-entities-legacy",
+      "version": "3.0.0",
+      "purl": "pkg:npm/character-entities-legacy@3.0.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4693e9d1ab13ffab9f466fff009570a558996c633f3248d017125c710447988485ff6d8d06db07a805a62fefe99a43d6a08509756c9e565793975c3274701355"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/character-entities@2.0.2",
+      "name": "character-entities",
+      "version": "2.0.2",
+      "purl": "pkg:npm/character-entities@2.0.2",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b21c7ba10d00c1e9ff05121d92392fcf9e0f9c4108fc48f05c3488669f3afca29d6da7c78750dffd16060619f885b7b6fae282f459d3e540847723f3dda8bd85"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/character-reference-invalid@2.0.1",
+      "name": "character-reference-invalid",
+      "version": "2.0.1",
+      "purl": "pkg:npm/character-reference-invalid@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "881678178c116f239156cbb48cf57b81790eb066231873e6032bfe1e21c6f208b93ed0bd288da3d7ebfcfed9626d1be3a165f4dbbca9986fe7d07b4ee6deee9f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/comma-separated-tokens@2.0.3",
+      "name": "comma-separated-tokens",
+      "version": "2.0.3",
+      "purl": "pkg:npm/comma-separated-tokens@2.0.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "16ee2125dbf37b29427d03e9f5219689da73accb3bb53ae5bba55bf1719a446724f1048d649269e77f16adbeb42dac787cfc11eb8562638ebc3885136d194666"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/csstype@3.2.3",
+      "name": "csstype",
+      "version": "3.2.3",
+      "purl": "pkg:npm/csstype@3.2.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "cf51c629c632db103c00641fc2b9f43c0cbe3c1ed7fc64a3dd45495bda8aca7e37c566be825e675e6538aaa2cc4735952c50bc2aeb145fc4ffd240a2398a4021"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/debug@4.4.3",
+      "name": "debug",
+      "version": "4.4.3",
+      "purl": "pkg:npm/debug@4.4.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "446c305a7c10be455f6af295b76d8518bc3ec5849dcc04709b4aeee83853540dee994e6165cdbc57790ee2cb6062bcab4e52e9baf808f468a28e5b408cd6dca8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/decode-named-character-reference@1.3.0",
+      "name": "decode-named-character-reference",
+      "version": "1.3.0",
+      "purl": "pkg:npm/decode-named-character-reference@1.3.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1ada50601dbcdcaacfa7a9d1c39d2add4f7f55f3aeb5939ed74dea94dec13cfe80776ef16273885afe253f3a3c1c200bfa6319a1f27d284cb7d1faba31f68ae9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/dequal@2.0.3",
+      "name": "dequal",
+      "version": "2.0.3",
+      "purl": "pkg:npm/dequal@2.0.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d237bea8f28710ca21bdf453084a370ab3c6e9c033018826ccacb1462612483912e9e1897725499bb59a600e4409a003f702c1d93e0411eca603968555c61708"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/detect-libc@2.1.2",
+      "name": "detect-libc",
+      "version": "2.1.2",
+      "purl": "pkg:npm/detect-libc@2.1.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "06d8f604e38ef37a375b21f9f5ef0c817b3111055c6ab9143a9118aee6c1d2eaf09cdd74c90dfae2bb22072535d67665a966199b4e62fe87fb8a8e26ce2841b5"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/devlop@1.1.0",
+      "name": "devlop",
+      "version": "1.1.0",
+      "purl": "pkg:npm/devlop@1.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "456988aa17057f5951601bcd9abeea4cdbb20adffbfe7b368dba69d7e3da96013fac341c053d1f8a848c52927dde2ae55210b986b838718a9ee94fb42265b4ac"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/estree-util-is-identifier-name@3.0.0",
+      "name": "estree-util-is-identifier-name",
+      "version": "3.0.0",
+      "purl": "pkg:npm/estree-util-is-identifier-name@3.0.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "845b6a20365321467d0572dbf32e29606ca4ebec1e9088af3554dc9af93c3683a1f957919f9cba7041f36d446b59b7e9d5f22a7558a98a5ce3fa57da69d3599a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/extend@3.0.2",
+      "name": "extend",
+      "version": "3.0.2",
+      "purl": "pkg:npm/extend@3.0.2",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7e3aae0b9f5c0fb0b25babab3572b4141b9f9197288861bcd304ee3ee8d7e7dd1c0794ed967db4136501e12fd601156a8577df665d8b3604be81074f2088a6fe"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/fdir@6.5.0",
+      "name": "fdir",
+      "version": "6.5.0",
+      "purl": "pkg:npm/fdir@6.5.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b486d8b596ee70eb340511aa3c992c84951874bf920c7edd54cf208f2f84469dd60148cb105244fb4da46a7c87b708d63a7c2b298062c0098cd29e242c90275e"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/fsevents@2.3.3",
+      "name": "fsevents",
+      "version": "2.3.3",
+      "purl": "pkg:npm/fsevents@2.3.3",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e71a037d7f9f2fb7da0139da82658fa5b16dc21fd1efb5a630caaa1c64bae42defbc1d181eb805f81d58999df8e35b4c8f99fade4d36d765cda09c339617df43"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/hast-util-to-jsx-runtime@2.3.7",
+      "name": "hast-util-to-jsx-runtime",
+      "version": "2.3.7",
+      "purl": "pkg:npm/hast-util-to-jsx-runtime@2.3.7",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "17b0cd57634c713c40e06a8f5479d7cd7fa6a683c700863dac90151f7099d4574164e7015048d4baf3243291d5b3fb22704b739e1f6d3068f959447d4b8136ae"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/hast-util-whitespace@3.0.0",
+      "name": "hast-util-whitespace",
+      "version": "3.0.0",
+      "purl": "pkg:npm/hast-util-whitespace@3.0.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f3c254374ea2a4bc2c9eff9d567f8e2183af02ebc1332fd0a22e8eee6407c5d3d7a63cbe09deb14645b0bb1ec328efb8b1820bb4b05120a82c7694b681073bab"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/html-url-attributes@3.0.1",
+      "name": "html-url-attributes",
+      "version": "3.0.1",
+      "purl": "pkg:npm/html-url-attributes@3.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a25e943f2056aacacee8427248fcf63bb652afce7a583ac4ccce7332aa7e14924b18c5b7e5c2d89a6667974bf3b40671454a0d6491530a885f8ee209f08e1005"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/inline-style-parser@0.2.9",
+      "name": "inline-style-parser",
+      "version": "0.2.9",
+      "purl": "pkg:npm/inline-style-parser@0.2.9",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "22db4df01a8a2f1cd4ae74ea1c8fbf870009408b410148dda07111083bfea0eb97e3c54fe9bcd6f3e42339749fa1ebf3ab762b600c17d6e2c7a7c4ea3bdc887a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/is-alphabetical@2.0.1",
+      "name": "is-alphabetical",
+      "version": "2.0.1",
+      "purl": "pkg:npm/is-alphabetical@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "156cb263ad0c79337279246990cd88af2d06f61a6befff640f8d260ff706404ba295c6584b8a24cfc48dd90eab2c227c81b0ade9f37eac2fbab4c192f7d2dac5"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/is-alphanumerical@2.0.1",
+      "name": "is-alphanumerical",
+      "version": "2.0.1",
+      "purl": "pkg:npm/is-alphanumerical@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "8666d8857ffd314305e6e87bb4e5f22bf9f466f5a969de5c681035ec6b02eafcae0aa696962446e4ad6a4bd8a799484431a381216effc210274b0bde5bf2ed67"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/is-decimal@2.0.1",
+      "name": "is-decimal",
+      "version": "2.0.1",
+      "purl": "pkg:npm/is-decimal@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "00007d862a2642ce435d6711075aeab31194b2d6d1ae814e3cf540a26364ff75c74792721190a13b24d67b6a1ac8a9ec4acaff91c1aa17ecfacae1fa1c7a4dd0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/is-hexadecimal@2.0.1",
+      "name": "is-hexadecimal",
+      "version": "2.0.1",
+      "purl": "pkg:npm/is-hexadecimal@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "0e0650a76e3573ca0ee9c03549b4c45a25dea31578daf95c271807f81de18b5022aaa2abb9947764617c227ddf8f8fbfcbfeeb1ef94e64b66d809ff8b6d60666"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/is-plain-obj@4.1.0",
+      "name": "is-plain-obj",
+      "version": "4.1.0",
+      "purl": "pkg:npm/is-plain-obj@4.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f8f822faf32e50d909c84c62301b792251683322a7af9ce127852ca73e7c58e841179428219905c8d1c86c102d1f0cd502093946d9dd54db0344deb5fe6983aa"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-android-arm64@1.33.0",
+      "name": "lightningcss-android-arm64",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-android-arm64@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "804a514da94a768b29e016fca96b5cda23a013949e2079694b5ba9f5b16adb003262197551d4ce6d88877bdf3310cf5242f4a8a906752100f424da60dcc979a6"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-darwin-arm64@1.33.0",
+      "name": "lightningcss-darwin-arm64",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-darwin-arm64@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "49c89acfc79e9cd4ca9fd6f7b7bfb1af48a94e9f58c4a418e27a704379ab46e2f404054704bc99c687e168a04056dce6b5167fcd3ca8d3fb68e01d6e586fc38e"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-darwin-x64@1.33.0",
+      "name": "lightningcss-darwin-x64",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-darwin-x64@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "67950f031ceb8e558d3721b2ea2eb9709cf3be02790f74fac0cbecfa05a963d77ba9184036bc6a029e8b871220661584c35f117c94c6711c63b8b201afe9bc5d"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-freebsd-x64@1.33.0",
+      "name": "lightningcss-freebsd-x64",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-freebsd-x64@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "41033f4e2fe141a8c9c0263e4625ae099f6c76d23f5d093b9c32b9bc2f2491dc22c5ecce94382f0f1efe453f908cae857054f8329b2ea019c7228fcedd2b5146"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-linux-arm-gnueabihf@1.33.0",
+      "name": "lightningcss-linux-arm-gnueabihf",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-linux-arm-gnueabihf@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "37b15505eea24b6e0c94ce91ff84414f11a14217991aceed890f54df652d17be4dccfe50ef158f46a2c108ac65450464deb6358c220f2f3c7b5b33a1b942112d"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-linux-arm64-gnu@1.33.0",
+      "name": "lightningcss-linux-arm64-gnu",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-linux-arm64-gnu@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "8f6bff8ad9b2e0794dc6573abe829762006a362d0d8362d2860e33ec6b9fa4482cd393fedacb815728bd23a607ab9ba8545c7d1138a7dde08484b5725c64272a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-linux-arm64-musl@1.33.0",
+      "name": "lightningcss-linux-arm64-musl",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-linux-arm64-musl@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "ca23b944e32e6108176c2eb4ca3654e4261215918a5cbd071404d7b7d987267d7ecd6e79a02b4c23d35f7158582cc1432fb815ee804fa27fc498c3068363afb5"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-linux-x64-gnu@1.33.0",
+      "name": "lightningcss-linux-x64-gnu",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-linux-x64-gnu@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6abf89bbb2e670dd09a381692f88691726f0346f7fdc0fc1af9296da7da3c8e0e0dcc1195da0d800375e9a8352f810cd7cc80abf29492e3e12e6dc9101cb6e02"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-linux-x64-musl@1.33.0",
+      "name": "lightningcss-linux-x64-musl",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-linux-x64-musl@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4588986e4a24c34b6b7caaaacdf179e658229f010fac3dce2437d3b89cc5b3530aea21670de9dacf57ea2cbb57e084c6dce92d2505ce7936b0d5ac2b0409593f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-win32-arm64-msvc@1.33.0",
+      "name": "lightningcss-win32-arm64-msvc",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-win32-arm64-msvc@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d4af8c3df2d2155a69873a5d6df92195693ac01ad339b0734b64fa75bd743cd399811f46a15b005b3c0dcae8546186d3a76de3fb846b9dc7ee8d9e2e0335efc0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss-win32-x64-msvc@1.33.0",
+      "name": "lightningcss-win32-x64-msvc",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss-win32-x64-msvc@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3a5108083c7f5e5d05a92a786ebcbccc59c2bc6a628371a5e200aabaf6301eea892840b5fa7f4d8039e216fa871a632fd5992a0c9ac3a8a292ca44c35fe7a1b8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lightningcss@1.33.0",
+      "name": "lightningcss",
+      "version": "1.33.0",
+      "purl": "pkg:npm/lightningcss@1.33.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5a4503ae88ee26cd3192019fdae756c5adf21814713edc54901efd8ba68264b46073b3ccf1f65ef53a2c7cf0dcbc4a5065bb850129c762644b04b51b98b38820"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/longest-streak@3.1.0",
+      "name": "longest-streak",
+      "version": "3.1.0",
+      "purl": "pkg:npm/longest-streak@3.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f518bea3425881e8536950410e832a225f065ed6d683bd753b7b2b7ed707859d1daa7113a8b6a820ad31d7b7d4c3dac54a52bfd0d96c29ed00861ca5e695c4da"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/mdast-util-from-markdown@2.1.0",
+      "name": "mdast-util-from-markdown",
+      "version": "2.1.0",
+      "purl": "pkg:npm/mdast-util-from-markdown@2.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2912e098f68fd87d6e9766e9a0990e4bef6901c0c0023f4dbb59aa2e787c34b7891b9b65be3e364c7f343c8181a513969515cb934943ad636e642172fedb01e0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/mdast-util-mdx-expression@2.0.1",
+      "name": "mdast-util-mdx-expression",
+      "version": "2.0.1",
+      "purl": "pkg:npm/mdast-util-mdx-expression@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "27a7fef61529fa575366a2914a0ed5c3957a32a8c04dcfb713881fdc214d72e64d583f1777223acd0f06a87edff35ebd30ce8fee13014435469e7ee81c1f645d"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/mdast-util-mdx-jsx@3.2.1",
+      "name": "mdast-util-mdx-jsx",
+      "version": "3.2.1",
+      "purl": "pkg:npm/mdast-util-mdx-jsx@3.2.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a17a751886be13d23022cddad74ebeb6bdc1cf63254d306f9578ce64ca086add75924eef8ea82606792c07d587996bfe81987b9372148290079701c1ec31f819"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/mdast-util-mdxjs-esm@2.0.1",
+      "name": "mdast-util-mdxjs-esm",
+      "version": "2.0.1",
+      "purl": "pkg:npm/mdast-util-mdxjs-esm@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "11c98ea71b19f7a0af94fd3736086d1f512c2edaf49fd4e6e253d425405c715f51c143a77aa4b2720d7d9f91c6cc27fed742e8ccc45239bb55af779ed56a07b6"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/mdast-util-phrasing@4.1.0",
+      "name": "mdast-util-phrasing",
+      "version": "4.1.0",
+      "purl": "pkg:npm/mdast-util-phrasing@4.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4ea202c32bc9269070bc600c6638f82769f45fc416a76d5bf65d28ede5f2549db960d5986c90d52320f56d95c4e96b55e9198a2556264002966b4cd6380073db"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/mdast-util-to-hast@13.2.1",
+      "name": "mdast-util-to-hast",
+      "version": "13.2.1",
+      "purl": "pkg:npm/mdast-util-to-hast@13.2.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "71cb6cab6c29e6f4ec2c871aca66e552b8a24dc65dd02c16b426cbbeb3b36020d9a16c8c355f2c67b92b8f4f454a7b22262dd656c1cb33893a0eaff268fc825c"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/mdast-util-to-markdown@2.2.3",
+      "name": "mdast-util-to-markdown",
+      "version": "2.2.3",
+      "purl": "pkg:npm/mdast-util-to-markdown@2.2.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "74899d07a55944c45a7354b0016ea8d5cd044a4ffba4514030232e28cfbdbfb2e94d2b6130ce67cd7a6a2b0e0c8e8eba69754a84d932acfe1b301f4cbab3f25a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/mdast-util-to-string@4.0.0",
+      "name": "mdast-util-to-string",
+      "version": "4.0.0",
+      "purl": "pkg:npm/mdast-util-to-string@4.0.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d07e38bc38a69f9d45d18c2fc522529b47820ce25346598dd11d72061e072e3f70895d439f44285c66ef1405a3da1488b554e50a6045d61a8a948c9405514b3e"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-core-commonmark@2.0.4",
+      "name": "micromark-core-commonmark",
+      "version": "2.0.4",
+      "purl": "pkg:npm/micromark-core-commonmark@2.0.4",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c3111e13cbfc5d5bceaf19f54d98fbe2a62102d4d0b12aae7c7552dee355c93d4cba95f187268793cffdc4334f87d0662fbed03438164e467746c607076af2ef"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-factory-destination@2.0.1",
+      "name": "micromark-factory-destination",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-factory-destination@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5deeab0dd2659266c5444c694ce9918fd37731a5a66c081da52ac142f085aa17b3527e001ea2476da1277db5586227b1552b3ffeda8e758fc3c618dd0a226720"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-factory-label@2.0.1",
+      "name": "micromark-factory-label",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-factory-label@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "54531e932404c6a216ef120285c5e7e28936f58137ae7bb2bde5b7c194165aa17836ff56939ae027df4accfbc78e498f5c5f7715721b069e98756dedef5ffb56"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-factory-space@2.1.0",
+      "name": "micromark-factory-space",
+      "version": "2.1.0",
+      "purl": "pkg:npm/micromark-factory-space@2.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7d2f219cb2239e3bdd4088f7f467ae83cc16b11d07ad8678dca4a12b135fc13eedd8b387a3f2db59913311a48e8f0b63742b23a04eacc878689c4cd6d33bf4f9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-factory-title@2.0.1",
+      "name": "micromark-factory-title",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-factory-title@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e5b67edc28e101df5e0a16131ec8f2e931b1a4e1522a028a24f271af6f778d36dfaf2d8a0e85a48416fa4dc3d5078366cda3e132cd45ae6f40647ece0f80a3cf"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-factory-whitespace@2.0.1",
+      "name": "micromark-factory-whitespace",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-factory-whitespace@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "39bd27b99dcf2adfe7d213911f2be80fdb9986bf996bcb05a0ff8e9cc72758ae659e04b300b81060a32bf512553962ea418bb29faba5a865925ddc1fe85f3495"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-character@2.1.1",
+      "name": "micromark-util-character",
+      "version": "2.1.1",
+      "purl": "pkg:npm/micromark-util-character@2.1.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c2ff2d7544c9ded8521451492ada5828e62218fdbebfde87be4e13bbc2a9080b1332ceb28be9d5986875b32bd20ac6b1cf8e49e896f0fbd0c3ea0f7bf8d57aed"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-chunked@2.0.1",
+      "name": "micromark-util-chunked",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-chunked@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "41434510e3c42df9afbfee3188d836b1161e4bf3fce294d6d130a03f9cdcf45a577ad1d8d1a6fb4b12b201008d09cd5e2b4e39f6ea0b235cb9a0ee5573575b84"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-classify-character@2.0.1",
+      "name": "micromark-util-classify-character",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-classify-character@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2b4907ccce9a7d6fcc6de59858b8e81d0bf5b2083643d11c707103cd293188ffc469a80dcc29bb4ff58c299deb8cc6ef229bc189983047774a33282d038986d5"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-combine-extensions@2.0.1",
+      "name": "micromark-util-combine-extensions",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-combine-extensions@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3a70271fc5239b2e7d25cc99c3c2526caf5c1a9755638e0d2a048cec4f4487b0e22d2d84f513507f474e35a183cc41bdca3125e6172a788b23e217d190b1ff06"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-decode-numeric-character-reference@2.0.2",
+      "name": "micromark-util-decode-numeric-character-reference",
+      "version": "2.0.2",
+      "purl": "pkg:npm/micromark-util-decode-numeric-character-reference@2.0.2",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "71c51b624e82c1576498240ccabeb8757cf8d847c71a43d09418f9a7b6151b3abc23b0ad8d7649aee6c061ecdfed1a7e6e33ec7a244ea9eec6e9fa0577e944bb"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-decode-string@2.0.1",
+      "name": "micromark-util-decode-string",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-decode-string@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9c357fefb163e9e1f5ca7c2c7184ceb1b2bbad1fff523d1b65707025945f68b109d6218147a9087cd9a536a6aa25feb8f443f417735635d7898b4dde96594d51"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-edit-map@1.0.0",
+      "name": "micromark-util-edit-map",
+      "version": "1.0.0",
+      "purl": "pkg:npm/micromark-util-edit-map@1.0.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3dada58e5b042fab15c056987b2ace2d261b42def726f19b3ce605abef401255e24a77c8e50e38eb9451675b07bfb9438c33a71910c36aa3d7a8296a58afead5"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-encode@2.0.1",
+      "name": "micromark-util-encode",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-encode@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "737715c76cb82aa527c28a5c3bd6ff482768d8eebb2f0249fd4caa19f6e281a85f7a02fd9b2a041680d8660913edfdfa4f46cbaccf6165301a0321fe3c20178f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-html-tag-name@2.0.1",
+      "name": "micromark-util-html-tag-name",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-html-tag-name@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d9c3448980e1096288f86b3d4f44e2cac935dfa4a7475de184ef325ba04637284e0b8a98167c05d6729f0f71c50085c0e5ce3946b206d6e6f5d46897798775c4"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-normalize-identifier@2.0.1",
+      "name": "micromark-util-normalize-identifier",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-normalize-identifier@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b313ea9a8ef42f201126cd30d947250023d4504aa5b42909e8f84a74c203b89de049ffd0fbf1887b758a9742236ff1b21fd94ea5491100edb0a7419590bbd2f5"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-resolve-all@2.0.1",
+      "name": "micromark-util-resolve-all",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-resolve-all@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "55d432c455854f6fc51898304272586ded638d0a0d4d2e118e09664a34d496950c6bde47b71f4d1de616e2b1832736e3bc2b25f5e2e3310c0678496caa6cdc1e"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-sanitize-uri@2.0.1",
+      "name": "micromark-util-sanitize-uri",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-sanitize-uri@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f4df48a2667f62e18665999079cd4c6e0c6d960a2e8314e8755c03cf3128b8f2a8dea156bf29851d67270e2dafcd5d5f7fa91ab3db9c5bea37cb324af5807501"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-subtokenize@2.1.0",
+      "name": "micromark-util-subtokenize",
+      "version": "2.1.0",
+      "purl": "pkg:npm/micromark-util-subtokenize@2.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5d02eee79da249cb6f9c47205f0ebe4b1ef919f9403cd103d6ac7b78127ec327416f62826d165ef8dc2f20410c33cdee9a5d7ed96497a4101ca7d2140a009858"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-symbol@2.0.1",
+      "name": "micromark-util-symbol",
+      "version": "2.0.1",
+      "purl": "pkg:npm/micromark-util-symbol@2.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "bece6df00a5ab9df4ddbc9200ab45474479de1427ec1636f89c1cb3f109af4436562e018df5334113cb9cb5bc0df762834f0c54e08446e787a79f684f21e31d1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark-util-types@2.0.3",
+      "name": "micromark-util-types",
+      "version": "2.0.3",
+      "purl": "pkg:npm/micromark-util-types@2.0.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a31076224d37848d20bfe54d9fdb67875b756047bd3033e9b558801207dd7f76101ec9f4a7319380276548225773086a9bca61684b8cef3784bb7410cd506b3e"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/micromark@4.0.3",
+      "name": "micromark",
+      "version": "4.0.3",
+      "purl": "pkg:npm/micromark@4.0.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a0661f4331d21b974e328bd0709ddfc93999956016a62d17034b09c09b3e8ba393f3ca35f89b70ffccf40a6768c122f11a18452bcf6b43fa17a61ff0374d8f37"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/ms@2.1.3",
+      "name": "ms",
+      "version": "2.1.3",
+      "purl": "pkg:npm/ms@2.1.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e85973b9b4cb646dc9d9afcd542025784863ceae68c601f268253dc985ef70bb2fa1568726afece715c8ebf5d73fab73ed1f7100eb479d23bfb57b45dd645394"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/nanoid@3.3.20",
+      "name": "nanoid",
+      "version": "3.3.20",
+      "purl": "pkg:npm/nanoid@3.3.20",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b8a760d86dc63422909fd6f260ea716c6aab4f67c63b9291b7927ff1bde9a24f2b4faab119617a871332262118b407fe155c98b83f6145a0ea5f9b8f15827865"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/parse-entities@4.0.2",
+      "name": "parse-entities",
+      "version": "4.0.2",
+      "purl": "pkg:npm/parse-entities@4.0.2",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "186d804185a82e02fcefb81020a7913c63b5c45f7e786d6e8c86f9b284b980fbcb435cb6a3c14bf74c3641635d7fd237eb5329a7bef6e9cfa58f7534a8ad6e1b"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/picocolors@1.1.1",
+      "name": "picocolors",
+      "version": "1.1.1",
+      "purl": "pkg:npm/picocolors@1.1.1",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c5c787dac9e1b5be4cf658aa0ec984c39ea57b7efa993664117fe311bfd1c4d1727a036e97b78db250973fd1438ff2dcbb45fc284c8c71e3f69eda5a1eb0c454"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/picomatch@4.0.7",
+      "name": "picomatch",
+      "version": "4.0.7",
+      "purl": "pkg:npm/picomatch@4.0.7",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a9c26ef3c436216a89b030f9dbd24a31dc069bf76f2275b81ef427470887f49b62849bf318eb1c0ed1c4df1d6904a794393cac43c91598b9c9da426eef285c18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/postcss@8.5.32",
+      "name": "postcss",
+      "version": "8.5.32",
+      "purl": "pkg:npm/postcss@8.5.32",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2c994a08201414a3ae6718a951d630d4dcc821312c3dc832386f4b92f449bee2a3fdb4736ee458d00457bcbd29586a6c66f9fc8e4bbe2cc7a9d9e534b1e1e9f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/property-information@7.2.0",
+      "name": "property-information",
+      "version": "7.2.0",
+      "purl": "pkg:npm/property-information@7.2.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "200b73201eac52259a258ad7f6c9a9dd5e3aa4119b05e2c5446761db9920d77df855c0650fc1f384f78d216407f738469a8da2b487b6e441edf5d40fec6e619a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-dom@19.3.1",
+      "name": "react-dom",
+      "version": "19.3.1",
+      "purl": "pkg:npm/react-dom@19.3.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6346c0473e77961102d4d302012b34fe3f9f681ff3aaddd1f21a6f8357bcfbad59549e142f451d0b87016d77d931c22e86b7e07882d32def9978109abd03ed29"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-markdown@10.1.0",
+      "name": "react-markdown",
+      "version": "10.1.0",
+      "purl": "pkg:npm/react-markdown@10.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a8ac55a292d3fd3c80e815f751ee4dc1a6ceb00ce6d10ee400fc2ae8bfb0583c22b18b3b47cbd9d27457aaaeab92e79ba31a648ef2c653d7d689f897fd9645c5"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react@19.3.1",
+      "name": "react",
+      "version": "19.3.1",
+      "purl": "pkg:npm/react@19.3.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "40d85676dee7ae05565901b9f10b86b004778efdc76dee266f8bf3ef0d9cb271dabdc89926075ad423cd6a5745e9e571bfdd2e7778d45e92a51cbebd80edfccb"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/remark-parse@11.0.0",
+      "name": "remark-parse",
+      "version": "11.0.0",
+      "purl": "pkg:npm/remark-parse@11.0.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "142c6528b3469274b96daff5966a588a3314cd7d9eb315b9c50aa35b1c3678715f4b631275a1d520d166863a3ea8dd5685984d8a6ab475901337da47d080eba4"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/remark-rehype@11.1.2",
+      "name": "remark-rehype",
+      "version": "11.1.2",
+      "purl": "pkg:npm/remark-rehype@11.1.2",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "0e1ee5e7b89a9da128229cdba743c2f542807424959250fc139469c3b1137db4e5dc5a9c38e82ae6ad8b54386018291a06fee9db82578a43ddbe18661ef28cb3"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/rolldown@1.2.15",
+      "name": "rolldown",
+      "version": "1.2.15",
+      "purl": "pkg:npm/rolldown@1.2.15",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "ea874d0fe7de979cd5c3723861cd9eebd82f82e0e75f408000688d0d94aae2293959471a2eb903d862eea20d1770e0dba2bdf5859e5ac843205439e8f8a3d5e6"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/scheduler@0.28.0",
+      "name": "scheduler",
+      "version": "0.28.0",
+      "purl": "pkg:npm/scheduler@0.28.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "8eea2b7c2988908c3cb53fa9e415d29ba3c98d017fc9c11898acb3511088b7f45a64884bf8fba56d0f58bb6cf51dd3890dda834e5c40d7ec4a0661d726c73303"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/source-map-js@1.2.2",
+      "name": "source-map-js",
+      "version": "1.2.2",
+      "purl": "pkg:npm/source-map-js@1.2.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2868fff18e37c77e5a6550edb7e27898ad61a0b18750b3187d290e0c93508cd0c2de85b53ea3e8c4cc28d292d4b1633f5041b338dfcdc5e1f2c047cd5cd3f757"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/space-separated-tokens@2.0.2",
+      "name": "space-separated-tokens",
+      "version": "2.0.2",
+      "purl": "pkg:npm/space-separated-tokens@2.0.2",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3c41a5030ac6f325c65d18d6df67c66e0eba24094e0306ce6eea95a09a6ffe6460a160d07e01f5c033efb735b25123405c119293c87be796036db704cb7487d9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/stringify-entities@4.0.4",
+      "name": "stringify-entities",
+      "version": "4.0.4",
+      "purl": "pkg:npm/stringify-entities@4.0.4",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2307c1a6d6ad94ef90089528d7d02abeb3cdaa554ca56f5810bd8b21563e469bf6aac8c21b16832cd460786b1058985f22d79bb8986c1922e36816cd490fa27a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/style-to-object@2.0.2",
+      "name": "style-to-object",
+      "version": "2.0.2",
+      "purl": "pkg:npm/style-to-object@2.0.2",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4266d73d4ca5a94f341c081338978439d6c0e345bd2adc668cc850cbeb6af9bf05d9aa21dda40bbb2f36861da39b6aac0bd851f5e234f9e42275333274a72a44"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/tinyglobby@0.2.17",
+      "name": "tinyglobby",
+      "version": "0.2.17",
+      "purl": "pkg:npm/tinyglobby@0.2.17",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c1747f758a5ca8a99f5a911d66388a24ec023459dd0f40cc9eb5bf7188d51adb449017d581c2c51e836b963e3b9a339589cf72c8dbbae5a96c805e0d4324dada"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/trim-lines@3.0.1",
+      "name": "trim-lines",
+      "version": "3.0.1",
+      "purl": "pkg:npm/trim-lines@3.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9118fc07e60764273d91061d59f241dbfa1497dac0f7da9ba3061806daf8ba2e26672010d89a6f54177fe94d989680137ea06105348c853a60047b54d0c7f746"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/trough@2.2.0",
+      "name": "trough",
+      "version": "2.2.0",
+      "purl": "pkg:npm/trough@2.2.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b663292b4d018d9894c95cafac12bb9277ab3609a0bdc57f28b572ba66bf482f9340dd7aec6acc45c880353cf4f7e937cd6f0bf2deb48d63b51a97e465d8d36b"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/typescript@7.0.2",
+      "name": "typescript",
+      "version": "7.0.2",
+      "purl": "pkg:npm/typescript@7.0.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f0561abbdea8dcd28e85b8ca8bfa8dbc6fd6e63873c646dd9b9b23f406d9ff94f9b16aa7de12602df1b1dbbb11299593bf2cc23fc74b4414dfe6d05349155434"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/unified@11.0.5",
+      "name": "unified",
+      "version": "11.0.5",
+      "purl": "pkg:npm/unified@11.0.5",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c4abc684f5b0de4f3842387c6c8dd97898ea9f269d2be18416d6b349f66ffeb29e4e44e3389868ea616a87648cf7a888719a24c623a983bf066b34d283cf8a1c"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/unist-util-is@6.0.1",
+      "name": "unist-util-is",
+      "version": "6.0.1",
+      "purl": "pkg:npm/unist-util-is@6.0.1",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2ec8882dbb41113903cfc23da75750d2ec91516b9a43377f72e11e4b5868452c96e44e571a64f39706353ab373cda906a3023d0ebfc8f0755ac38853b67c72f2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/unist-util-position@5.0.0",
+      "name": "unist-util-position",
+      "version": "5.0.0",
+      "purl": "pkg:npm/unist-util-position@5.0.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7ee72c0bb1e35ef901e51de44c23bb9148d176b4b4049b7733f14fc661cc04e9bc2508b606c1c01c5b32dbb13412894ff2ba743735ec27e8cd3f20d6bce2593c"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/unist-util-stringify-position@4.0.0",
+      "name": "unist-util-stringify-position",
+      "version": "4.0.0",
+      "purl": "pkg:npm/unist-util-stringify-position@4.0.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d00495d3a000a0a083912dbec70e515c9cb0aeebaba5b0b82594a6ee7afb30eb75a23033bf2c9a3be53165fd7c8fc14217a926cc264a70080dff2bb6826d9781"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/unist-util-visit-parents@6.1.0",
+      "name": "unist-util-visit-parents",
+      "version": "6.1.0",
+      "purl": "pkg:npm/unist-util-visit-parents@6.1.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "bca5f1cfa3b7f2c2838f59adc7f936716be490506e606c7ab86ae5cc191579609117f17cb1d2348f759b933ff9ad535146e55cf14ae045d6c2c4d86661780fdf"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/unist-util-visit@5.2.0",
+      "name": "unist-util-visit",
+      "version": "5.2.0",
+      "purl": "pkg:npm/unist-util-visit@5.2.0",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7e9b18b3f555a19c5f198f7f8f7150a5998df3074b25a5753eddfc01a24d66ef6e2881dc154de16a509d06f784ab51c628ed4e11f258eb9c35cefa055756f7a9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/vfile-message@4.0.4",
+      "name": "vfile-message",
+      "version": "4.0.4",
+      "purl": "pkg:npm/vfile-message@4.0.4",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "ebac9c46cc0890d9871fd3c792eec00edbf9455c2022b39cbafdc9f12bf3ea1e2a80646b2956bef7f9deb8ac896545f23a96302d3bd2fb0859e11daeac71e042"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/vfile@6.0.3",
+      "name": "vfile",
+      "version": "6.0.3",
+      "purl": "pkg:npm/vfile@6.0.3",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2b321b1fff6d5dab76bb7d237feb26330142b27a38c0755d366cc5c8bf93fcbdd41aaaa4e8929f56a3853991296521c00c7d64e3469be8d5085d9ab8db6a2fdd"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/vite@8.3.5",
+      "name": "vite",
+      "version": "8.3.5",
+      "purl": "pkg:npm/vite@8.3.5",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "cf56298e2789f60d1e6d3990a4b06ffe8abd13717d10894e7beecb6a15bc4ab1372d3886dee7414545d03a56173fd6fe202daada9847795c63f711a5c37e0e11"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/zwitch@2.0.4",
+      "name": "zwitch",
+      "version": "2.0.4",
+      "purl": "pkg:npm/zwitch@2.0.4",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6d7138711fe455984a657fd18cf11f94768a56151597ce67a14defe9bf1aa5f404735c7803ecc1c6367894df0ba8677a599ddd97df29638a3bd7b5459a83e9f8"
+        }
+      ]
+    }
+  ],
+  "services": [
+    {
+      "bom-ref": "service:gemini",
+      "provider": {
+        "name": "Google"
+      },
+      "name": "Google Gemini API (OpenAI-compatible endpoint)",
+      "version": "gemini-3.5-flash-lite",
+      "description": "Writes the answer, citations, and glossary from the retrieved passages. Model chosen with GEMINI_MODEL; the default is recorded here. Google may update the model behind a name.",
+      "endpoints": [
+        "https://generativelanguage.googleapis.com/v1beta/openai/"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "trustZone": "external",
+      "data": [
+        {
+          "flow": "outbound",
+          "classification": "question and document passages (redacted)",
+          "description": "The user's question after personal-data redaction (Presidio), the retrieved passages after email and phone redaction, and the answer-style settings."
+        },
+        {
+          "flow": "inbound",
+          "classification": "model output",
+          "description": "Answer, cited chunk IDs, and glossary as JSON; validated before it is shown."
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "license",
+          "url": "https://ai.google.dev/gemini-api/terms"
+        }
+      ],
+      "properties": [
+        {
+          "name": "bakefix:default_model",
+          "value": "gemini-3.5-flash-lite"
+        },
+        {
+          "name": "bakefix:limits",
+          "value": "30 s timeout, 1 retry, at most 4,096 output tokens per answer."
+        },
+        {
+          "name": "bakefix:offline_use",
+          "value": "Built the Kestrel knowledge graph (kestrel-kb/graph/graph.json) from the Kestrel documents with backend/graph_extraction.py. graph.json does not record which model name was used."
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "app:bakefix",
+      "dependsOn": [
+        "model:all-MiniLM-L6-v2",
+        "model:en_core_web_sm",
+        "data:baking-corpus",
+        "data:kestrel-kb",
+        "data:kestrel-graph",
+        "data:evaluation-sets",
+        "data:kestrel-eval",
+        "service:gemini"
+      ]
+    },
+    {
+      "ref": "service:gemini",
+      "dependsOn": [
+        "model:gemini"
+      ]
+    },
+    {
+      "ref": "data:kestrel-graph",
+      "dependsOn": [
+        "data:kestrel-kb",
+        "service:gemini"
+      ]
+    }
+  ],
+  "serialNumber": "urn:uuid:4ac26c61-3f6a-52df-a44d-1e6bcb1ad7a9"
+}
