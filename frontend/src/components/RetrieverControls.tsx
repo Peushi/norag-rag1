@@ -3,6 +3,8 @@ import "../../styles/retriever-controls.css";
 
 type RetrieverControlsProps = {
   dataset: "baking" | "kestrel";
+  /** Kestrel always has a graph; the user's documents once its map is built. */
+  graphAvailable: boolean;
   selectedRetrievers: RetrieverName[];
   onToggleRetriever: (retriever: RetrieverName) => void;
   includePathContext: boolean;
@@ -29,6 +31,7 @@ const RETRIEVERS: Array<{ id: RetrieverName; label: string; description: string 
 
 export function RetrieverControls({
   dataset,
+  graphAvailable,
   selectedRetrievers,
   onToggleRetriever,
   includePathContext,
@@ -43,7 +46,7 @@ export function RetrieverControls({
       </p>
       <div className="retriever-options">
         {RETRIEVERS.map((retriever) => {
-          const graphUnavailable = retriever.id === "graph" && dataset !== "kestrel";
+          const graphUnavailable = retriever.id === "graph" && !graphAvailable;
           return (
             <label
               className={`retriever-option${graphUnavailable ? " unavailable" : ""}`}
@@ -59,7 +62,7 @@ export function RetrieverControls({
                 <strong>{retriever.label}</strong>
                 <small>
                   {graphUnavailable
-                    ? "Available with the Kestrel corpus."
+                    ? "Build the concept map of your documents first (in the Concept map panel)."
                     : retriever.description}
                 </small>
               </span>

@@ -611,3 +611,38 @@ function isPathContext(value: unknown): value is PathContext {
     )
   );
 }
+
+/** State of a corpus's concept graph (GET /api/graphs/{dataset}/status). */
+export type GraphStatus = {
+  dataset: string;
+  buildable: boolean;
+  built: boolean;
+  up_to_date: boolean;
+  built_at: string | null;
+  document_count: number;
+  triple_count: number;
+  new_documents: string[];
+  changed_documents: string[];
+  removed_documents: string[];
+  settings_changed: boolean;
+  llm_calls_needed: number;
+  max_llm_calls_per_build: number;
+  building: boolean;
+  progress_done: number;
+  progress_total: number;
+  build_trace_id: string | null;
+  last_error: string | null;
+};
+
+export function isGraphStatus(value: unknown): value is GraphStatus {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "built" in value &&
+    typeof value.built === "boolean" &&
+    "building" in value &&
+    typeof value.building === "boolean" &&
+    "new_documents" in value &&
+    Array.isArray(value.new_documents)
+  );
+}
