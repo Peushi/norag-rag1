@@ -591,6 +591,189 @@ Contact-pattern filtering in retrieved context and graph paths targets email add
 
 The raw evaluation trace is intentionally excluded from version control because it contains raw questions, retrieved chunks, and generated outputs. The committed aggregate summary is available at `evaluation/results/v4/kestrel_rag_redaction_current_summary.jsonl`.
 
+## V4 — Karma: Observability, Concept Map and Injection Scanner
+
+### Scope and decision log
+
+V4 makes ingestion observable, exposes graph provenance for inspection, and
+screens new documents before indexing. Person A supplies backend services;
+Sasha's API/UI integration is now present, and Peushi owns generation, style,
+redaction and pricing. The decisions below describe implemented behavior and
+verified API flows; a full manual browser rehearsal and team approval remain.
+
+| Decision | Choice, alternatives and trade-offs |
+| --- | --- |
+| Indexing observability | Reuse Sasha's `TraceContext` and local SQLite recorder instead of adding an external collector or another database. It keeps one operation trace across nested calls without another service or provider fee; tracing remains local rather than distributed. |
+| Concept exploration | Reuse the V3 Kestrel graph, review exclusions and entity resolution instead of extracting a second graph or adding a graph database. Typed names produce stable derived IDs because V3 has no stored entity IDs; renamed entities can receive different IDs. |
+| Evidence lookup | Select the dataset explicitly rather than searching both collections. Chunk IDs identify source/position, so identical relative sources can have identical IDs across datasets. Active settings and original quotes must still be checked. |
+| Injection screening | Deterministic, bounded English regex rules instead of an LLM classifier or blocking every imperative sentence. Rules are explainable, reproducible and make no provider calls; academic examples can be false positives and semantic/encoded attacks can be missed. |
+| Quarantine | UUID-named atomic JSON records outside indexed roots rather than an ignored subfolder inside the corpus. This avoids recursive ingestion, but requires explicit human review and recovery of interrupted filesystem/index operations. |
+
+### Indexing observability
+
+A trace identifies an operation; spans show the steps, duration and success or
+failure. Uploads, deletion rebuilds, chunk-setting changes, explicit indexing and
+automatic stale rebuilds reuse the shared `trace.span(...)` interface. Nested
+rebuilds do not create unrelated traces. A rebuild during Ask shares the
+question trace; standalone indexing creates its own trace.
+
+| Span | Safe metadata |
+| --- | --- |
+| `load_documents` | Dataset, document count, whether inputs were already loaded. |
+| `chunking` | Character chunk size, overlap and chunk count. |
+| `embedding_indexing` | MiniLM model and vectors in completed batches. |
+| `graph_extraction` | Validated triple count, successful calls, measured input/output tokens when available. |
+| Ingestion/review spans | Validation/storage stage, detection count, controlled rule IDs, dataset and UUID file identifier where relevant. |
+
+Chroma computes embeddings during `add()`, so embedding/storage share one span.
+Preloaded evaluation inputs are marked honestly; their earlier disk read is not
+included in that span. Graph spans execute only during an explicit graph build
+or retry, never during normal Dense indexing or Concept Map reads. Graph tests
+use mocked provider calls; no V4 live extraction rebuild was performed.
+
+SQLite supplies timestamps, status, duration and exception type, with 30-day
+retention. New traces and reads purge expired records. Successful ingestion has
+an `indexed`, `quarantined` or `rejected` outcome as appropriate. Exceptions
+propagate from Python entry points; indexing HTTP failures return an error and
+trace ID. Partial graph runs are not reported as fully successful. A failed batch
+retains counts of completed vectors, not an invented total.
+
+### Concept Map Explorer backend
+
+Retrieval alone hides relationships and their origin. The explorer services
+allow a user interface to follow concept → relationship → supporting chunk →
+original document. `list_concepts()` returns typed concepts; neighbourhoods
+preserve uppercase relation labels, incoming/outgoing direction and sorted,
+deduplicated supporting chunk IDs. The services return Pydantic models, which
+can be converted using `.model_dump()`. The integrated FastAPI schemas already
+accept those models, so a duplicate adapter or renamed service is not required.
+
+The implementation reuses V3 alias decisions, preserves historical `REPLACES`
+edges and keeps `Identity` SERVICE separate from `Identity` TEAM. Reviewed wrong
+or unsupported edges are excluded using the same rules as V3 Graph retrieval.
+No new relationship or provenance is generated during exploration.
+
+The duplicate Baking-only `get_chunk()` was consolidated into dataset-aware
+lookup. The existing chunk endpoint accepts `dataset=kestrel` and optional
+`graph_evidence=true`. The guarded path rejects incompatible active chunking or
+missing/changed supporting quotes. Original document reading is restricted to
+the selected corpus, supported extensions and paths that cannot escape through
+traversal or symlinks. No separate persisted chunk store was introduced.
+
+The committed graph is Kestrel-only and tied to 800/80. Missing graph data and
+unknown IDs have explicit service errors. Rechunking can change what a source/
+position ID means, so the explorer must fail rather than silently show different
+evidence. New Kestrel documents require a separate graph extraction/update to
+contribute new relationships. Sasha's integrated routes are `/api/concepts`,
+`/api/concepts/{id}` and `/api/document-text` (with document ID and dataset query
+parameters). The implemented prefix replaces the earlier `/api/graph/concepts`
+proposal. Selecting Kestrel exposes the React explorer. Neighbourhood requests
+include a safe concept trace; settings mismatches return `GRAPH_UNAVAILABLE`/409.
+
+### Injection Scanner and quarantine
+
+An uploaded document can contain instructions aimed at the assistant rather
+than useful evidence. Scanning therefore runs after validation and before any
+corpus write: upload → validate → scan → index or quarantine. Existing source
+files are not automatically removed or rescanned by an unrelated rebuild.
+
+Seven rule categories cover instruction overrides, role impersonation, secret
+extraction, external data transmission, assistant redirection, context delimiters
+and policy replacement. NFKC and format-character normalization catch basic
+obfuscation. Any match requires review; severity is descriptive rather than a
+weighted score. Findings contain a rule ID, fixed explanation, severity, line
+and bounded excerpt. Findings are capped at 100, and common secrets/emails/URLs
+are masked in excerpts. Excerpts are untrusted review text, not trace metadata.
+
+The labelled 20-case synthetic set and `evaluation.injection_evaluation` make
+errors reproducible. The Stage 5 local run measured:
+
+| Actual class | Predicted suspicious | Predicted harmless |
+| --- | ---: | ---: |
+| Hostile | 8 true positives | 2 false negatives |
+| Harmless | 2 false positives | 8 true negatives |
+
+Mean scan time was **0.129 ms** for one local pass over these small examples,
+excluding upload/indexing/provider time. There were **zero paid API calls and
+zero provider cost**; local compute was not monetarily measured. Academic attack
+quotations and a harmless delimiter example were false positives. A semantic
+answer-manipulation instruction and a base64 payload were false negatives.
+These are illustrative cases, not a claim of general 80% accuracy or complete
+protection. Other languages, encodings and cross-document attacks remain limits.
+
+Quarantine is `.bakefix/quarantine/`, outside both indexed roots and ignored by
+Git. Records use restricted files, atomic replacement and OS file locks. Normal
+loaders, Dense, BM25 and graph inputs receive only their indexed corpus roots,
+so unrelated rebuilds do not ingest quarantined payloads. Normal browsing and
+source reading cannot reach the quarantine directory.
+
+Review helpers list/inspect findings without returning raw payloads. Release
+requires `approved=True`, revalidates the document/destination, persists approval
+before publishing and uses the normal rebuild pipeline/settings. Rejection
+removes the payload; terminal metadata remains for consistent repeated-action
+errors. Unknown IDs, conflicts and unsafe paths fail explicitly.
+
+A `releasing` record is an approved operation interrupted before completion,
+not a successful release. If final metadata persistence fails, approved content
+may already be indexed; retrying explicit release completes recovery without
+silently overwriting another file. Failed new-publication indexing removes the
+new file and clears partial Chroma writes. This is fail-closed recovery, not an
+atomic transaction across JSON, the filesystem and Chroma; a cleared index may
+need rebuilding before retrieval resumes.
+
+### Release retrieval rerun
+
+On 15 November 2026, five configurations were rerun from the isolated integrated
+source `1a7ab8fdf8cf58116ea5e3119a1ff3606996322d`: Dense and Dense+BM25 for Baking,
+and Dense, Dense+BM25 and Dense+BM25+Graph for Kestrel. Each used 800/80, top-k=5,
+no threshold and the same MiniLM model and fixed full 12-question set per corpus
+(10 answerable, 2 excluded). Generation and graph extraction were disabled.
+
+| Corpus | Method | HitRate@5 | Recall@5 | Recall@10 |
+| --- | --- | ---: | ---: | ---: |
+| Baking | Dense | 100% | 79.17% | 84.17% |
+| Baking | Dense + BM25 | 100% | 72.50% | 90.83% |
+| Kestrel | Dense | 90% | 80% | 95% |
+| Kestrel | Dense + BM25 | 100% | 82.5% | 95% |
+| Kestrel | Dense + BM25 + Graph | 100% | 87.5% | 95% |
+
+All overall and per-question-type HitRate/Recall values at k=1,3,5,10 exactly
+match the corresponding V3 results. The q01 improvement and q08 missing-evidence
+failure remain; V4 does not show a retrieval gain merely because it adds UI,
+observability or ingestion screening. Metric definitions and labels are unchanged.
+
+[The release comparison](evaluation/results/v4/RETRIEVAL_COMPARISON.md) links two
+consolidated JSONL files: 60 complete per-question records and five full summaries,
+including ranks, native/fused chunks, evidence matches and per-type metrics.
+Only already committed public/fictional evaluation data is retained; no user
+uploads, prompts, provider keys or generated answers are added. This full
+12-question retrieval-only Kestrel comparison is separate from Peushi's
+10-question generation-enabled redaction summary above.
+
+### Verification and release review
+
+Final checks on 15 November 2026 used Python 3.12.6 and Node 24.10.0:
+
+| Check | Scope and observed result |
+| --- | --- |
+| Integrated source `1a7ab8f` | 249 backend tests passed; zero failures/skips. |
+| Frontend | TypeScript checking and production build passed. Components for Concept Map, review, styles, glossary and shared Details are connected; browser clicking was not automated. |
+| HTTP walkthrough | Real localhost server with temporary corpora, real embeddings/Chroma/SQLite and mocked provider: Concept Map → chunk → original-document API, Kestrel Ask with Graph context, styles, uploads, explicit HTTP release/rejection and trace retrieval passed. |
+| Retrieval regression | Five runs / 60 question-configuration records, no errors; all overall and per-type metrics matched V3. |
+| Stage 4 live generation | One successful Gemini Ask on a synthetic baking fixture: 497 input / 61 output tokens and one verified citation. This older single live observation is not a new live test of the final redaction/style implementation. |
+| Generation metadata | Final API checks verified recorded supplied token counts and configured cost arithmetic with a mocked provider; no fabricated live usage or costs are claimed. |
+
+`pip check` found no broken requirements in the existing environment. A fresh-
+machine installation was not performed. Tests did not modify the submitted
+corpora, committed graph, production indexes or historical evaluation results.
+Runtime outputs and audit snapshots stayed in temporary/ignored locations.
+
+| Remaining review point | Reproduction / owner |
+| --- | --- |
+| Unexpected Ask failure trace header | A synthetic unexpected provider exception yields HTTP 500 with a failed stored trace but no `X-Trace-ID`. The UI cannot link that failure to Details. Sasha owns shared API error handling. |
+| Retrieved-content privacy scope | A mock-provider inspection retained a synthetic document person name and synthetic key while masking email/phone. Current context filtering is deliberately narrower than question Presidio detection. Peushi should confirm or extend that policy; this is not proof of complete document PII/secret removal. |
+| Question technical-name false positives | `What is Kestrel?` was changed by question redaction, although document technical terms, error code and documentation IPs were preserved. Peushi owns terminology-aware detection without disabling personal-data protection. |
+
 ## Conclusion and Remaining Scope
 
 BakeFix now provides an integrated interface for grounded document Q&A and
