@@ -770,7 +770,7 @@ Runtime outputs and audit snapshots stayed in temporary/ignored locations.
 
 | Remaining review point | Reproduction / owner |
 | --- | --- |
-| Unexpected Ask failure trace header | A synthetic unexpected provider exception yields HTTP 500 with a failed stored trace but no `X-Trace-ID`. The UI cannot link that failure to Details. Sasha owns shared API error handling. |
+| Unexpected Ask failure trace header | **Resolved (Sasha).** An unexpected exception now returns a JSON `INTERNAL_ERROR` 500 with `X-Trace-ID`, so Details opens the failed trace; covered by `tests/test_api_errors.py`. |
 | Retrieved-content privacy scope | A mock-provider inspection retained a synthetic document person name and synthetic key while masking email/phone. Current context filtering is deliberately narrower than question Presidio detection. Peushi should confirm or extend that policy; this is not proof of complete document PII/secret removal. |
 | Question technical-name false positives | `What is Kestrel?` was changed by question redaction, although document technical terms, error code and documentation IPs were preserved. Peushi owns terminology-aware detection without disabling personal-data protection. |
 
