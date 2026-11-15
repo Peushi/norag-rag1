@@ -7,7 +7,7 @@
 Sources of truth (nothing below is typed in twice):
 - aibom/ai-components.json: descriptions, licences, model cards, datasets
 - backend/vector_store.py: embedding model name, repository, and revision
-- backend/llm_service.py: default Gemini model name
+- backend/llm_config.py: default LLM model name (LLM_MODEL overrides it at runtime)
 - requirements.lock.txt: exact Python packages, incl. the spaCy model wheel + hash
 - frontend/package-lock.json: exact npm packages
 - git-tracked dataset files: SHA-256 of each bundled dataset
@@ -135,7 +135,7 @@ def build_bom() -> dict:
     embedding_name = read_constant(vector_store, "EMBEDDING_MODEL")
     embedding_repo = read_constant(vector_store, "EMBEDDING_MODEL_REPO")
     embedding_revision = read_constant(vector_store, "EMBEDDING_MODEL_REVISION")
-    gemini_model = read_constant(ROOT / "backend" / "llm_service.py", "MODEL")
+    gemini_model = read_constant(ROOT / "backend" / "llm_config.py", "DEFAULT_MODEL")
     libraries, spacy_model = python_packages()
     if not spacy_model:
         raise SystemExit("en_core_web_sm is missing from requirements.lock.txt")

@@ -103,10 +103,22 @@ class RetrievalOrchestratorTests(unittest.TestCase):
                 {},
             )
 
-    def test_rejects_graph_for_baking(self):
-        with self.assertRaisesRegex(ValueError, "only available for the kestrel"):
+    def test_graph_is_allowed_for_the_users_documents(self):
+        # The user can build a concept graph from their own documents (V4 ask);
+        # whether it has been built is checked by the graph retriever itself.
+        calls = []
+        result = orchestrate_retrieval(
+            RetrievalQuery("question", "baking", 3),
+            ("graph",),
+            {"graph": lambda query: calls.append(query.dataset) or RetrieverOutput(chunks=[])},
+        )
+        self.assertEqual(calls, ["baking"])
+        self.assertEqual(result.chunks, [])
+
+    def test_rejects_graph_for_a_corpus_without_one(self):
+        with self.assertRaisesRegex(ValueError, "not available for the recipes dataset"):
             orchestrate_retrieval(
-                RetrievalQuery("question", "baking", 3),
+                RetrievalQuery("question", "recipes", 3),
                 ("graph",),
                 {"graph": lambda query: RetrieverOutput(chunks=[])},
             )

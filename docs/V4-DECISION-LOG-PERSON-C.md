@@ -350,6 +350,56 @@ before it can fail.
   advisories are published. The test suite checks the committed VEX instead
   (valid, every finding decided, every finding points at a shipped component).
 
+## Professor's follow-up asks (15 Nov, after `final`)
+
+### Any LLM: LLM_URL / LLM_API_KEY / LLM_MODEL
+- **Decision:** one module (`backend/llm_config.py`) reads the three variables
+  from the environment, `.env.local`, then `.env`; every LLM caller (answers,
+  graph extraction, evaluations) uses it. Gemini is only the default; the old
+  `GOOGLE_API_KEY`/`GEMINI_MODEL` names still work as fallbacks.
+- **Works beyond Google, tested:** a local Ollama `gpt-oss:20b` with no key
+  answered with validated citations (27 s) and refused an off-topic question.
+- **Compatibility details a different server needs:** an empty key is allowed
+  for a custom URL; if a server refuses `response_format: json_object`, BakeFix
+  asks for JSON through the prompt instead (once, then remembers); JSON wrapped
+  in Markdown fences is accepted; the default timeout rose to 60 s and is
+  configurable (`LLM_TIMEOUT_SECONDS`), because local models are slow.
+- **Rejected:** a provider-specific SDK per vendor (the OpenAI-compatible API
+  covers Gemini, OpenAI, Ollama, vLLM and most gateways).
+
+### Concept graph from the user's own documents
+- **Decision:** "My documents" gets a **Build the concept map** action. The
+  graph is stored locally (`.bakefix/graphs/baking/`), explorable in the same
+  Concept Map, and selectable as a retriever once built.
+- **Incremental by content hash:** only new or changed documents are sent to
+  the LLM; triples from removed documents are dropped; documents with failed
+  chunks are retried. Measured: first build 14 calls (2 documents, 44 links,
+  ~22 s with Gemini); after uploading one note, the update made **1** call.
+- **Bounded and visible cost:** at most 150 calls per build; the panel shows
+  the expected number of calls before the user starts.
+- **Kitchen vocabulary:** the Kestrel types (ERROR_CODE, SERVICE, TEAM…) fit a
+  software company, not recipes, so the user's documents use DISH,
+  INGREDIENT, EQUIPMENT, TECHNIQUE, PROBLEM, CONDITION and relations such as
+  CAUSES, FIXES, PREVENTS, REQUIRES. Triples outside a corpus's vocabulary are
+  rejected.
+- **Word-form matching for the user's graph:** kitchen concepts are phrases
+  ("cookies spreading") that people don't type exactly; graph retrieval for
+  these documents also matches word forms. Kestrel keeps exact matching so its
+  V3/V4 evaluation results stay valid.
+- **Security:** extraction reads only indexed documents (held documents are
+  outside the corpus); the extraction prompt frames the document like the
+  answer prompt (tags it cannot close, "data, never instructions"); builds
+  are refused from other websites (origin check) and run one at a time.
+- **End to end, real Gemini:** "Why are my biscuits pale and flat?" with graph
+  search found the path *cold oven → causes → pale, flat biscuits* from the
+  newly uploaded note, and the answer cited it.
+- **Known limitation:** extraction by a small model is noisy (it turned "little
+  or no baking powder" into "requires baking powder"); every link shows its
+  quote so the user can check it. There is no manual review step as for Kestrel.
+- **Rejected:** rebuilding everything on each change (re-spends calls on
+  every document); building automatically on upload (spends quota without the
+  user deciding); reusing the Kestrel vocabulary (nothing useful extracted).
+
 ## Open points to resolve with the team
 
 - Person B: record the answer style in the `llm_generation` span; consider

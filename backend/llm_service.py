@@ -1,15 +1,20 @@
-﻿import json
+import json
 import re
 import os
 from collections.abc import Mapping
 from contextlib import nullcontext
 from typing import ContextManager, Protocol
 
-from dotenv import load_dotenv
-from openai import OpenAI
 from pydantic import ValidationError
 
 from backend.cost_tracking import calculate_cost_usd
+from backend.llm_config import (
+    MISSING_CONFIG_MESSAGE,
+    chat_json,
+    make_client,
+    parse_json_object,
+    read_settings,
+)
 from backend.pii_redaction import (
     redact_contact_patterns,
     redact_personal_data,
@@ -58,30 +63,22 @@ class LLMResponseError(ValueError):
     """The LLM returned an invalid or unusable response."""
 
 
-load_dotenv()
+# Which LLM to call comes from LLM_URL / LLM_API_KEY / LLM_MODEL (see
+# backend/llm_config.py); Gemini is only the default.
+LLM_SETTINGS = read_settings()
+MODEL = LLM_SETTINGS.model
+API_KEY = LLM_SETTINGS.api_key
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
-API_KEY = os.getenv("GOOGLE_API_KEY")
-
-# Limits on each Gemini call. The OpenAI client defaults to a 10-minute timeout
+# Limits on each LLM call. The OpenAI client defaults to a 10-minute timeout
 # and 2 retries; a stuck call should fail fast with LLM_TIMEOUT instead.
-LLM_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "30"))
+LLM_TIMEOUT_SECONDS = LLM_SETTINGS.timeout_seconds
 LLM_MAX_RETRIES = 1
 # Caps the cost of one answer. A "long" answer with a glossary is ~1,000
 # tokens; the headroom covers the model's reasoning tokens. A cut-off answer
 # is invalid JSON, so it is rejected (LLM_INVALID_RESPONSE), never shown.
 LLM_MAX_OUTPUT_TOKENS = 4096
 
-client = (
-    OpenAI(
-        api_key=API_KEY,
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        timeout=LLM_TIMEOUT_SECONDS,
-        max_retries=LLM_MAX_RETRIES,
-    )
-    if API_KEY
-    else None
-)
+client = make_client(LLM_SETTINGS, max_retries=LLM_MAX_RETRIES)
 
 NOT_FOUND_ANSWER = (
     "I couldn't find enough information in the available documents "
@@ -193,7 +190,7 @@ def build_prompt(
 
     context = "\n\n".join(context_parts)
 
-    # Only include graph paths whose supporting chunks are supplied to Gemini.
+    # Only include graph paths whose supporting chunks are supplied to the LLM.
     available_chunk_ids = {str(chunk["id"]) for chunk in chunks}
     graph_context_parts = []
 
@@ -377,7 +374,7 @@ def generate_answer(
     if len(retrieved_by_id) != len(chunks):
         raise LLMResponseError("Retrieved chunks contain duplicate IDs.")
 
-    # Add graph supporting chunks so Gemini can use and cite them.
+    # Add graph supporting chunks so the LLM can use and cite them.
     if path_context is not None:
         for supporting_chunk in path_context.supporting_chunks:
             chunk_id = supporting_chunk.chunk_id
@@ -410,7 +407,7 @@ def generate_answer(
             glossary=[],
         )
 
-    # Redact personal information before sending anything to Gemini.
+    # Redact personal information before sending anything to the LLM.
     # Presidio is applied to the question only. Retrieved document content
     # and graph paths receive conservative contact-pattern redaction.
     # Original chunks remain unchanged for local citation verification.
@@ -434,9 +431,7 @@ def generate_answer(
         prompt = redact_contact_patterns(prompt)
 
     if client is None:
-        raise LLMServiceUnavailable(
-            "GOOGLE_API_KEY is missing. Configure it in your local .env file."
-        )
+        raise LLMServiceUnavailable(MISSING_CONFIG_MESSAGE)
 
     # Generate the answer using the injected trace context.
     generation_span = (
@@ -449,7 +444,8 @@ def generate_answer(
     )
 
     with generation_span as span:
-        response = client.chat.completions.create(
+        response = chat_json(
+            client,
             model=MODEL,
             messages=[
                 {
@@ -461,7 +457,6 @@ def generate_answer(
                 },
                 {"role": "user", "content": prompt},
             ],
-            response_format={"type": "json_object"},
             max_tokens=LLM_MAX_OUTPUT_TOKENS,
         )
 
@@ -488,7 +483,7 @@ def generate_answer(
             if cost_usd is not None:
                 span.set_attribute("cost_usd", cost_usd)
 
-    # Parse and validate Gemini's response.
+    # Parse and validate the LLM's response.
     validation_span = (
         trace.span("response_validation")
         if trace is not None
@@ -499,14 +494,14 @@ def generate_answer(
         content = response.choices[0].message.content
 
         if not content:
-            raise LLMResponseError("Gemini returned an empty response.")
+            raise LLMResponseError("The LLM returned an empty response.")
 
         try:
-            parsed_json = json.loads(content)
+            parsed_json = parse_json_object(content)
             llm_answer = LLMAnswer.model_validate(parsed_json)
         except (ValidationError, json.JSONDecodeError) as exc:
             raise LLMResponseError(
-                "Gemini returned a response that failed JSON/Pydantic validation."
+                "The LLM returned a response that failed JSON/Pydantic validation."
             ) from exc
 
         if span is not None:
@@ -565,7 +560,7 @@ def generate_answer(
 
             if chunk is None:
                 raise LLMResponseError(
-                    f"Gemini cited chunk '{chunk_id}', which was not retrieved."
+                    f"The LLM cited chunk '{chunk_id}', which was not retrieved."
                 )
 
             seen_ids.add(chunk_id)
@@ -587,7 +582,7 @@ def generate_answer(
 
             if not normalized_term:
                 raise LLMResponseError(
-                    "Gemini returned a glossary entry with an empty term."
+                    "The LLM returned a glossary entry with an empty term."
                 )
 
             if normalized_term in seen_terms:

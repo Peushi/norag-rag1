@@ -1,3 +1,5 @@
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -121,17 +123,20 @@ class RetrieverSelectionApiTests(unittest.TestCase):
             response.headers["x-trace-id"],
         )
 
-    def test_ask_endpoint_rejects_graph_for_baking(self):
-        response = self.client.post(
-            "/api/ask",
-            json={
-                "question": "What happened?",
-                "dataset": "baking",
-                "retrievers": ["graph"],
-            },
-        )
-        self.assertEqual(response.status_code, 422)
-        self.assertIn("graph", response.text.lower())
+    def test_ask_with_graph_before_the_users_graph_is_built_explains_how(self):
+        with tempfile.TemporaryDirectory() as empty, patch(
+            "backend.graph_retrieval.USER_GRAPH_ROOT", Path(empty)
+        ):
+            response = self.client.post(
+                "/api/ask",
+                json={
+                    "question": "What happened?",
+                    "dataset": "baking",
+                    "retrievers": ["graph"],
+                },
+            )
+        self.assertEqual(response.status_code, 501)
+        self.assertIn("hasn’t been built yet", response.json()["error"]["message"])
 
 
 class DenseRetrieverAdapterTests(unittest.TestCase):

@@ -13,7 +13,7 @@ Each case puts one real baking passage and one hostile passage in front of
 Gemini with a normal question, bypassing retrieval so the hostile passage is
 always present. A unique marker per attack shows whether it worked.
 
-    python -m evaluation.defence_evaluation      # needs GOOGLE_API_KEY; ~6 calls
+    python -m evaluation.defence_evaluation      # needs a configured LLM (LLM_URL/LLM_API_KEY/LLM_MODEL)
 
 Writes evaluation/results/v4/defence_e2e.json. All text is synthetic or from
 the bundled corpus; no user data is involved.

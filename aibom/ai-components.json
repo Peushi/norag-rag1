@@ -198,10 +198,10 @@
   },
   "llm_service": {
     "bom_ref": "service:gemini",
-    "name": "Google Gemini API (OpenAI-compatible endpoint)",
+    "name": "LLM API (OpenAI-compatible; default Google Gemini)",
     "provider": "Google",
     "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/",
-    "description": "Writes the answer, citations, and glossary from the retrieved passages. Model chosen with GEMINI_MODEL; the default is recorded here. Google may update the model behind a name.",
+    "description": "Writes the answer, citations, and glossary from the retrieved passages, and extracts concept graphs. The server and model are chosen with LLM_URL, LLM_API_KEY and LLM_MODEL (any OpenAI-compatible API, including a local one); the default recorded here is Google Gemini. A provider may update the model behind a name.",
     "terms_url": "https://ai.google.dev/gemini-api/terms",
     "data_sent": "The user's question after personal-data redaction (Presidio), the retrieved passages after email and phone redaction, and the answer-style settings.",
     "limits": "30 s timeout, 1 retry, at most 4,096 output tokens per answer.",

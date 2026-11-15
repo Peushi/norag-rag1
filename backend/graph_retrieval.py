@@ -1,4 +1,4 @@
-﻿import json
+import json
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -12,6 +12,25 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 KESTREL_DOCS = PROJECT_ROOT / "kestrel-kb" / "docs"
 GRAPH_FILE = PROJECT_ROOT / "kestrel-kb" / "graph" / "graph.json"
 QUALITY_FILE = PROJECT_ROOT / "kestrel-kb" / "graph" / "triple_quality_review.json"
+# Graphs built from the user's own documents: local runtime data, like traces.
+USER_GRAPH_ROOT = PROJECT_ROOT / ".bakefix" / "graphs"
+BUILDABLE_DATASETS = {"baking"}
+
+
+def graph_file(dataset: str = "kestrel") -> Path:
+    """Kestrel uses its committed, reviewed graph; other corpora use a built one.
+
+    Read at call time so tests can point GRAPH_FILE / USER_GRAPH_ROOT elsewhere.
+    """
+    if dataset == "kestrel":
+        return GRAPH_FILE
+    if dataset not in BUILDABLE_DATASETS:
+        raise ValueError(f"No concept graph for dataset: {dataset}")
+    return USER_GRAPH_ROOT / dataset / "graph.json"
+
+
+def graph_exists(dataset: str = "kestrel") -> bool:
+    return graph_file(dataset).exists()
 
 
 def _entity_key(entity):
@@ -33,17 +52,19 @@ def _triple_signature(triple):
     )
 
 
-def _load_graph():
-    if not GRAPH_FILE.exists():
-        raise FileNotFoundError(f"Graph not found: {GRAPH_FILE}")
+def _load_graph(dataset: str = "kestrel"):
+    path = graph_file(dataset)
+    if not path.exists():
+        raise FileNotFoundError(f"Graph not found: {path}")
 
-    with GRAPH_FILE.open(encoding="utf-8") as file:
+    with path.open(encoding="utf-8") as file:
         return json.load(file)
 
 
-def _load_excluded_triples():
+def _load_excluded_triples(dataset: str = "kestrel"):
     """Exclude only triples explicitly reviewed as wrong or unsupported."""
-    if not QUALITY_FILE.exists():
+    # Only the committed Kestrel graph has a manual quality review.
+    if dataset != "kestrel" or not QUALITY_FILE.exists():
         return set()
 
     with QUALITY_FILE.open(encoding="utf-8") as file:
@@ -56,6 +77,26 @@ def _load_excluded_triples():
             excluded.add(_triple_signature(result["triple"]))
 
     return excluded
+
+
+def _load_chunks(dataset, chunk_size, overlap):
+    """Recreate a corpus's chunks (same IDs as search) at the graph's settings."""
+    if dataset == "kestrel":
+        return _load_kestrel_chunks(chunk_size, overlap)
+    from backend import retrieval
+    from backend.documents import load_documents
+
+    chunk_lookup = {}
+    for document in load_documents(retrieval.DATASET_DIRECTORIES[dataset]):
+        for chunk in chunk_text(document["text"], chunk_size=chunk_size, overlap=overlap):
+            chunk_id = make_chunk_id(document["source"], chunk["position"])
+            chunk_lookup[chunk_id] = {
+                "id": chunk_id,
+                "text": chunk["text"],
+                "source": document["source"],
+                "position": chunk["position"],
+            }
+    return chunk_lookup
 
 
 def _load_kestrel_chunks(chunk_size, overlap):
@@ -114,8 +155,55 @@ def _entity_matches_question(question, name):
     return re.search(pattern, question, flags=re.IGNORECASE) is not None
 
 
-def _find_question_entities(question, triples):
-    """Find mentioned entities, preferring specific names over shorter overlaps."""
+# Words that carry no meaning for matching a concept to a question.
+STOPWORDS = {
+    "a", "an", "and", "are", "at", "be", "but", "by", "can", "did", "didn", "do", "does",
+    "doesn", "for", "from", "has", "have", "how", "i", "in", "is", "it", "its", "keep",
+    "keeps", "my", "no", "not", "of", "on", "or", "so", "the", "their", "this", "to",
+    "too", "very", "was", "what", "when", "why", "will", "with", "won", "your",
+}
+_SUFFIXES = ("ings", "ing", "ies", "es", "ed", "s")
+
+
+def _word_stem(word):
+    """A light stemmer: 'spreading' → 'spread', 'cookies' → 'cook', 'rising' → 'ris'."""
+    for suffix in _SUFFIXES:
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            return word[: -len(suffix)]
+    return word
+
+
+def _content_stems(text):
+    words = re.findall(r"[a-z0-9]+", text.casefold())
+    return [_word_stem(word) for word in words if word not in STOPWORDS]
+
+
+def _stems_match(a, b):
+    return a == b or (min(len(a), len(b)) >= 3 and (a.startswith(b) or b.startswith(a)))
+
+
+def _entity_words_in_question(question, name):
+    """Every meaningful word of the concept appears in the question, in any form.
+
+    Kitchen concepts are phrases ("cookies spreading", "dough not rising") that
+    people rarely type word for word ("why do my cookies keep spreading?").
+    """
+    if name.casefold().strip() in GENERIC_ENTITY_NAMES:
+        return False
+    name_stems = _content_stems(name)
+    question_stems = _content_stems(question)
+    return bool(name_stems) and all(
+        any(_stems_match(stem, word) for word in question_stems) for stem in name_stems
+    )
+
+
+def _find_question_entities(question, triples, dataset="kestrel"):
+    """Find mentioned entities, preferring specific names over shorter overlaps.
+
+    Kestrel keeps exact-name matching (error codes and service names are typed
+    as written, and its evaluation results depend on it); other corpora also
+    match word forms.
+    """
     entities = {}
 
     for triple in triples:
@@ -125,7 +213,9 @@ def _find_question_entities(question, triples):
     matched = []
 
     for entity in entities.values():
-        if _entity_matches_question(question, entity["name"]):
+        if _entity_matches_question(question, entity["name"]) or (
+            dataset != "kestrel" and _entity_words_in_question(question, entity["name"])
+        ):
             matched.append(entity)
 
     # If a specific versioned name matches, don't also match its generic name.
@@ -148,6 +238,8 @@ def _find_question_entities(question, triples):
 
     for entity in filtered:
         result[_entity_key(entity)] = entity
+        if dataset != "kestrel":
+            continue
 
         canonical = resolve_entity(
             entity["name"],
@@ -231,9 +323,10 @@ def retrieve_graph(
     top_k=5,
     selected_documents=None,
     max_hops=2,
+    dataset="kestrel",
 ):
     """
-    Retrieve Kestrel evidence through graph entities and relationships.
+    Retrieve evidence through graph entities and relationships.
 
     Returns ranked chunks, graph paths, and matched entities.
     """
@@ -253,10 +346,10 @@ def retrieve_graph(
             "matched_entities": [],
         }
 
-    graph_data = _load_graph()
+    graph_data = _load_graph(dataset)
     raw_triples = graph_data.get("triples", [])
 
-    excluded = _load_excluded_triples()
+    excluded = _load_excluded_triples(dataset)
 
     # Filter using the original triples before applying entity resolution.
     eligible_triples = [
@@ -265,11 +358,15 @@ def retrieve_graph(
     ]
 
     # Resolve aliases for normal relationships while preserving REPLACES.
-    triples = resolve_graph_triples(eligible_triples)
+    # The alias list was written for Kestrel; built graphs are used as extracted.
+    triples = (
+        resolve_graph_triples(eligible_triples) if dataset == "kestrel" else eligible_triples
+    )
 
     matched_entities = _find_question_entities(
         question,
         eligible_triples,
+        dataset,
     )
 
     if not matched_entities:
@@ -287,7 +384,8 @@ def retrieve_graph(
 
     statistics = graph_data.get("statistics", {})
 
-    chunk_lookup = _load_kestrel_chunks(
+    chunk_lookup = _load_chunks(
+        dataset,
         chunk_size=statistics.get("chunk_size", 800),
         overlap=statistics.get("overlap", 80),
     )
