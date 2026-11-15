@@ -1,3 +1,4 @@
+
 import unittest
 
 from backend.pii_redaction import (
@@ -16,7 +17,7 @@ class PIIRedactionTests(unittest.TestCase):
         self.assertNotIn("John Smith", result)
 
     def test_redacts_email(self):
-        result = redact_personal_data("Contact john.smith@example.com.")
+        result = redact_personal_data("Contact john.smith@example.com")
         self.assertIn("[REDACTED_EMAIL_ADDRESS]", result)
         self.assertNotIn("john.smith@example.com", result)
 
@@ -33,6 +34,18 @@ class PIIRedactionTests(unittest.TestCase):
         text = "John Smith visited Paris."
         result = redact_personal_data(text)
         self.assertIn("Paris", result)
+
+    def test_preserves_kestrel_as_domain_term(self):
+        text = "What is Kestrel?"
+        result = redact_personal_data(text)
+        self.assertEqual(result, text)
+
+    def test_still_redacts_person_names(self):
+        text = "Contact John Smith for more information."
+        result = redact_personal_data(text)
+
+        self.assertNotIn("John Smith", result)
+        self.assertIn("[REDACTED_PERSON]", result)
 
     def test_returns_empty_text_unchanged(self):
         self.assertEqual(redact_personal_data(""), "")
@@ -61,6 +74,24 @@ class PIIRedactionTests(unittest.TestCase):
 
     def test_contact_patterns_preserve_product_names(self):
         text = "Vellora is supported by the service."
+        self.assertEqual(redact_contact_patterns(text), text)
+
+    def test_contact_patterns_redact_api_key(self):
+        text = "API_KEY=synthetic-demo-secret"
+        result = redact_contact_patterns(text)
+
+        self.assertIn("API_KEY=[REDACTED_SECRET]", result)
+        self.assertNotIn("synthetic-demo-secret", result)
+
+    def test_contact_patterns_redact_quoted_api_key(self):
+        text = 'API_KEY="synthetic-demo-secret"'
+        result = redact_contact_patterns(text)
+
+        self.assertIn("API_KEY=[REDACTED_SECRET]", result)
+        self.assertNotIn("synthetic-demo-secret", result)
+
+    def test_contact_patterns_preserve_product_skus(self):
+        text = "Use KIT-100 and PART-200 with KST-2044."
         self.assertEqual(redact_contact_patterns(text), text)
 
     def test_contact_patterns_preserve_technical_identifiers(self):
