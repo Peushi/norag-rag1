@@ -48,6 +48,7 @@ PLACEHOLDER_PATTERN = re.compile(
 # Known domain terms that Presidio may incorrectly classify as person names.
 DOMAIN_TERMS = [
     "Kestrel",
+    "Platform team",
 ]
 
 DOMAIN_TERM_PATTERN = re.compile(
