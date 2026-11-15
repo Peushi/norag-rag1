@@ -482,7 +482,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "bc20088445720bcd19fc38e5d18fefdfa1863acdb00c073cdae61a32b9d19aac"
+          "content": "48267a11fe76bad7390f104547b8a175a0dca5f532087763da885cada7c62659"
         }
       ],
       "data": [
@@ -507,7 +507,7 @@
         },
         {
           "name": "bakefix:file_count",
-          "value": "3"
+          "value": "4"
         }
       ]
     },
@@ -3622,5 +3622,5 @@
       ]
     }
   ],
-  "serialNumber": "urn:uuid:4ac26c61-3f6a-52df-a44d-1e6bcb1ad7a9"
+  "serialNumber": "urn:uuid:42b60314-9ddc-5960-8c51-7fa6035d2612"
 }
