@@ -1,0 +1,375 @@
+/*
+ * Motion and small interactions. Every animation here is decoration on top of
+ * a working page: the reduced-motion block at the end turns all of it off.
+ */
+
+:root {
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* ---------- Baking loader ---------- */
+
+:root .baking-loader {
+  gap: 6px;
+}
+
+:root .loader-bowl {
+  width: 112px;
+  height: 84px;
+  overflow: visible;
+}
+
+:root .loader-bowl-shape {
+  fill: var(--terracotta);
+}
+
+:root .loader-bowl-rim {
+  stroke: var(--terracotta-dark);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+:root .loader-dough {
+  fill: #f3dfbf;
+  stroke: #e2c79c;
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: dough-rise 1.6s var(--ease-out) infinite alternate;
+}
+
+:root .loader-steam path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0;
+  animation: steam 2.2s ease-in-out infinite;
+}
+
+:root .loader-steam path:nth-child(2) { animation-delay: .5s; }
+:root .loader-steam path:nth-child(3) { animation-delay: 1s; }
+
+:root .loader-step {
+  margin: 0;
+  color: var(--muted);
+  animation: fade-up .35s var(--ease-out);
+}
+
+@keyframes dough-rise {
+  from { transform: scale(1, .8); }
+  to   { transform: scale(1.06, 1.35); }
+}
+
+@keyframes steam {
+  0%   { opacity: 0;   transform: translateY(8px); }
+  40%  { opacity: .55; }
+  100% { opacity: 0;   transform: translateY(-10px); }
+}
+
+/* ---------- Answer reveal and linked sources ---------- */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+:root .answer-reveal {
+  animation: fade-up .45s var(--ease-out);
+}
+
+:root .references li {
+  animation: fade-up .45s var(--ease-out) both;
+  animation-delay: calc(.25s + var(--i, 0) * .09s);
+  transition: box-shadow .2s ease, background-color .2s ease, transform .2s var(--ease-out);
+}
+
+:root .references li.is-highlighted {
+  background: var(--rose-wash);
+  box-shadow: 0 0 0 2px var(--terracotta);
+  transform: translateX(3px);
+}
+
+:root .references li.flash {
+  animation: source-flash 1.1s ease;
+}
+
+@keyframes source-flash {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  20%      { box-shadow: 0 0 0 3px var(--terracotta); background: var(--rose-wash); }
+}
+
+:root .glossary-source {
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--terracotta-dark);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+
+:root .glossary-source:hover,
+:root .glossary-source:focus-visible {
+  background: var(--rose-wash);
+}
+
+:root .glossary-source:focus-visible {
+  outline: 2px solid var(--terracotta-dark);
+  outline-offset: 1px;
+}
+
+/* ---------- Copy answer and feedback ---------- */
+
+:root .answer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 6px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+:root .copy-answer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+:root .copy-answer.copied {
+  border-color: var(--sage);
+  color: #4f5a43;
+}
+
+:root .copy-icon {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+
+:root .copy-icon svg {
+  position: absolute;
+  inset: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity .2s ease, transform .3s var(--ease-spring);
+}
+
+:root .copy-icon .icon-check {
+  opacity: 0;
+  transform: scale(.4) rotate(-20deg);
+}
+
+:root .copy-answer.copied .icon-clipboard {
+  opacity: 0;
+  transform: scale(.4);
+}
+
+:root .copy-answer.copied .icon-check {
+  opacity: 1;
+  transform: none;
+}
+
+:root .answer-feedback {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+:root .feedback-thanks {
+  margin: 0;
+  color: #4f5a43;
+  animation: fade-up .3s var(--ease-out);
+}
+
+:root .feedback-buttons {
+  display: inline-flex;
+  gap: 6px;
+}
+
+:root .feedback-button {
+  width: 38px;
+  height: 34px;
+  padding: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+:root .sprinkles {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+}
+
+:root .sprinkle {
+  position: absolute;
+  width: 4px;
+  height: 11px;
+  border-radius: 3px;
+  opacity: 0;
+  animation: sprinkle-burst .9s var(--ease-out) forwards;
+}
+
+@keyframes sprinkle-burst {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(.6); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 18px)) rotate(var(--rot)) scale(1); }
+}
+
+/* ---------- Upload: drop zone, fresh document, held nudge ---------- */
+
+:root .upload-box {
+  transition: border-color .2s ease, background-color .2s ease, box-shadow .25s ease, transform .25s var(--ease-out);
+}
+
+:root .upload-box.is-dragging {
+  border-color: var(--terracotta);
+  border-style: solid;
+  background: var(--rose-wash);
+  box-shadow: 0 0 0 4px rgba(184, 94, 67, .15), 0 10px 26px rgba(184, 94, 67, .18);
+  transform: scale(1.015);
+}
+
+:root .upload-box.is-held {
+  animation: held-nudge .5s ease;
+  border-color: #c99a3c;
+}
+
+@keyframes held-nudge {
+  0%, 100% { transform: none; }
+  25%      { transform: translateX(-4px); }
+  50%      { transform: translateX(3px); }
+  75%      { transform: translateX(-2px); }
+}
+
+:root .library-card li.is-fresh {
+  position: relative;
+  overflow: hidden;
+  animation: fresh-in .5s var(--ease-out);
+}
+
+:root .library-card li.is-fresh::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(242, 209, 107, .45) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: shimmer 1.4s ease .25s 2;
+  pointer-events: none;
+}
+
+@keyframes fresh-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes shimmer {
+  to { transform: translateX(100%); }
+}
+
+/* ---------- Springy controls ---------- */
+
+:root .example-question,
+:root .button,
+:root .style-segments button,
+:root .feedback-button,
+:root .copy-answer,
+:root .file-picker-button,
+:root .concept-link {
+  transition: transform .18s var(--ease-spring), box-shadow .18s ease, background-color .15s ease, border-color .15s ease;
+}
+
+:root .example-question:hover:not(:disabled),
+:root .style-segments button:hover:not(:disabled),
+:root .feedback-button:hover,
+:root .copy-answer:hover,
+:root .file-picker-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(73, 52, 34, .1);
+}
+
+:root .button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+:root .example-question:active:not(:disabled),
+:root .button:active:not(:disabled),
+:root .style-segments button:active:not(:disabled),
+:root .feedback-button:active,
+:root .copy-answer:active,
+:root .file-picker-button:active {
+  transform: scale(.94);
+  box-shadow: none;
+  transition-duration: .06s;
+}
+
+/* ---------- Concept map ---------- */
+
+:root .concept-detail {
+  animation: slide-in .4s var(--ease-out);
+}
+
+:root .concept-relation {
+  animation: fade-up .4s var(--ease-out) both;
+}
+
+:root .concept-relation:nth-child(2) { animation-delay: .05s; }
+:root .concept-relation:nth-child(3) { animation-delay: .1s; }
+:root .concept-relation:nth-child(4) { animation-delay: .15s; }
+:root .concept-relation:nth-child(5) { animation-delay: .2s; }
+:root .concept-relation:nth-child(n+6) { animation-delay: .25s; }
+
+:root .concept-group {
+  animation: fade-up .4s var(--ease-out) both;
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- Reduced motion: keep every state, drop the movement ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  :root *,
+  :root *::before,
+  :root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  :root .loader-steam path {
+    opacity: .4;
+  }
+
+  :root .sprinkles,
+  :root .library-card li.is-fresh::after {
+    display: none;
+  }
+}

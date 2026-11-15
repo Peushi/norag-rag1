@@ -21,6 +21,7 @@ import { MAX_QUESTION_LENGTH } from "./types/api";
 import "../styles/base.css";
 import "../styles/option-1.css";
 import "../styles/ask-experience.css";
+import "../styles/delight.css";
 
 type AppView = "ask" | "words" | "evaluation";
 
@@ -140,9 +141,39 @@ export default function App() {
   }, [answerKind, answer]);
 
   /** From the concept map: prefill a question and take the reader to it. */
-  function askAboutConcept(concept: GraphConcept) {
-    setQuestion(`What should I know about ${concept.name}?`);
+  // Example questions are typed into the box (instantly if the user prefers
+  // reduced motion). Typing stops as soon as the user edits or picks another.
+  const typingTimer = useRef<number | null>(null);
+
+  function stopTyping() {
+    if (typingTimer.current !== null) {
+      window.clearInterval(typingTimer.current);
+      typingTimer.current = null;
+    }
+  }
+
+  function typeQuestion(text: string) {
+    stopTyping();
     questionRef.current?.focus();
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setQuestion(text);
+      return;
+    }
+    // About half a second whatever the length: a few characters per tick.
+    const perTick = Math.max(1, Math.ceil(text.length / 28));
+    let shown = 0;
+    setQuestion("");
+    typingTimer.current = window.setInterval(() => {
+      shown = Math.min(text.length, shown + perTick);
+      setQuestion(text.slice(0, shown));
+      if (shown >= text.length) stopTyping();
+    }, 18);
+  }
+
+  useEffect(() => stopTyping, []);
+
+  function askAboutConcept(concept: GraphConcept) {
+    typeQuestion(`What should I know about ${concept.name}?`);
     questionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
@@ -324,7 +355,10 @@ export default function App() {
             ref={questionRef}
             id="question"
             value={question}
-            onChange={(event) => setQuestion(event.target.value)}
+            onChange={(event) => {
+              stopTyping();
+              setQuestion(event.target.value);
+            }}
             onKeyDown={handleQuestionKeyDown}
             placeholder={
               isKestrel
@@ -356,7 +390,7 @@ export default function App() {
                 key={example}
                 type="button"
                 className="example-question"
-                onClick={() => setQuestion(example)}
+                onClick={() => typeQuestion(example)}
               >
                 {example}
               </button>
