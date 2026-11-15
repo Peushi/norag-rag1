@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { TraceDetail, TraceSpan } from "../types/api";
-import { getApiErrorMessage, isTraceDetail } from "../types/api";
+import {
+  describeRequestError,
+  getApiErrorMessage,
+  isTraceDetail,
+  readJson,
+} from "../types/api";
 import "../../styles/retriever-controls.css";
 
 type TraceDetailsProps = {
@@ -42,7 +47,7 @@ export function TraceDetails({ traceId }: TraceDetailsProps) {
       const response = await fetch(
         `/api/traces/${encodeURIComponent(activeTraceId)}`,
       );
-      const data: unknown = await response.json();
+      const data = await readJson(response);
       if (!response.ok) {
         throw new Error(
           getApiErrorMessage(data, "Could not load this trace."),
@@ -54,9 +59,7 @@ export function TraceDetails({ traceId }: TraceDetailsProps) {
       setTrace(data);
     } catch (loadError) {
       setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Could not load this trace.",
+        describeRequestError(loadError, "Could not load this trace."),
       );
     } finally {
       setIsLoading(false);

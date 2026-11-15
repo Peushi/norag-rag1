@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getApiErrorMessage } from "../types/api";
+import { describeRequestError, getApiErrorMessage, readJson } from "../types/api";
 import type { EvaluationDataset } from "../types/evaluations";
 import {
   isQuestionWordAnalysis,
@@ -44,7 +44,7 @@ export function useWordsAnalytics(
         overlap: String(overlap),
       });
       const response = await fetch(`/api/words?${params}`);
-      const data: unknown = await response.json();
+      const data = await readJson(response);
       if (!response.ok) {
         throw new Error(
           getApiErrorMessage(data, "Could not load corpus vocabulary."),
@@ -56,9 +56,7 @@ export function useWordsAnalytics(
       setVocabulary(data);
     } catch (requestError) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Could not load corpus vocabulary.",
+        describeRequestError(requestError, "Could not load corpus vocabulary."),
       );
     } finally {
       setIsLoadingVocabulary(false);
@@ -71,7 +69,7 @@ export function useWordsAnalytics(
       const response = await fetch(
         `/api/words/questions?dataset=${encodeURIComponent(dataset)}`,
       );
-      const data: unknown = await response.json();
+      const data = await readJson(response);
       if (!response.ok) {
         throw new Error(getApiErrorMessage(data, "Could not load questions."));
       }
@@ -81,9 +79,7 @@ export function useWordsAnalytics(
       setQuestions(data.questions);
     } catch (requestError) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Could not load questions.",
+        describeRequestError(requestError, "Could not load questions."),
       );
     }
   }
@@ -99,7 +95,7 @@ export function useWordsAnalytics(
           overlap: String(overlap),
         })}`,
       );
-      const data: unknown = await response.json();
+      const data = await readJson(response);
       if (!response.ok) {
         throw new Error(getApiErrorMessage(data, "Could not load matching chunks."));
       }
@@ -109,9 +105,7 @@ export function useWordsAnalytics(
       setWordChunks(data);
     } catch (requestError) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Could not load matching chunks.",
+        describeRequestError(requestError, "Could not load matching chunks."),
       );
     } finally {
       setIsLoadingChunks(false);
@@ -132,7 +126,7 @@ export function useWordsAnalytics(
           overlap,
         }),
       });
-      const data: unknown = await response.json();
+      const data = await readJson(response);
       if (!response.ok) {
         throw new Error(
           getApiErrorMessage(data, "Could not analyze question words."),
@@ -144,9 +138,7 @@ export function useWordsAnalytics(
       setQuestionAnalysis(data);
     } catch (requestError) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Could not analyze question words.",
+        describeRequestError(requestError, "Could not analyze question words."),
       );
     } finally {
       setIsAnalyzingQuestion(false);

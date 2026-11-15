@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  describeRequestError,
   getApiErrorMessage,
   getTraceId,
   isDocumentSummary,
@@ -17,7 +18,7 @@ export function useDocuments() {
     setIsLoading(true);
     try {
       const response = await fetch("/api/documents");
-      const data: unknown = await response.json();
+      const data = await readJson(response);
 
       if (!response.ok) {
         throw new Error(
@@ -39,9 +40,7 @@ export function useDocuments() {
       setStatus("");
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Could not load your documents.";
+        describeRequestError(error, "Could not load your documents.");
       setStatus(message);
       throw error;
     } finally {
@@ -77,9 +76,7 @@ export function useDocuments() {
     } catch (error) {
       return {
         message:
-          error instanceof Error
-            ? error.message
-            : `“${document.name}” could not be removed.`,
+          describeRequestError(error, `“${document.name}” could not be removed.`),
         tone: "error",
         traceId,
       };

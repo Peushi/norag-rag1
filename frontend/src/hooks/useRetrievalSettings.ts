@@ -1,5 +1,5 @@
 import { useReducer } from "react";
-import { getTraceId, readJson } from "../types/api";
+import { describeRequestError, getTraceId, readJson } from "../types/api";
 
 type SettingsValues = {
   chunk_size: string;
@@ -195,7 +195,7 @@ export function useRetrievalSettings() {
       dispatch({ type: "save/succeeded", response: data, traceId });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Settings could not be saved.";
+        describeRequestError(error, "Settings could not be saved.");
 
       dispatch({ type: "save/failed", message, traceId });
     }

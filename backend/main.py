@@ -82,6 +82,22 @@ FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
 
 app = FastAPI(title="BakeFix RAG API")
 
+# Real documents are a few KB; 1 MB stops a huge upload from filling memory.
+MAX_UPLOAD_BYTES = 1_000_000
+
+INTERNAL_ERROR_MESSAGE = "Something went wrong on the BakeFix server. Please try again."
+
+
+def _internal_error_response(headers: dict[str, str] | None = None) -> JSONResponse:
+    """A JSON error for crashes, without exception text (it can contain paths or data)."""
+    return JSONResponse(
+        status_code=500,
+        content=APIErrorResponse(error=APIErrorDetail(
+            code="INTERNAL_ERROR", message=INTERNAL_ERROR_MESSAGE, retryable=True,
+        )).model_dump(),
+        headers=headers,
+    )
+
 
 @app.middleware("http")
 async def trace_pipeline_requests(request: Request, call_next):
@@ -116,7 +132,8 @@ async def trace_pipeline_requests(request: Request, call_next):
                 )).model_dump(),
                 headers={"X-Trace-ID": trace.trace_id},
             )
-        raise
+        # A crashed question still returns JSON and keeps its trace ID.
+        return _internal_error_response({"X-Trace-ID": trace.trace_id})
 
     if is_indexing:
         if response.status_code >= 400:
@@ -135,9 +152,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content=APIErrorResponse(
-            error=APIErrorDetail(code="VALIDATION_ERROR", message="Requestvalidation failed.", retryable=False)
+            error=APIErrorDetail(code="VALIDATION_ERROR", message="Request validation failed.", retryable=False)
         ).model_dump(),
     )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    return _internal_error_response()
 
 
 @app.exception_handler(HTTPException)
@@ -415,7 +437,11 @@ async def upload_document(file: UploadFile = File(...)):
     if Path(safe_name).suffix.lower() not in {".md", ".txt"}:
         raise HTTPException(status_code=422, detail="Only .md and .txt documents are supported.")
 
-    content = await file.read()
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="This file is too large. Documents can be up to 1 MB.")
+    if not content.strip():
+        raise HTTPException(status_code=422, detail="This file is empty.")
     try:
         text = content.decode("utf-8")
         result = add_document_and_reindex(
@@ -425,9 +451,15 @@ async def upload_document(file: UploadFile = File(...)):
             overlap=APP_SETTINGS.overlap,
         )
     except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=422, detail="Documents must use UTF-8 encoding.") from exc
+        raise HTTPException(
+            status_code=422,
+            detail="This file isn’t plain text BakeFix can read. Save it as UTF-8 text and try again.",
+        ) from exc
     except FileExistsError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=409,
+            detail=f"“{safe_name}” is already in your library. Remove it first, or rename the file.",
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {**result, "filename": safe_name}
