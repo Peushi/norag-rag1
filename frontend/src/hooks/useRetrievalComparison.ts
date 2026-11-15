@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getApiErrorMessage } from "../types/api";
+import { describeRequestError, getApiErrorMessage, readJson } from "../types/api";
 import type { EvaluationDataset } from "../types/evaluations";
 import {
   isRetrievalComparison,
@@ -29,7 +29,7 @@ export function useRetrievalComparison(dataset: EvaluationDataset) {
           `/api/evaluations/retrieval/${experimentId}/results`,
           { signal: controller.signal },
         );
-        const data: unknown = await response.json();
+        const data = await readJson(response);
         if (!response.ok) {
           throw new Error(
             getApiErrorMessage(data, "Could not load retrieval comparison."),
@@ -44,9 +44,7 @@ export function useRetrievalComparison(dataset: EvaluationDataset) {
           return;
         }
         setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Could not load retrieval comparison.",
+          describeRequestError(requestError, "Could not load retrieval comparison."),
         );
       } finally {
         if (!controller.signal.aborted) {

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import {
+  describeRequestError,
   getApiErrorMessage,
   getTraceId,
   readJson,
@@ -275,9 +276,7 @@ function DocumentUpload({
     } catch (error) {
       onActivity({
         message:
-          error instanceof Error
-            ? error.message
-            : `“${fileName}” could not be added.`,
+          describeRequestError(error, `“${fileName}” could not be added.`),
         tone: "error",
         traceId,
       });

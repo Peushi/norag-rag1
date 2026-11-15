@@ -167,6 +167,25 @@ rejected. To be rewritten in my own words for the report.
   text (it could contain the very instructions we are holding back, and the
   backend deliberately never returns it).
 
+## Error handling (defence in depth)
+
+- **Every error is JSON in one shape** (`{error: {code, message, retryable}}`).
+  An unexpected crash returns `INTERNAL_ERROR` with a generic message, never
+  the exception text (it can contain file paths or document content). A
+  crashed question keeps its trace ID, so Details still explains what failed.
+- **"The server is down" is recognised, not guessed:** because the backend
+  always answers errors with JSON, a 5xx without JSON (the dev proxy's 502) or
+  a network failure in the browser means the backend is not reachable. Every
+  screen then says "BakeFix can't reach its server. Make sure the backend is
+  running" instead of "Failed to fetch" or "Could not load…".
+- **Upload limits:** files over 1 MB are refused with 413 before being read
+  into memory (our largest real document is 8.5 KB); empty files and
+  non-UTF-8 files get a message saying how to fix them; a duplicate name says
+  "Remove it first, or rename the file".
+- **Rejected:** showing backend messages as they are (they were written for
+  developers: "Document already exists"); a retry button on every error (it
+  only appears where retrying can help).
+
 ## Open points to resolve with the team
 
 - Person B: record the answer style in the `llm_generation` span; consider

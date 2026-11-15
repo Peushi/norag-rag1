@@ -292,13 +292,37 @@ export function getTraceId(response: Response, data: unknown): string | null {
   return response.headers.get("x-trace-id");
 }
 
-/** Read a JSON body without throwing when the server returned something else. */
+export const SERVER_UNREACHABLE_MESSAGE =
+  "BakeFix can’t reach its server. Make sure the backend is running, then try again.";
+
+const SERVER_UNREACHABLE_ERROR = {
+  error: { code: "SERVER_UNREACHABLE", message: SERVER_UNREACHABLE_MESSAGE, retryable: true },
+};
+
+/**
+ * Read a JSON body without throwing when the server returned something else.
+ *
+ * The backend always answers errors with JSON, so a 5xx without a JSON body
+ * comes from the dev proxy or a gateway: the backend itself is not reachable.
+ */
 export async function readJson(response: Response): Promise<unknown> {
   try {
     return await response.json();
   } catch {
-    return null;
+    return !response.ok && response.status >= 500 ? SERVER_UNREACHABLE_ERROR : null;
   }
+}
+
+/** A message for a failed request: our own messages, or plain text for network failures. */
+export function describeRequestError(error: unknown, fallback: string): string {
+  // fetch throws a TypeError ("Failed to fetch", "Load failed") when it cannot connect.
+  if (error instanceof TypeError) {
+    return SERVER_UNREACHABLE_MESSAGE;
+  }
+  if (error instanceof Error && !(error instanceof SyntaxError) && error.message) {
+    return error.message;
+  }
+  return fallback;
 }
 
 export function isDocumentSummary(value: unknown): value is DocumentSummary {

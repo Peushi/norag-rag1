@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  describeRequestError,
   getApiErrorMessage,
   getTraceId,
   isQuarantineItem,
@@ -33,9 +34,7 @@ export function useQuarantine() {
       setLoadError("");
     } catch (error) {
       setLoadError(
-        error instanceof Error
-          ? error.message
-          : "Documents held for review couldn’t be loaded.",
+        describeRequestError(error, "Documents held for review couldn’t be loaded."),
       );
     }
   }
@@ -79,7 +78,7 @@ export function useQuarantine() {
     } catch (error) {
       return {
         message:
-          error instanceof Error ? error.message : "The review couldn’t be saved.",
+          describeRequestError(error, "The review couldn’t be saved."),
         tone: "error",
         traceId,
       };

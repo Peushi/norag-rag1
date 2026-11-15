@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
+  describeRequestError,
   getApiErrorDetail,
   readJson,
   type ConceptNeighbour,
@@ -102,7 +103,7 @@ export function ConceptMap({ onAskAbout }: ConceptMapProps) {
       setListError("");
     } catch (error) {
       setListError(
-        error instanceof Error ? error.message : "The concept map couldn’t be loaded.",
+        describeRequestError(error, "The concept map couldn’t be loaded."),
       );
     } finally {
       setIsLoadingList(false);
@@ -377,9 +378,7 @@ function EvidencePassage({ chunkId }: { chunkId: string }) {
       } catch (loadError) {
         if (!cancelled) {
           setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "This source passage couldn’t be loaded.",
+            describeRequestError(loadError, "This source passage couldn’t be loaded."),
           );
         }
       }
@@ -411,7 +410,7 @@ function EvidencePassage({ chunkId }: { chunkId: string }) {
       setDocumentText(typeof text === "string" ? text : "");
     } catch (loadError) {
       setDocumentError(
-        loadError instanceof Error ? loadError.message : "This document couldn’t be opened.",
+        describeRequestError(loadError, "This document couldn’t be opened."),
       );
     } finally {
       setIsLoadingDocument(false);

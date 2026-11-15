@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getApiErrorMessage } from "../types/api";
+import { describeRequestError, getApiErrorMessage, readJson } from "../types/api";
 import {
   isEvaluationResults,
   isEvaluationRun,
@@ -26,7 +26,7 @@ export function useEvaluationRunner() {
     async function refreshRun() {
       try {
         const response = await fetch(`/api/evaluations/${runId}`);
-        const data: unknown = await response.json();
+        const data = await readJson(response);
         if (!response.ok) {
           throw new Error(
             getApiErrorMessage(data, "Could not check evaluation status."),
@@ -69,9 +69,7 @@ export function useEvaluationRunner() {
       } catch (requestError) {
         if (!cancelled) {
           setError(
-            requestError instanceof Error
-              ? requestError.message
-              : "Could not check evaluation status.",
+            describeRequestError(requestError, "Could not check evaluation status."),
           );
         }
       }
@@ -96,7 +94,7 @@ export function useEvaluationRunner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
       });
-      const data: unknown = await response.json();
+      const data = await readJson(response);
       if (!response.ok) {
         throw new Error(
           getApiErrorMessage(data, "Could not start the evaluation."),
@@ -108,9 +106,7 @@ export function useEvaluationRunner() {
       setRun(data);
     } catch (requestError) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Could not start the evaluation.",
+        describeRequestError(requestError, "Could not start the evaluation."),
       );
     } finally {
       setIsStarting(false);
