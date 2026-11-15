@@ -9,14 +9,16 @@ teams, and error codes connect.
 
 ## Using BakeFix
 
-1. **Add documents** in "Your documents": a text (`.txt`) or Markdown (`.md`)
-   file, up to 1 MB. Files that look like they contain instructions aimed at
+1. **Add documents** in "Your documents": drag a text (`.txt`) or Markdown
+   (`.md`) file onto the box, or choose one; up to 1 MB. Files that look like they contain instructions aimed at
    the assistant are held for review instead of being added; open them under
    "Held for review" and decide.
 2. **Ask a question**, or pick one of the examples. "Answer style" sets the
    reading level, tone, and length, or "Explain it like I'm 12".
 3. **Read the answer and its sources.** Numbered sources show the exact
-   passages used; "Words to know" explains specialist terms.
+   passages used; "Words to know" explains specialist terms, and its `[2]`
+   highlights the source it came from. "Copy answer" copies the answer with
+   its sources; "Was this helpful?" keeps your rating in this browser only.
 4. **See how it was made:** "Show the steps behind this answer" opens the
    trace (what was searched, what was found, model, tokens, and cost).
 5. **Try the Kestrel sample** from "Search in" to explore the Concept Map and

@@ -6,7 +6,10 @@ import type {
   GraphEntity,
   GraphPath,
 } from "../types/api";
+import { useState, type CSSProperties } from "react";
 import { SafeMarkdown } from "./SafeMarkdown";
+import { AnswerActions } from "./AnswerActions";
+import { BakingLoader } from "./BakingLoader";
 import { describeStyle } from "./AnswerStyleControls";
 import { TraceDetails } from "./TraceDetails";
 import { documentCategory, documentTitle } from "../utils/documentNames";
@@ -52,15 +55,11 @@ export function cleanQuote(text: string, position = 0): string {
 }
 
 export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
+  // Source number highlighted from the glossary ([2] → source 2).
+  const [activeSource, setActiveSource] = useState<number | null>(null);
+
   if (answer.kind === "loading") {
-    return (
-      <div className="answer-placeholder">
-        <span className="placeholder-mark" aria-hidden="true">
-          ~
-        </span>
-        <p>Reading your documents and writing an answer… This usually takes a few seconds.</p>
-      </div>
-    );
+    return <BakingLoader />;
   }
 
   if (answer.kind === "error") {
@@ -93,8 +92,19 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
     );
   }
 
+  function jumpToSource(number: number) {
+    const item = document.getElementById(`source-${number}`);
+    if (!item) return;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    item.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" });
+    item.classList.remove("flash");
+    // Restart the highlight animation even when the same source is chosen twice.
+    void item.offsetWidth;
+    item.classList.add("flash");
+  }
+
   return (
-    <>
+    <div className="answer-reveal" key={answer.trace_id ?? answer.text.slice(0, 40)}>
       <div className="answer-title">
         {answer.kind === "not_found" ? "Not in your documents" : "Answer"}
       </div>
@@ -125,7 +135,12 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
           <h3>Where this comes from</h3>
           <ul>
             {answer.references.map((reference, index) => (
-              <li key={`${reference.chunk_id}-${reference.position}`}>
+              <li
+                key={`${reference.chunk_id}-${reference.position}`}
+                id={`source-${index + 1}`}
+                className={activeSource === index + 1 ? "is-highlighted" : undefined}
+                style={{ "--i": index } as CSSProperties}
+              >
                 <span className="reference-meta" title={reference.source}>
                   [{index + 1}] {documentTitle(reference.source)}
                   {documentCategory(reference.source)
@@ -142,7 +157,19 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
         </div>
       )}
       {answer.kind === "answered" && answer.glossary.length > 0 && (
-        <Glossary entries={answer.glossary} references={answer.references} />
+        <Glossary
+          entries={answer.glossary}
+          references={answer.references}
+          onHighlight={setActiveSource}
+          onJump={jumpToSource}
+        />
+      )}
+      {answer.kind === "answered" && (
+        <AnswerActions
+          text={answer.text}
+          references={answer.references}
+          traceId={answer.trace_id}
+        />
       )}
       {answer.retrieval && <RetrievalDetails retrieval={answer.retrieval} />}
       <TraceDetails
@@ -150,7 +177,7 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
         traceId={answer.trace_id}
         label="Show the steps behind this answer"
       />
-    </>
+    </div>
   );
 }
 
@@ -158,9 +185,13 @@ export function AnswerPanel({ answer, onRetry }: AnswerPanelProps) {
 function Glossary({
   entries,
   references,
+  onHighlight,
+  onJump,
 }: {
   entries: GlossaryEntry[];
   references: AnswerReference[];
+  onHighlight: (number: number | null) => void;
+  onJump: (number: number) => void;
 }) {
   const sourceNumber = new Map(
     references.map((reference, index) => [reference.chunk_id, index + 1]),
@@ -178,13 +209,21 @@ function Glossary({
               <dd>
                 {entry.definition}
                 {number !== undefined && (
-                  <span
-                    className="glossary-source"
-                    title={`Defined from source [${number}]`}
-                  >
+                  <>
                     {" "}
-                    [{number}]
-                  </span>
+                    <button
+                      type="button"
+                      className="glossary-source"
+                      aria-label={`Show source ${number}`}
+                      onMouseEnter={() => onHighlight(number)}
+                      onMouseLeave={() => onHighlight(null)}
+                      onFocus={() => onHighlight(number)}
+                      onBlur={() => onHighlight(null)}
+                      onClick={() => onJump(number)}
+                    >
+                      [{number}]
+                    </button>
+                  </>
                 )}
               </dd>
             </div>

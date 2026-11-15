@@ -185,7 +185,7 @@ export function ConceptMap({ onAskAbout }: ConceptMapProps) {
       </div>
 
       {neighbourhood ? (
-        <div className="concept-detail">
+        <div className="concept-detail" key={neighbourhood.concept.id}>
           <div className="concept-nav">
             <button type="button" className="back-to-ask" onClick={closeConcept}>
               <span aria-hidden="true">←</span> All concepts

@@ -1,4 +1,10 @@
-import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+} from "react";
 import {
   describeRequestError,
   getApiErrorMessage,
@@ -33,6 +39,14 @@ export function DocumentLibrary({
   const [activity, setActivity] = useState<IndexingActivity | null>(null);
   const [busyDocumentId, setBusyDocumentId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  // The document just added, shown with a short "fresh from the oven" shimmer.
+  const [freshId, setFreshId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!freshId) return;
+    const timer = window.setTimeout(() => setFreshId(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [freshId]);
   const {
     heldItems,
     quarantineLoadError,
@@ -88,6 +102,7 @@ export function DocumentLibrary({
         onUploaded={onUploaded}
         onQuarantined={loadQuarantine}
         onActivity={setActivity}
+        onAdded={setFreshId}
       />
 
       {activity && <IndexingActivityNote activity={activity} />}
@@ -126,7 +141,10 @@ export function DocumentLibrary({
           ) : (
             <ul>
               {documents.map((document) => (
-                <li key={document.id}>
+                <li
+                  key={document.id}
+                  className={document.id === freshId ? "is-fresh" : undefined}
+                >
                   <span className="document-name" title={document.name}>
                     {documentTitle(document.name)}
                     {documentCategory(document.name) && (
@@ -205,15 +223,56 @@ type DocumentUploadProps = {
   onUploaded: () => Promise<void>;
   onQuarantined: () => Promise<void>;
   onActivity: (activity: IndexingActivity | null) => void;
+  onAdded: (documentId: string) => void;
 };
+
+const ACCEPTED_FILE = /\.(md|txt)$/i;
 
 function DocumentUpload({
   onUploaded,
   onQuarantined,
   onActivity,
+  onAdded,
 }: DocumentUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  // Bumped to replay the gentle "held for review" nudge.
+  const [nudge, setNudge] = useState(0);
+
+  function chooseFile(next: File | null) {
+    if (next && !ACCEPTED_FILE.test(next.name)) {
+      setFile(null);
+      onActivity({
+        message: `“${next.name}” can’t be added: choose a text (.txt) or Markdown (.md) file.`,
+        tone: "error",
+        traceId: null,
+      });
+      return;
+    }
+    setFile(next);
+    onActivity(null);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLFormElement>) {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLFormElement>) {
+    // Ignore moves between child elements of the drop zone.
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDragging(false);
+    }
+  }
+
+  function handleDrop(event: DragEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsDragging(false);
+    chooseFile(event.dataTransfer.files?.[0] ?? null);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -259,6 +318,7 @@ function DocumentUpload({
       form.reset();
 
       if (data.status === "quarantined") {
+        setNudge((count) => count + 1);
         await onQuarantined();
         const count = data.findings?.length ?? 0;
         onActivity({
@@ -273,6 +333,7 @@ function DocumentUpload({
       }
 
       await onUploaded().catch(() => undefined);
+      onAdded(fileName);
       onActivity({
         message: `“${fileName}” is ready to search.`,
         tone: "success",
@@ -291,12 +352,23 @@ function DocumentUpload({
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setFile(event.target.files?.[0] ?? null);
-    onActivity(null);
+    chooseFile(event.target.files?.[0] ?? null);
   }
 
   return (
-    <form className="upload-box" onSubmit={(event) => void handleSubmit(event)}>
+    <form
+      className={[
+        "upload-box",
+        isDragging ? "is-dragging" : "",
+        nudge > 0 ? "is-held" : "",
+      ].join(" ").trim()}
+      key={nudge > 0 ? `held-${nudge}` : "upload"}
+      onSubmit={(event) => void handleSubmit(event)}
+      onDragEnter={handleDragOver}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <span className="upload-title" id="upload-title">Add a document</span>
       <div className="file-picker">
         <input
@@ -316,7 +388,8 @@ function DocumentUpload({
         </span>
       </div>
       <p className="upload-hint" id="upload-hint">
-        A text file (.txt) or Markdown file (.md), up to 1 MB.
+        Drop a file here, or choose one. A text file (.txt) or Markdown file
+        (.md), up to 1 MB.
       </p>
       <button
         className="button upload-button"
