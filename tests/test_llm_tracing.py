@@ -395,6 +395,23 @@ class LLMTracingTests(unittest.TestCase):
                 [self.chunk, second_chunk],
             )
 
+    def test_not_found_with_empty_answer_text_is_a_refusal_not_an_error(self):
+        # Seen with real Gemini on an off-topic question: status not_found, answer "".
+        content = json.dumps({"status": "not_found", "answer": "", "cited_chunk_ids": [], "glossary": []})
+
+        with patch.object(llm_service, "client", self.mock_client(content=content)):
+            result = llm_service.generate_answer("How long should I boil pasta?", [self.chunk])
+
+        self.assertEqual(result.status, "not_found")
+        self.assertEqual(result.answer, llm_service.NOT_FOUND_ANSWER)
+
+    def test_answered_with_empty_answer_text_is_still_rejected(self):
+        content = json.dumps({"status": "answered", "answer": " ", "cited_chunk_ids": ["chunk-1"]})
+
+        with patch.object(llm_service, "client", self.mock_client(content=content)):
+            with self.assertRaises(llm_service.LLMResponseError):
+                llm_service.generate_answer("How much flour is required?", [self.chunk])
+
     def test_not_found_response_has_empty_glossary(self):
         response_content = json.dumps({
             "status": "not_found",

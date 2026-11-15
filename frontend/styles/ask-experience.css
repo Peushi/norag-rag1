@@ -676,3 +676,135 @@
     flex-wrap: wrap;
   }
 }
+
+/* Character count, shown only near the question length limit. */
+:root .question-length {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+:root .question-length.too-long {
+  color: var(--terracotta-dark);
+  font-weight: 600;
+}
+
+/* Images and links from answers or documents are shown as text only (SafeMarkdown). */
+:root .md-blocked {
+  color: var(--muted);
+  font-style: italic;
+}
+
+:root .md-link {
+  text-decoration: underline dotted;
+}
+
+:root .md-link-address {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* 1. Grid cards must not grow to fit one long word or URL (phones scrolled sideways). */
+:root .workspace > *,
+:root .card {
+  min-width: 0;
+}
+
+:root .answer-box,
+:root .reference-quote,
+:root .answer-markdown,
+:root .glossary,
+:root .concept-passage {
+  overflow-wrap: anywhere;
+}
+
+/* 2. The answer box takes focus when an answer arrives so screen readers
+   announce it. It is not a control, so it shows no focus ring. */
+:root .answer-box {
+  scroll-margin-top: 16px;
+}
+
+:root .answer-box:focus,
+:root .answer-box:focus-visible {
+  outline: none;
+}
+
+/* 3. Readable document names with a small category. */
+:root .document-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+:root .document-category {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* 5. Styled file picker in place of the browser's default control. */
+/* A utility: !important so general input rules (width: 100%) cannot undo it. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+:root .upload-title {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+:root .file-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+:root .file-picker-button {
+  flex: none;
+  margin: 0;
+  padding: 8px 14px;
+  border: 1.5px solid var(--terracotta-dark);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--terracotta-dark);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+:root .file-picker-button:hover {
+  background: var(--rose-wash);
+}
+
+:root .file-picker input:focus-visible + .file-picker-button {
+  outline: 2px solid var(--terracotta-dark);
+  outline-offset: 2px;
+}
+
+:root .file-picker-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root .upload-hint {
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+}

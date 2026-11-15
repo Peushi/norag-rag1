@@ -21,6 +21,9 @@ export type AnswerStyle = {
   eli12: boolean;
 };
 
+/** Same limit as MAX_QUESTION_LENGTH in backend/schemas.py. */
+export const MAX_QUESTION_LENGTH = 2000;
+
 export const DEFAULT_ANSWER_STYLE: AnswerStyle = {
   level: "beginner",
   tone: "friendly",

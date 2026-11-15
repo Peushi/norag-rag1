@@ -1,0 +1,241 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-15T00:00:00Z",
+    "component": {
+      "type": "application",
+      "bom-ref": "app:bakefix",
+      "name": "BakeFix",
+      "version": "4.0.0",
+      "description": "Question answering over the user's own kitchen documents (recipes, baking notes, appliance manuals), with sources, traces, and a Kestrel sample knowledge base."
+    },
+    "properties": [
+      {
+        "name": "bakefix:scanned",
+        "value": "pip-audit on requirements.lock.txt; npm audit on frontend/package-lock.json"
+      }
+    ]
+  },
+  "vulnerabilities": [
+    {
+      "id": "PYSEC-2026-311",
+      "source": {
+        "name": "pip-audit"
+      },
+      "description": "A pre-authentication, code injection vulnerability in version 1.0.0 or later of the ChromaDB Python project allows an unauthenticated attacker to run arbitrary code on the server by sending a malicious model repository and trust_remote_code set to true in the /api/v2/tenants/{tenant}/databases/{db}/collections endpoint.",
+      "affects": [
+        {
+          "ref": "urn:cdx:4ac26c61-3f6a-52df-a44d-1e6bcb1ad7a9/1#pkg:pypi/chromadb@1.5.9"
+        }
+      ],
+      "analysis": {
+        "state": "not_affected",
+        "detail": "Remote code execution through the Chroma HTTP server's collections endpoint with trust_remote_code. BakeFix embeds Chroma in-process with chromadb.PersistentClient (backend/vector_store.py) and never starts the Chroma server, so the endpoint does not exist. BakeFix's embedding function does not set trust_remote_code. Re-check if Chroma is ever run as a server.",
+        "justification": "code_not_reachable",
+        "response": [
+          "will_not_fix"
+        ],
+        "lastUpdated": "2026-11-15T00:00:00Z"
+      },
+      "references": [
+        {
+          "id": "CVE-2026-45829",
+          "source": {
+            "name": "alias"
+          }
+        },
+        {
+          "id": "GHSA-f4j7-r4q5-qw2c",
+          "source": {
+            "name": "alias"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PYSEC-2026-3814",
+      "source": {
+        "name": "pip-audit"
+      },
+      "description": "A code injection vulnerability in version 0.4.17 or later of the ChromaDB Python project allows an authenticated attacker to run arbitrary code on the server by sending a malicious model repository and trust_remote_code set to true in the /api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id} if they have the UPDATE_COLLECTION permission.",
+      "affects": [
+        {
+          "ref": "urn:cdx:4ac26c61-3f6a-52df-a44d-1e6bcb1ad7a9/1#pkg:pypi/chromadb@1.5.9"
+        }
+      ],
+      "analysis": {
+        "state": "not_affected",
+        "detail": "Same server endpoint as PYSEC-2026-311, for users with UPDATE_COLLECTION permission. Not reachable: no Chroma server and no Chroma users in BakeFix.",
+        "justification": "code_not_reachable",
+        "response": [
+          "will_not_fix"
+        ],
+        "lastUpdated": "2026-11-15T00:00:00Z"
+      },
+      "references": [
+        {
+          "id": "CVE-2026-45833",
+          "source": {
+            "name": "alias"
+          }
+        },
+        {
+          "id": "GHSA-36p7-vc44-83pf",
+          "source": {
+            "name": "alias"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PYSEC-2026-3815",
+      "source": {
+        "name": "pip-audit"
+      },
+      "description": "The SimpleRBACAuthorizationProvider authorization provider in versions 0.5.0 or later of the ChromaDB Python project evaluates whether a user holds a given permission but never checks which tenant, database, or collection that permission applies to allowing users to perform cross tenant actions.",
+      "affects": [
+        {
+          "ref": "urn:cdx:4ac26c61-3f6a-52df-a44d-1e6bcb1ad7a9/1#pkg:pypi/chromadb@1.5.9"
+        }
+      ],
+      "analysis": {
+        "state": "not_affected",
+        "detail": "Cross-tenant access in Chroma's SimpleRBACAuthorizationProvider. Applies only to a Chroma server configured with that provider; BakeFix uses a single local embedded database with no authorization provider.",
+        "justification": "requires_configuration",
+        "response": [
+          "will_not_fix"
+        ],
+        "lastUpdated": "2026-11-15T00:00:00Z"
+      },
+      "references": [
+        {
+          "id": "CVE-2026-45831",
+          "source": {
+            "name": "alias"
+          }
+        },
+        {
+          "id": "GHSA-xph7-9rjv-w5fr",
+          "source": {
+            "name": "alias"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PYSEC-2026-3813",
+      "source": {
+        "name": "pip-audit"
+      },
+      "description": "A lack of authorization validation in version 0.4.17 or later of the ChromaDB Python project allows any authenticated users to arbitrarily read, write, update, or delete data in any tenant's collection regardless of which tenant they belong to.",
+      "affects": [
+        {
+          "ref": "urn:cdx:4ac26c61-3f6a-52df-a44d-1e6bcb1ad7a9/1#pkg:pypi/chromadb@1.5.9"
+        }
+      ],
+      "analysis": {
+        "state": "not_affected",
+        "detail": "Missing tenant checks for authenticated users of a multi-tenant Chroma server. BakeFix has one local user and no Chroma server.",
+        "justification": "requires_configuration",
+        "response": [
+          "will_not_fix"
+        ],
+        "lastUpdated": "2026-11-15T00:00:00Z"
+      },
+      "references": [
+        {
+          "id": "CVE-2026-45830",
+          "source": {
+            "name": "alias"
+          }
+        },
+        {
+          "id": "GHSA-2wm9-hf6c-p5cr",
+          "source": {
+            "name": "alias"
+          }
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-49272",
+      "source": {
+        "name": "pip-audit"
+      },
+      "description": "Device-code grant accepted a bogus device_code. Pulled in indirectly (requests-oauthlib); BakeFix runs no OAuth server, so it was not reachable, but a fixed release exists, so we upgraded.",
+      "affects": [
+        {
+          "ref": "urn:cdx:4ac26c61-3f6a-52df-a44d-1e6bcb1ad7a9/1#pkg:pypi/oauthlib@4.0.1",
+          "versions": [
+            {
+              "version": "4.0.0",
+              "status": "affected"
+            },
+            {
+              "version": "4.0.1",
+              "status": "unaffected"
+            }
+          ]
+        }
+      ],
+      "analysis": {
+        "state": "resolved",
+        "detail": "Device-code grant accepted a bogus device_code. Pulled in indirectly (requests-oauthlib); BakeFix runs no OAuth server, so it was not reachable, but a fixed release exists, so we upgraded.",
+        "response": [
+          "update"
+        ],
+        "lastUpdated": "2026-11-15T00:00:00Z"
+      },
+      "references": [
+        {
+          "id": "GHSA-3jp2-3mrg-2vxc",
+          "source": {
+            "name": "alias"
+          }
+        }
+      ],
+      "recommendation": "Upgrade to 4.0.1."
+    },
+    {
+      "id": "CVE-2026-126360",
+      "source": {
+        "name": "pip-audit"
+      },
+      "description": "ReDoS in TraceContextTextMapPropagator.extract() on a crafted traceparent header. FastAPI's telemetry would call it on every request, but only when an OpenTelemetry tracer provider is configured; we checked at runtime that none is (ProxyTracerProvider, telemetry disabled). A fixed release exists, so we upgraded the OpenTelemetry packages together.",
+      "affects": [
+        {
+          "ref": "urn:cdx:4ac26c61-3f6a-52df-a44d-1e6bcb1ad7a9/1#pkg:pypi/opentelemetry-api@1.45.2",
+          "versions": [
+            {
+              "version": "1.45.1",
+              "status": "affected"
+            },
+            {
+              "version": "1.45.2",
+              "status": "unaffected"
+            }
+          ]
+        }
+      ],
+      "analysis": {
+        "state": "resolved",
+        "detail": "ReDoS in TraceContextTextMapPropagator.extract() on a crafted traceparent header. FastAPI's telemetry would call it on every request, but only when an OpenTelemetry tracer provider is configured; we checked at runtime that none is (ProxyTracerProvider, telemetry disabled). A fixed release exists, so we upgraded the OpenTelemetry packages together.",
+        "response": [
+          "update"
+        ],
+        "lastUpdated": "2026-11-15T00:00:00Z"
+      },
+      "references": [
+        {
+          "id": "GHSA-mf5v-w3w3-f6cg",
+          "source": {
+            "name": "alias"
+          }
+        }
+      ],
+      "recommendation": "Upgrade to 1.45.2."
+    }
+  ]
+}

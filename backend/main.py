@@ -1,7 +1,9 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from urllib.parse import urlsplit
 from typing import Literal
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
@@ -143,6 +145,47 @@ async def trace_pipeline_requests(request: Request, call_next):
     trace.finish("failed" if response.status_code >= 400 else "completed")
     response.headers["X-Trace-ID"] = trace.trace_id
     return response
+
+
+# Requests that change data (upload, delete, settings, quarantine, ask) are
+# refused when a browser sends them from another website. Without this, any
+# page the user visits could post a form to http://127.0.0.1:8000 and add a
+# document to their library. Requests without an Origin header (curl, tests,
+# same-origin navigation) are allowed: the risk is cross-site browser requests.
+LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
+EXTRA_ALLOWED_ORIGINS = {
+    origin.strip().rstrip("/")
+    for origin in os.getenv("BAKEFIX_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+}
+STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def is_allowed_origin(origin: str | None) -> bool:
+    if origin is None:
+        return True
+    if origin.rstrip("/") in EXTRA_ALLOWED_ORIGINS:
+        return True
+    parsed = urlsplit(origin)
+    return parsed.scheme in {"http", "https"} and parsed.hostname in LOCAL_HOSTNAMES
+
+
+# Registered after the trace middleware, so it runs first: refused requests
+# never create a trace or touch the index.
+@app.middleware("http")
+async def refuse_cross_site_changes(request: Request, call_next):
+    if request.method in STATE_CHANGING_METHODS and not is_allowed_origin(
+        request.headers.get("origin")
+    ):
+        return JSONResponse(
+            status_code=403,
+            content=APIErrorResponse(error=APIErrorDetail(
+                code="FORBIDDEN_ORIGIN",
+                message="BakeFix only accepts changes from its own pages.",
+                retryable=False,
+            )).model_dump(),
+        )
+    return await call_next(request)
 
 
 # ERROR HANDLERS

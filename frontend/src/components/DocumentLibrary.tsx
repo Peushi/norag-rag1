@@ -11,6 +11,7 @@ import {
 import { useQuarantine } from "../hooks/useQuarantine";
 import { QuarantineReview } from "./QuarantineReview";
 import { TraceDetails } from "./TraceDetails";
+import { documentCategory, documentTitle } from "../utils/documentNames";
 
 type DocumentLibraryProps = {
   documents: DocumentSummary[];
@@ -60,7 +61,7 @@ export function DocumentLibrary({
     setConfirmingId(null);
     setBusyDocumentId(document.id);
     setActivity({
-      message: `Removing “${document.name}” and updating search…`,
+      message: `Removing “${documentTitle(document.name)}” and updating search…`,
       tone: "success",
       traceId: null,
     });
@@ -119,16 +120,20 @@ export function DocumentLibrary({
             </div>
           ) : documents.length === 0 ? (
             <div className="empty-library">
-              No documents yet. Add a recipe, note or appliance manual as a
-              <strong> .md</strong> or <strong>.txt</strong> file, then ask your
-              first question.
+              No documents yet. Add a recipe, note or appliance manual saved
+              as a text file, then ask your first question.
             </div>
           ) : (
             <ul>
               {documents.map((document) => (
                 <li key={document.id}>
                   <span className="document-name" title={document.name}>
-                    {document.name}
+                    {documentTitle(document.name)}
+                    {documentCategory(document.name) && (
+                      <span className="document-category">
+                        {documentCategory(document.name)}
+                      </span>
+                    )}
                   </span>
                   {confirmingId === document.id ? (
                     <span className="delete-confirm">
@@ -152,7 +157,7 @@ export function DocumentLibrary({
                     <button
                       type="button"
                       className="delete-doc"
-                      aria-label={`Remove ${document.name}`}
+                      aria-label={`Remove ${documentTitle(document.name)}`}
                       disabled={busyDocumentId !== null}
                       onClick={() => setConfirmingId(document.id)}
                     >
@@ -292,14 +297,27 @@ function DocumentUpload({
 
   return (
     <form className="upload-box" onSubmit={(event) => void handleSubmit(event)}>
-      <label htmlFor="file-input">Choose a document (.md or .txt)</label>
-      <input
-        type="file"
-        id="file-input"
-        name="file"
-        accept=".txt,.md,text/plain,text/markdown"
-        onChange={handleFileChange}
-      />
+      <span className="upload-title" id="upload-title">Add a document</span>
+      <div className="file-picker">
+        <input
+          type="file"
+          id="file-input"
+          name="file"
+          className="visually-hidden"
+          accept=".txt,.md,text/plain,text/markdown"
+          aria-describedby="upload-hint"
+          onChange={handleFileChange}
+        />
+        <label htmlFor="file-input" className="file-picker-button">
+          Choose a file
+        </label>
+        <span className="file-picker-name" aria-live="polite">
+          {file ? file.name : "No file chosen yet"}
+        </span>
+      </div>
+      <p className="upload-hint" id="upload-hint">
+        A text file (.txt) or Markdown file (.md), up to 1 MB.
+      </p>
       <button
         className="button upload-button"
         type="submit"

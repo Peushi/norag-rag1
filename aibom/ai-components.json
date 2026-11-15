@@ -1,0 +1,320 @@
+{
+  "_comment": "Hand-maintained facts for the AI-BOM. Versions, revisions, and hashes that can be read from the code, the lock files, or the files themselves are filled in by scripts/generate_aibom.py, not here.",
+  "application": {
+    "name": "BakeFix",
+    "version": "4.0.0",
+    "description": "Question answering over the user's own kitchen documents (recipes, baking notes, appliance manuals), with sources, traces, and a Kestrel sample knowledge base."
+  },
+  "embedding_model": {
+    "bom_ref": "model:all-MiniLM-L6-v2",
+    "description": "Turns passages and questions into 384-dimensional vectors for dense (semantic) search. Runs locally; no text leaves the machine.",
+    "license": "Apache-2.0",
+    "weights_file": "model.safetensors",
+    "weights_sha256": "53aa51172d142c89d9012cce15ae4d6cc0ca6895895114379cacb4fab128d9db",
+    "model_card": {
+      "modelParameters": {
+        "task": "sentence-similarity",
+        "architectureFamily": "transformer",
+        "modelArchitecture": "BertModel, 6 layers, hidden size 384, mean pooling",
+        "inputs": [
+          {
+            "format": "English text, truncated at 256 word pieces"
+          }
+        ],
+        "outputs": [
+          {
+            "format": "384-dimensional embedding vector, compared by cosine distance"
+          }
+        ],
+        "approach": {
+          "type": "self-supervised"
+        },
+        "datasets": [
+          {
+            "type": "dataset",
+            "name": "Sentence pairs used to fine-tune all-MiniLM-L6-v2",
+            "description": "Over 1 billion sentence pairs (Reddit comments 2015-2018, S2ORC, WikiAnswers, Stack Exchange, MS MARCO, and others) with a contrastive objective, per the model's published card. Not inspected by us."
+          }
+        ]
+      },
+      "quantitativeAnalysis": {
+        "performanceMetrics": [
+          {
+            "type": "hit_rate@1",
+            "value": "0.500",
+            "slice": "Baking corpus, 10 answerable questions, dense only, chunks 800/80 (evaluation/results/v3/baking_dense_800_80_summary.jsonl)"
+          },
+          {
+            "type": "hit_rate@5",
+            "value": "1.000",
+            "slice": "Baking corpus, same run"
+          },
+          {
+            "type": "evidence_recall@5",
+            "value": "0.792",
+            "slice": "Baking corpus, same run"
+          },
+          {
+            "type": "hit_rate@1",
+            "value": "0.625",
+            "slice": "Kestrel KB, 8 answerable questions, dense only, chunks 800/80 (evaluation/results/v3/kestrel_dense_800_80_summary.jsonl)"
+          },
+          {
+            "type": "hit_rate@5",
+            "value": "0.875",
+            "slice": "Kestrel KB, same run"
+          },
+          {
+            "type": "evidence_recall@5",
+            "value": "0.812",
+            "slice": "Kestrel KB, same run"
+          }
+        ],
+        "graphics": {
+          "description": "No graphics. Small evaluation sets (8 to 10 questions): one question changes hit rate by 0.10 to 0.125, so these are indications, not precise scores."
+        }
+      },
+      "considerations": {
+        "users": [
+          "Home cooks using BakeFix on their own computer"
+        ],
+        "useCases": [
+          "Ranking document passages by meaning for a question, fused with BM25 keyword search"
+        ],
+        "technicalLimitations": [
+          "Trained mainly on English web text (Reddit, Stack Exchange, and other sentence pairs, over 1 billion in total, per the model's own card); other languages retrieve poorly.",
+          "Text after 256 word pieces is ignored, so the end of an 800-character passage can be missed.",
+          "Weak on exact identifiers such as error codes (KST-5031); BM25 is used alongside it for that reason."
+        ],
+        "ethicalConsiderations": [
+          {
+            "name": "Training data may carry biases from web text",
+            "mitigationStrategy": "Used only to rank passages; every answer cites the passages it used, so a poor ranking is visible."
+          }
+        ],
+        "performanceTradeoffs": [
+          "Small (about 22 million parameters, 6 layers) so it embeds on a laptop CPU in milliseconds, at lower accuracy than larger embedding models.",
+          "The right passage is in the top 5 far more often than at rank 1, so BakeFix gives the model several passages instead of one."
+        ],
+        "fairnessAssessments": [
+          {
+            "groupAtRisk": "People who write questions or documents in languages other than English",
+            "benefits": "Fast, private search for English kitchen documents",
+            "harms": "Poorer retrieval, so more 'not in your documents' answers",
+            "mitigationStrategy": "BM25 keyword search runs alongside it; the limitation is stated in the README and report."
+          }
+        ],
+        "environmentalConsiderations": {
+          "properties": [
+            {
+              "name": "bakefix:energy",
+              "value": "Runs locally on CPU; re-embedding the bundled corpus (68 baking chunks) takes seconds. No GPU or data-centre use."
+            }
+          ]
+        }
+      }
+    }
+  },
+  "pii_model": {
+    "bom_ref": "model:en_core_web_sm",
+    "name": "en_core_web_sm",
+    "description": "spaCy English pipeline used by Microsoft Presidio to find personal data (names, places) in the question before it is sent to Gemini. Runs locally.",
+    "license": "MIT",
+    "model_card": {
+      "modelParameters": {
+        "task": "token-classification",
+        "architectureFamily": "convolutional neural network (spaCy tok2vec)",
+        "modelArchitecture": "spaCy small English pipeline with named-entity recognition",
+        "inputs": [
+          {
+            "format": "English text (the user's question only)"
+          }
+        ],
+        "outputs": [
+          {
+            "format": "Entity spans (PERSON, LOCATION, ...) that Presidio replaces with placeholders"
+          }
+        ],
+        "approach": {
+          "type": "supervised"
+        },
+        "datasets": [
+          {
+            "type": "dataset",
+            "name": "spaCy en_core_web_sm training data",
+            "description": "OntoNotes 5, ClearNLP Constituent-to-Dependency Conversion, and WordNet 3.0, per the model's meta.json. Not inspected by us."
+          }
+        ]
+      },
+      "considerations": {
+        "useCases": [
+          "Redacting personal data from questions before they leave the machine"
+        ],
+        "technicalLimitations": [
+          "Small model: misses some names and tags some product names as people (e.g. 'Vellora' was tagged PERSON in V4 testing). For this reason it runs on the question only; document passages get email and phone patterns only.",
+          "English only."
+        ],
+        "ethicalConsiderations": [
+          {
+            "name": "Personal data that is not detected is sent to Google",
+            "mitigationStrategy": "Documented as an accepted risk; users are told not to upload documents they would not share with Google."
+          }
+        ],
+        "performanceTradeoffs": [
+          "Small and fast (runs on every question in milliseconds) at the cost of missed and false entities; the large spaCy model would catch more but needs about 500 MB."
+        ],
+        "fairnessAssessments": [
+          {
+            "groupAtRisk": "People whose names are uncommon in English news and web text",
+            "benefits": "Names that are detected are not sent to Google",
+            "harms": "Their names are detected less reliably, so they are more likely to reach Google unredacted",
+            "mitigationStrategy": "Questions rarely need names; documented as an accepted risk."
+          }
+        ]
+      },
+      "quantitativeAnalysis": {
+        "performanceMetrics": [
+          {
+            "type": "ner_precision",
+            "value": "0.843",
+            "slice": "Published by spaCy for OntoNotes 5 (meta.json of en_core_web_sm 3.8.0); not measured on BakeFix questions"
+          },
+          {
+            "type": "ner_recall",
+            "value": "0.844",
+            "slice": "Same source"
+          },
+          {
+            "type": "ner_f1",
+            "value": "0.843",
+            "slice": "Same source"
+          }
+        ],
+        "graphics": {
+          "description": "News-style benchmark scores; product names in kitchen manuals (e.g. 'Vellora') are outside that domain, which is why redaction runs on the question only."
+        }
+      }
+    }
+  },
+  "llm_service": {
+    "bom_ref": "service:gemini",
+    "name": "Google Gemini API (OpenAI-compatible endpoint)",
+    "provider": "Google",
+    "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/",
+    "description": "Writes the answer, citations, and glossary from the retrieved passages. Model chosen with GEMINI_MODEL; the default is recorded here. Google may update the model behind a name.",
+    "terms_url": "https://ai.google.dev/gemini-api/terms",
+    "data_sent": "The user's question after personal-data redaction (Presidio), the retrieved passages after email and phone redaction, and the answer-style settings.",
+    "limits": "30 s timeout, 1 retry, at most 4,096 output tokens per answer.",
+    "used_offline_for": "Built the Kestrel knowledge graph (kestrel-kb/graph/graph.json) from the Kestrel documents with backend/graph_extraction.py. graph.json does not record which model name was used."
+  },
+  "datasets": [
+    {
+      "bom_ref": "data:baking-corpus",
+      "name": "BakeFix baking corpus",
+      "path": "corpus",
+      "description": "Baking troubleshooting guides bundled with BakeFix. Files uploaded by the user at runtime are not part of the BOM (only files tracked in git are hashed).",
+      "origin": "Written by the BakeFix team",
+      "contains_personal_data": false
+    },
+    {
+      "bom_ref": "data:kestrel-kb",
+      "name": "Kestrel Analytics knowledge base",
+      "path": "kestrel-kb/docs",
+      "description": "Fictional B2B company documents used as the sample knowledge base and for graph retrieval.",
+      "origin": "Provided by the course (AI Systems Integration & Operations, EPITA)",
+      "contains_personal_data": false,
+      "note": "Contains invented names, *.example e-mail addresses, and 203.0.113.x documentation IP addresses."
+    },
+    {
+      "bom_ref": "data:kestrel-graph",
+      "name": "Kestrel knowledge graph",
+      "path": "kestrel-kb/graph",
+      "description": "Concepts and relationships extracted from the Kestrel documents by Gemini, plus entity resolution and a manual triple-quality review. Model output, not ground truth.",
+      "origin": "Generated by the BakeFix team with Gemini (see service:gemini)",
+      "contains_personal_data": false
+    },
+    {
+      "bom_ref": "data:evaluation-sets",
+      "name": "Evaluation question sets",
+      "path": "evaluation",
+      "include": [
+        "*.json",
+        "*.jsonl"
+      ],
+      "description": "Baking and injection test cases with expected sources, used for retrieval, answer, and injection-scanner evaluation.",
+      "origin": "Written by the BakeFix team",
+      "contains_personal_data": false
+    },
+    {
+      "bom_ref": "data:kestrel-eval",
+      "name": "Kestrel evaluation questions",
+      "path": "kestrel-kb/eval",
+      "description": "Starter evaluation questions for the Kestrel knowledge base.",
+      "origin": "Provided by the course",
+      "contains_personal_data": false
+    }
+  ],
+  "llm_model": {
+    "bom_ref": "model:gemini",
+    "description": "The hosted Gemini model that writes BakeFix's answers. Weights, training data, and version history are Google's and not visible to us; listed so its limits and our measurements are recorded next to the other models.",
+    "model_card": {
+      "modelParameters": {
+        "task": "text-generation",
+        "architectureFamily": "transformer (not published in detail by Google)",
+        "inputs": [
+          {
+            "format": "Prompt with tagged retrieved passages, graph paths (Kestrel only), answer-style instructions, and the redacted question"
+          }
+        ],
+        "outputs": [
+          {
+            "format": "JSON: status, answer, cited chunk IDs, glossary; rejected if invalid or if it cites passages that were not retrieved"
+          }
+        ]
+      },
+      "quantitativeAnalysis": {
+        "performanceMetrics": [
+          {
+            "type": "manually_graded_correct",
+            "value": "12/12",
+            "slice": "Baking, 10 answerable + 2 out-of-scope questions; both refusals correct (evaluation/results/baking_rag_reviewed.jsonl)"
+          },
+          {
+            "type": "manually_graded_correct",
+            "value": "7/10 (1 partial, 2 wrong)",
+            "slice": "Kestrel, 10 questions; both wrong answers were 'not found' although the evidence had been retrieved (evaluation/results/kestrel_rag_reviewed.jsonl)"
+          }
+        ],
+        "graphics": {
+          "description": "Measured before the V4 prompt framing and answer-style changes; small sets, so indications only."
+        }
+      },
+      "considerations": {
+        "users": [
+          "Home cooks using BakeFix"
+        ],
+        "useCases": [
+          "Answering from the retrieved passages only, with citations"
+        ],
+        "technicalLimitations": [
+          "Can refuse when the answer is in the passages (both Kestrel errors), or state something the passages do not support; citations are checked to exist, not that they support each sentence.",
+          "Can follow instructions hidden in a document (prompt injection). Mitigated by the upload scanner, tagged passages, output validation, and safe rendering.",
+          "Google can change the model behind the same name; results are not reproducible over time."
+        ],
+        "performanceTradeoffs": [
+          "The 'flash-lite' tier is cheap and fast (about 1.5 s per answer) at the cost of some over-refusal."
+        ],
+        "ethicalConsiderations": [
+          {
+            "name": "User data is processed by Google",
+            "mitigationStrategy": "Personal data is redacted from the question and email/phone patterns from passages before sending; stated in the README."
+          },
+          {
+            "name": "Confident wrong answers in a cooking context (temperatures, food safety)",
+            "mitigationStrategy": "Every answer shows its numbered sources and the passages behind them, so the reader can check; the answer is withheld if it cites a passage that was not retrieved."
+          }
+        ]
+      }
+    }
+  }
+}

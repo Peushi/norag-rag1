@@ -16,6 +16,7 @@ import { useDocuments } from "./hooks/useDocuments";
 import { useRetrievalSettings } from "./hooks/useRetrievalSettings";
 import type { EvaluationDataset } from "./types/evaluations";
 import type { GraphConcept, RetrieverName } from "./types/api";
+import { MAX_QUESTION_LENGTH } from "./types/api";
 import "../styles/base.css";
 import "../styles/option-1.css";
 import "../styles/ask-experience.css";
@@ -111,6 +112,26 @@ export default function App() {
   }
 
   const questionRef = useRef<HTMLTextAreaElement>(null);
+  const answerRef = useRef<HTMLElement>(null);
+  const answerKind = answer.kind;
+
+  // When an answer (or error) arrives, bring it into view and move focus to it,
+  // so the result is not left below the fold after pressing "Find an answer".
+  useEffect(() => {
+    if (answerKind === "empty" || answerKind === "loading") {
+      return;
+    }
+    const box = answerRef.current;
+    if (!box) {
+      return;
+    }
+    const { top, bottom } = box.getBoundingClientRect();
+    if (top < 0 || bottom > window.innerHeight) {
+      const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      box.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    }
+    box.focus({ preventScroll: true });
+  }, [answerKind, answer]);
 
   /** From the concept map: prefill a question and take the reader to it. */
   function askAboutConcept(concept: GraphConcept) {
@@ -173,13 +194,27 @@ export default function App() {
 
       {isAskView ? (
         <section className="intro intro-compact" aria-labelledby="page-title">
-          <h1 id="page-title">
-            Kitchen questions, <em>answered from your own documents.</em>
-          </h1>
-          <p className="intro-copy">
-            Add your recipes, baking notes and appliance manuals, then ask.
-            Every answer shows the passages it came from.
-          </p>
+          {isKestrel ? (
+            <>
+              <h1 id="page-title">
+                Support questions, <em>answered from the Kestrel sample.</em>
+              </h1>
+              <p className="intro-copy">
+                A fictional software company’s help documents, to try BakeFix on
+                a larger knowledge base. Every answer shows its sources.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 id="page-title">
+                Kitchen questions, <em>answered from your own documents.</em>
+              </h1>
+              <p className="intro-copy">
+                Add your recipes, baking notes and appliance manuals, then ask.
+                Every answer shows the passages it came from.
+              </p>
+            </>
+          )}
         </section>
       ) : (
         <section className="intro intro-compact" aria-labelledby="page-title">
@@ -277,7 +312,23 @@ export default function App() {
                 ? "For example: what does error KST-4012 mean?"
                 : "For example: why are my brownies cakey instead of fudgy?"
             }
+            aria-describedby={
+              question.length > MAX_QUESTION_LENGTH * 0.8 ? "question-length" : undefined
+            }
           />
+          {question.length > MAX_QUESTION_LENGTH * 0.8 && (
+            <p
+              id="question-length"
+              className={
+                question.length > MAX_QUESTION_LENGTH
+                  ? "question-length too-long"
+                  : "question-length"
+              }
+            >
+              {question.length.toLocaleString()} /{" "}
+              {MAX_QUESTION_LENGTH.toLocaleString()} characters
+            </p>
+          )}
 
           <div className="example-questions" aria-label="Example questions">
             <span>Try:</span>
@@ -362,6 +413,8 @@ export default function App() {
           </div>
 
           <section
+            ref={answerRef}
+            tabIndex={-1}
             className="answer-box"
             aria-label="Answer"
             aria-busy={answer.kind === "loading"}
@@ -394,8 +447,9 @@ export default function App() {
       )}
 
       <p className="footer-note">
-        BakeFix answers only from the documents you add, so it may not cover
-        every kitchen situation. If it can't find an answer, it says so.
+        {isAskView && isKestrel
+          ? "Answers come only from the Kestrel sample documents, which are fictional. If they don’t cover a question, BakeFix says so."
+          : "BakeFix answers only from the documents you add, so it may not cover every kitchen situation. If it can’t find an answer, it says so."}
       </p>
     </div>
   );

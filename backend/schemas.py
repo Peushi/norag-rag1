@@ -28,10 +28,15 @@ class RetrievedChunk(BaseModel):
     distance: float
 
 
+# A real question is a sentence or two; the cap keeps one request from
+# sending pages of text (and their cost) to Gemini. Same value in the frontend.
+MAX_QUESTION_LENGTH = 2000
+
+
 class RetrieveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    question: str = Field(min_length=1)
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_LENGTH)
     dataset: EvaluationDataset = "baking"
     document_ids: list[str] | None = None
     top_k: int = Field(default=3, ge=1, le=20)
@@ -195,9 +200,18 @@ class LLMAnswer(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["answered", "not_found"]
-    answer: str = Field(min_length=1, pattern=r".*\S.*")
+    # Required only for "answered": a not_found reply's text is replaced by
+    # NOT_FOUND_ANSWER, and Gemini often sends "" there. Rejecting that turned
+    # correct refusals into "Something went wrong".
+    answer: str = ""
     cited_chunk_ids: list[str] = Field(default_factory=list)
     glossary: list[GlossaryEntry] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def answered_needs_text(self) -> "LLMAnswer":
+        if self.status == "answered" and not self.answer.strip():
+            raise ValueError("An answered response needs a non-empty answer.")
+        return self
 
 
 class APIErrorDetail(BaseModel):

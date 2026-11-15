@@ -1,6 +1,7 @@
 import type { Dispatch } from "react";
 import "../../styles/document-scope.css";
 import type { DocumentSummary } from "../types/api";
+import { documentTitle } from "../utils/documentNames";
 
 type SelectionAction =
   | { type: "documents/changed"; documentIds: string[] }
@@ -51,7 +52,7 @@ export function DocumentSelector({
                 })
               }
             />
-            {document.name}
+            <span title={document.name}>{documentTitle(document.name)}</span>
           </label>
         ))
       )}
