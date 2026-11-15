@@ -1,0 +1,149 @@
+{
+  "evaluation": "V4 labelled redaction effectiveness",
+  "generated_at": "2026-11-15T09:13:17.320551+00:00",
+  "dataset": "evaluation\\redaction_cases_v4.json",
+  "method": "Each labelled target is checked against the output of redact_personal_data(). A target is caught if its original value is absent; a technical term is preserved if its original value remains present. Matching is case-insensitive.",
+  "personal_data_redaction": {
+    "questions": 10,
+    "targets": 10,
+    "caught": 10,
+    "missed": 0,
+    "percentage": 100.0,
+    "cases": [
+      {
+        "id": "P01",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      },
+      {
+        "id": "P02",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      },
+      {
+        "id": "P03",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      },
+      {
+        "id": "P04",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      },
+      {
+        "id": "P05",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      },
+      {
+        "id": "P06",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      },
+      {
+        "id": "P07",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      },
+      {
+        "id": "P08",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      },
+      {
+        "id": "P09",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      },
+      {
+        "id": "P10",
+        "targets": 1,
+        "caught": 1,
+        "all_targets_caught": true
+      }
+    ]
+  },
+  "technical_term_preservation": {
+    "questions": 10,
+    "terms": 10,
+    "preserved": 10,
+    "removed_or_modified": 0,
+    "percentage": 100.0,
+    "cases": [
+      {
+        "id": "T01",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      },
+      {
+        "id": "T02",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      },
+      {
+        "id": "T03",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      },
+      {
+        "id": "T04",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      },
+      {
+        "id": "T05",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      },
+      {
+        "id": "T06",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      },
+      {
+        "id": "T07",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      },
+      {
+        "id": "T08",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      },
+      {
+        "id": "T09",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      },
+      {
+        "id": "T10",
+        "terms": 1,
+        "preserved": 1,
+        "all_terms_preserved": true
+      }
+    ]
+  },
+  "limitations": [
+    "This is a small labelled evaluation, not a comprehensive privacy guarantee.",
+    "Results depend on the selected synthetic examples and recognizer configuration.",
+    "A target being absent does not prove that every possible representation of that data was removed."
+  ]
+}

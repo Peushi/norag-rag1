@@ -40,6 +40,11 @@ class PIIRedactionTests(unittest.TestCase):
         result = redact_personal_data(text)
         self.assertEqual(result, text)
 
+    def test_preserves_platform_team_as_domain_term(self):
+        text = "What is the responsibility of the Platform team?"
+        result = redact_personal_data(text)
+        self.assertEqual(result, text)
+
     def test_still_redacts_person_names(self):
         text = "Contact John Smith for more information."
         result = redact_personal_data(text)

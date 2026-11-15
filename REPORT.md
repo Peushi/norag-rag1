@@ -536,13 +536,32 @@ including Graph and the expanded two-hop set, are complete for this checkout.
 
 V4 adds privacy-oriented redaction before LLM generation. The implementation uses Presidio to detect and redact personal data in the user's question before it is passed to the language model.
 
-Retrieved document context and graph paths receive additional conservative filtering for email addresses and phone-number patterns. This filtering is deliberately narrower than full personal-data detection so that technical identifiers, product names, error codes, and team names are preserved.
+Retrieved document context and graph paths receive additional conservative filtering for email addresses, phone-number patterns and common credential assignments. This filtering is deliberately narrower than full personal-data detection so that technical identifiers, product names, error codes and team names are preserved.
 
-The original retrieved evidence is not modified. It remains available for local citation verification, while the redacted content is used to construct the LLM prompt.
+Known domain terms that Presidio may incorrectly classify as person names are protected through a narrow allowlist. The original retrieved evidence is not modified. It remains available for local citation verification, while the redacted content is used to construct the LLM prompt.
 
 ### Verification
 
-The implementation was covered by automated tests for personal-data redaction, contact-pattern filtering, and citation verification. The complete backend test suite passed **235 tests** after the changes.
+The complete backend test suite passed **262 tests**. The dedicated PII redaction tests passed **21 tests**, covering personal-data detection, contact-pattern filtering, preservation of technical terms and regression cases.
+
+An additional test verifies that credentials and contact details are redacted before content reaches the mocked Gemini provider. The tests do not send synthetic evaluation data to Gemini.
+
+### Labelled Redaction Effectiveness Evaluation
+
+A small labelled evaluation was added to measure whether personal-data targets are removed while technical terms remain intact. It contains 20 synthetic test cases: 10 personal-data cases and 10 technical-term cases.
+
+The evaluation calls the same `redact_personal_data()` function used by the application and checks each labelled target in the resulting text.
+
+| Evaluation group | Cases | Successful cases | Result |
+| --- | ---: | ---: | ---: |
+| Personal data caught | 10 | 10 | **100%** |
+| Technical terms preserved | 10 | 10 | **100%** |
+
+The personal-data cases cover examples such as names, email addresses, phone numbers, IP addresses, payment-card numbers and an IBAN. The technical-term cases cover Kestrel, product/error identifiers, Vellora and team or service names.
+
+The aggregate results are saved in `evaluation/results/v4/redaction_effectiveness_summary.json`. The labelled input dataset is `evaluation/redaction_cases_v4.json`, and the reproducible evaluation script is `evaluation/redaction_evaluation.py`.
+
+These results demonstrate effectiveness on this small labelled test set; they are not a guarantee that every form of personal data will be detected in production.
 
 ### V4 Retrieval Evaluation
 
@@ -585,11 +604,11 @@ These timings are observational measurements from one run, not controlled perfor
 
 ### Limitations
 
-The retrieval metrics describe evidence retrieval and do not directly measure whether personal data was successfully detected or removed. No dedicated quantitative redaction-effectiveness evaluation was performed.
+The labelled redaction evaluation contains only 10 personal-data cases and 10 technical-term cases. Its 100% results apply only to those examples and do not establish comprehensive detection coverage or a production privacy guarantee.
 
-Contact-pattern filtering in retrieved context and graph paths targets email addresses and phone numbers. It does not establish coverage for every possible sensitive identifier, such as arbitrary IP addresses, payment-card numbers, or IBANs.
+Presidio-based detection and conservative contact/credential filtering use different approaches. Retrieved context and graph paths receive contact-pattern and common credential filtering, not the full Presidio entity-detection process. Other sensitive identifiers or unfamiliar credential formats may remain undetected.
 
-The raw evaluation trace is intentionally excluded from version control because it contains raw questions, retrieved chunks, and generated outputs. The committed aggregate summary is available at `evaluation/results/v4/kestrel_rag_redaction_current_summary.jsonl`.
+The raw retrieval evaluation trace is intentionally excluded from version control because it contains raw questions, retrieved chunks and generated outputs. The committed aggregate retrieval summary is available at `evaluation/results/v4/kestrel_rag_redaction_current_summary.jsonl`.
 
 ## V4 — Karma: Observability, Concept Map and Injection Scanner
 

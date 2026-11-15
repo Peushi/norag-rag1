@@ -1,0 +1,108 @@
+﻿{
+  "evaluation": "V4 labelled redaction effectiveness",
+  "note": "All personal-data values are synthetic test values.",
+  "personal_data_cases": [
+    {
+      "id": "P01",
+      "question": "Please send the account report to alex.taylor@example.com.",
+      "expected_sensitive_values": ["alex.taylor@example.com"]
+    },
+    {
+      "id": "P02",
+      "question": "The workspace owner is John Smith. Can you check the account?",
+      "expected_sensitive_values": ["John Smith"]
+    },
+    {
+      "id": "P03",
+      "question": "Call me on +1 415-555-0132 about the failed payment.",
+      "expected_sensitive_values": ["+1 415-555-0132"]
+    },
+    {
+      "id": "P04",
+      "question": "The support contact is morgan.lee@example.org.",
+      "expected_sensitive_values": ["morgan.lee@example.org"]
+    },
+    {
+      "id": "P05",
+      "question": "The connection came from IP address 192.0.2.45.",
+      "expected_sensitive_values": ["192.0.2.45"]
+    },
+    {
+      "id": "P06",
+      "question": "You can reach the customer at +33 6 12 34 56 78.",
+      "expected_sensitive_values": ["+33 6 12 34 56 78"]
+    },
+    {
+      "id": "P07",
+      "question": "The test payment card number is 4111 1111 1111 1111.",
+      "expected_sensitive_values": ["4111 1111 1111 1111"]
+    },
+    {
+      "id": "P08",
+      "question": "The customer's network address is 198.51.100.24.",
+      "expected_sensitive_values": ["198.51.100.24"]
+    },
+    {
+      "id": "P09",
+      "question": "The test account identifier is 078-05-1120.",
+      "expected_sensitive_values": ["078-05-1120"]
+    },
+    {
+      "id": "P10",
+      "question": "The billing account uses IBAN GB82 WEST 1234 5698 7654 32.",
+      "expected_sensitive_values": ["GB82 WEST 1234 5698 7654 32"]
+    }
+  ],
+  "technical_term_cases": [
+    {
+      "id": "T01",
+      "question": "How does Kestrel Analytics handle workspace invitations?",
+      "expected_technical_terms": ["Kestrel"]
+    },
+    {
+      "id": "T02",
+      "question": "What does error KST-5031 mean in the support runbook?",
+      "expected_technical_terms": ["KST-5031"]
+    },
+    {
+      "id": "T03",
+      "question": "Can you explain the Vellora Duo espresso-machine documentation?",
+      "expected_technical_terms": ["Vellora"]
+    },
+    {
+      "id": "T04",
+      "question": "Which services are owned by Payments Core?",
+      "expected_technical_terms": ["Payments Core"]
+    },
+    {
+      "id": "T05",
+      "question": "What is the responsibility of the Platform team?",
+      "expected_technical_terms": ["Platform"]
+    },
+    {
+      "id": "T06",
+      "question": "Which incidents should be escalated to Identity?",
+      "expected_technical_terms": ["Identity"]
+    },
+    {
+      "id": "T07",
+      "question": "What does Data Integrations own in the service catalog?",
+      "expected_technical_terms": ["Data Integrations"]
+    },
+    {
+      "id": "T08",
+      "question": "Which services belong to Analytics Engine?",
+      "expected_technical_terms": ["Analytics Engine"]
+    },
+    {
+      "id": "T09",
+      "question": "What is the on-call responsibility of Messaging?",
+      "expected_technical_terms": ["Messaging"]
+    },
+    {
+      "id": "T10",
+      "question": "Where should Support look up an unfamiliar Kestrel error code?",
+      "expected_technical_terms": ["Support"]
+    }
+  ]
+}
