@@ -1,7 +1,8 @@
-﻿import argparse
+import argparse
 import json
 from pathlib import Path
 
+from backend.llm_config import MISSING_CONFIG_MESSAGE
 from backend.llm_service import MODEL, client
 
 
@@ -24,7 +25,7 @@ def load_questions(path: Path) -> list[dict]:
 
 
 def ask_without_context(question: str) -> str:
-    """Ask Gemini a question without providing any retrieved documents."""
+    """Ask the configured LLM a question without providing any retrieved documents."""
 
     response = client.chat.completions.create(
         model=MODEL,
@@ -48,14 +49,14 @@ def ask_without_context(question: str) -> str:
     answer = response.choices[0].message.content
 
     if not answer:
-        raise ValueError("Gemini returned an empty answer.")
+        raise ValueError("The LLM returned an empty answer.")
 
     return answer.strip()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Evaluate Gemini without retrieval or document context."
+        description="Evaluate the configured LLM without retrieval or document context."
     )
     parser.add_argument("--input", required=True, help="Input questions JSONL")
     parser.add_argument("--output", required=True, help="Output results JSONL")
@@ -69,9 +70,7 @@ def main():
     args = parser.parse_args()
 
     if client is None:
-        raise RuntimeError(
-            "GOOGLE_API_KEY is missing. Check your local .env file."
-        )
+        raise RuntimeError(MISSING_CONFIG_MESSAGE)
 
     input_path = Path(args.input)
     output_path = Path(args.output)

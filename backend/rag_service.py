@@ -26,6 +26,7 @@ from backend.retrieval_orchestrator import (
     OrchestratedRetrieval,
     RetrievalQuery,
     RetrieverOutput,
+    RetrieverUnavailableError,
     orchestrate_retrieval,
 )
 from backend.schemas import (
@@ -40,16 +41,22 @@ from backend.schemas import (
     SourceChunk,
 )
 from backend.vector_store import get_collection
-from backend.graph_retrieval import GRAPH_FILE, retrieve_graph
+from backend import graph_retrieval
+from backend.graph_retrieval import retrieve_graph
 
 DEFAULT_TOP_K = 3
 MIN_FUSION_CANDIDATES = 10
 
 
-def validate_graph_chunking(chunk_size: int, overlap: int) -> None:
+def validate_graph_chunking(chunk_size: int, overlap: int, dataset: str = "kestrel") -> None:
     """Graph provenance uses its build settings; do not fuse another chunking."""
+    if not graph_retrieval.graph_exists(dataset):
+        raise RetrieverUnavailableError(
+            "The concept graph for your documents hasn’t been built yet. Build it from "
+            "the Concept map panel, or turn off “Concept graph” in Search options."
+        )
     statistics = json.loads(
-        GRAPH_FILE.read_text(encoding="utf-8-sig")
+        graph_retrieval.graph_file(dataset).read_text(encoding="utf-8-sig")
     ).get("statistics", {})
     graph_settings = (
         statistics.get("chunk_size", 800),
@@ -189,7 +196,7 @@ def retrieve_selected_chunks(
         )
 
     def retrieve_graph_results(query: RetrievalQuery) -> RetrieverOutput:
-        validate_graph_chunking(query.chunk_size, query.overlap)
+        validate_graph_chunking(query.chunk_size, query.overlap, query.dataset)
         result = retrieve_graph(
             question=query.question,
             top_k=query.top_k,
@@ -198,6 +205,7 @@ def retrieve_selected_chunks(
                 if query.document_ids is not None
                 else None
             ),
+            dataset=query.dataset,
         )
         return graph_retriever_output(result)
 

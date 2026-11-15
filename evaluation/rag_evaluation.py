@@ -809,7 +809,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--generate-answers",
         action="store_true",
-        help="Also call Gemini; default is retrieval only",
+        help="Also call the configured LLM; default is retrieval only",
     )
 
     parser.add_argument(

@@ -22,6 +22,10 @@ class GraphUnavailableError(ValueError):
     """The saved graph or its evidence cannot currently be used safely."""
 
 
+class GraphNotBuiltError(GraphUnavailableError):
+    """The user's documents have no concept graph yet: build it first."""
+
+
 class ConceptNotFoundError(LookupError):
     """No concept in the saved graph has the requested ID."""
 
@@ -32,9 +36,9 @@ def concept_id(name: str, entity_type: str) -> str:
     return 'concept_' + hashlib.sha256(identity.encode('utf-8')).hexdigest()
 
 
-def _view():
+def _view(dataset: str = 'kestrel'):
     try:
-        graph = _load_graph()
+        graph = _load_graph(dataset)
         if not isinstance(graph, dict):
             raise ValueError('Invalid graph structure')
         statistics = graph.get('statistics', {})
@@ -47,14 +51,18 @@ def _view():
                 f'Graph requires chunk_size={graph_settings[0]}, overlap={graph_settings[1]}; '
                 'use matching settings or rebuild the graph before exploring evidence.'
             )
-        excluded = _load_excluded_triples()
+        excluded = _load_excluded_triples(dataset)
         raw = [GraphTriple.model_validate(t).model_dump() for t in graph.get('triples', [])]
         eligible = [t for t in raw if _triple_signature(t) not in excluded]
-        triples = resolve_graph_triples(eligible)
+        triples = resolve_graph_triples(eligible) if dataset == 'kestrel' else eligible
     except GraphUnavailableError:
         raise
     except (OSError, ValueError, KeyError, TypeError) as exc:
-        raise GraphUnavailableError('Kestrel graph data is missing or invalid.') from exc
+        if dataset != 'kestrel' and isinstance(exc, FileNotFoundError):
+            raise GraphNotBuiltError(
+                'The concept map for your documents has not been built yet.'
+            ) from exc
+        raise GraphUnavailableError('The concept graph data is missing or invalid.') from exc
 
     # Preserve typed identities, aliases on REPLACES edges, and deterministic labels.
     entities = sorted(
@@ -70,10 +78,12 @@ def _view():
     return concepts, triples
 
 
-def list_concepts(query: str | None = None, *, trace: TraceContext | None = None) -> list[GraphConcept]:
-    """List/search eligible Kestrel concepts; no trace is persisted by default."""
+def list_concepts(
+    query: str | None = None, *, trace: TraceContext | None = None, dataset: str = 'kestrel'
+) -> list[GraphConcept]:
+    """List/search eligible concepts; no trace is persisted by default."""
     with (trace.span('concept_search') if trace is not None else nullcontext()) as span:
-        concepts, _ = _view()
+        concepts, _ = _view(dataset)
         search = (query or '').strip().casefold()
         result = sorted(
             (c for c in concepts.values() if search in c.name.casefold()),
@@ -84,10 +94,12 @@ def list_concepts(query: str | None = None, *, trace: TraceContext | None = None
         return result
 
 
-def get_concept_neighbourhood(identifier: str, *, trace: TraceContext | None = None) -> ConceptNeighbourhood:
+def get_concept_neighbourhood(
+    identifier: str, *, trace: TraceContext | None = None, dataset: str = 'kestrel'
+) -> ConceptNeighbourhood:
     """Return original edge directions and deduplicated supporting chunk IDs."""
     with (trace.span('concept_neighbourhood') if trace is not None else nullcontext()) as span:
-        concepts, triples = _view()
+        concepts, triples = _view(dataset)
         if identifier not in concepts:
             raise ConceptNotFoundError('Concept not found.')
         grouped = {}
@@ -112,14 +124,14 @@ def get_concept_neighbourhood(identifier: str, *, trace: TraceContext | None = N
         return ConceptNeighbourhood(concept=concepts[identifier], neighbours=neighbours)
 
 
-def get_supporting_chunk(chunk_id: str) -> SourceChunk:
+def get_supporting_chunk(chunk_id: str, dataset: str = 'kestrel') -> SourceChunk:
     """Open graph evidence only with matching settings and its original quote."""
     validate_chunk_id(chunk_id)
-    _, triples = _view()
+    _, triples = _view(dataset)
     supporting = [t for t in triples if t['chunk_id'] == chunk_id]
     if not supporting:
         raise LookupError('Graph supporting chunk not found.')
-    chunk = rag_service.get_chunk_by_id(chunk_id, dataset='kestrel')
+    chunk = rag_service.get_chunk_by_id(chunk_id, dataset=dataset)
     if chunk is None or any(t['evidence_quote'] not in chunk.text for t in supporting):
         raise GraphUnavailableError('Graph evidence is missing or changed; rebuild the graph before using it.')
     return chunk

@@ -14,12 +14,19 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError
 
 from backend.concept_map import (
     ConceptNotFoundError,
+    GraphNotBuiltError,
     GraphUnavailableError,
     get_concept_neighbourhood,
     list_concepts,
 )
+from backend import graph_retrieval, user_graph
 from backend.documents import add_document_and_reindex
-from backend.graph_schemas import ConceptListResponse, ConceptNeighbourhoodResponse
+from backend.graph_schemas import (
+    ConceptListResponse,
+    ConceptNeighbourhoodResponse,
+    GraphBuildResponse,
+    GraphStatusResponse,
+)
 from backend.evaluation_runs import (
     EvaluationAlreadyRunningError,
     EvaluationRunNotFoundError,
@@ -223,7 +230,7 @@ def _graph_unavailable_response(
         status_code=409,
         content=APIErrorResponse(
             error=APIErrorDetail(
-                code="GRAPH_UNAVAILABLE",
+                code="GRAPH_NOT_BUILT" if isinstance(exc, GraphNotBuiltError) else "GRAPH_UNAVAILABLE",
                 message=str(exc),
                 retryable=False,
             )
@@ -649,18 +656,49 @@ async def trace_endpoint(trace_id: str):
 
 
 @app.get("/api/concepts", response_model=ConceptListResponse)
-async def concepts(query: str = Query(default="", max_length=100)):
-    """Search the Kestrel concept map; browsing is not traced (no LLM, no index change)."""
-    return ConceptListResponse(concepts=list_concepts(query))
+async def concepts(
+    query: str = Query(default="", max_length=100),
+    dataset: Literal["baking", "kestrel"] = "kestrel",
+):
+    """Search a concept map; browsing is not traced (no LLM, no index change)."""
+    return ConceptListResponse(concepts=list_concepts(query, dataset=dataset))
+
+
+@app.get("/api/graphs/{dataset}/status", response_model=GraphStatusResponse)
+async def graph_status_endpoint(dataset: Literal["baking", "kestrel"]):
+    """Whether a concept graph exists, is up to date, or is being built."""
+    if dataset not in graph_retrieval.BUILDABLE_DATASETS:
+        # The Kestrel graph is committed and reviewed; it is not rebuilt from the app.
+        return GraphStatusResponse(
+            dataset=dataset, buildable=False,
+            built=graph_retrieval.graph_exists(dataset), up_to_date=True,
+        )
+    return GraphStatusResponse(buildable=True, **user_graph.graph_status(dataset))
+
+
+@app.post("/api/graphs/{dataset}/build", response_model=GraphBuildResponse, status_code=202)
+async def graph_build_endpoint(dataset: Literal["baking", "kestrel"]):
+    """Start an incremental concept-graph build of the user's documents."""
+    try:
+        trace_id = user_graph.start_build(dataset)
+    except user_graph.GraphBuildInProgress as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return GraphBuildResponse(status="started", trace_id=trace_id)
 
 
 @app.get("/api/concepts/{concept_id}", response_model=ConceptNeighbourhoodResponse)
-async def concept_neighbourhood(concept_id: str, response: Response):
+async def concept_neighbourhood(
+    concept_id: str,
+    response: Response,
+    dataset: Literal["baking", "kestrel"] = "kestrel",
+):
     """Open one concept: its relationships and the passages they were extracted from."""
     trace = create_trace("concept_map")
     response.headers["X-Trace-ID"] = trace.trace_id
     try:
-        neighbourhood = get_concept_neighbourhood(concept_id, trace=trace)
+        neighbourhood = get_concept_neighbourhood(concept_id, trace=trace, dataset=dataset)
     except ConceptNotFoundError as exc:
         trace.set_outcome("not_found")
         trace.finish("failed")
@@ -706,11 +744,9 @@ async def chunk_by_id(
 ):
     try:
         if graph_evidence:
-            if dataset != "kestrel":
-                raise ValueError("Graph evidence is Kestrel-only.")
             from backend.concept_map import get_supporting_chunk
 
-            chunk = get_supporting_chunk(chunk_id)
+            chunk = get_supporting_chunk(chunk_id, dataset=dataset)
         else:
             chunk = get_chunk_by_id(chunk_id, dataset=dataset)
     except ValueError as exc:

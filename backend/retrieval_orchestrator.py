@@ -8,6 +8,7 @@ from backend.rank_fusion import reciprocal_rank_fusion
 
 GRAPH_RETRIEVER = "graph"
 KESTREL_DATASET = "kestrel"
+GRAPH_DATASETS = {"kestrel", "baking"}
 
 
 @dataclass(frozen=True)
@@ -68,8 +69,10 @@ def orchestrate_retrieval(
         raise RetrieverUnavailableError(
             f"No implementation registered for: {', '.join(unknown)}"
         )
-    if GRAPH_RETRIEVER in selected and query.dataset != KESTREL_DATASET:
-        raise ValueError("Graph retrieval is only available for the kestrel dataset")
+    # Kestrel has a committed graph; the user's documents can have a built one.
+    # Whether that graph exists yet is checked by the graph retriever itself.
+    if GRAPH_RETRIEVER in selected and query.dataset not in GRAPH_DATASETS:
+        raise ValueError(f"Graph retrieval is not available for the {query.dataset} dataset")
 
     ranked_results: dict[str, Sequence[Mapping[str, Any]]] = {}
     graph_paths: list[dict[str, Any]] = []
