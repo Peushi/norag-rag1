@@ -271,7 +271,10 @@ class IndexingTraceTests(unittest.TestCase):
         with patch('backend.graph_extraction.client', client):
             result = extract_graph_from_chunk({'id': 'safe-id', 'source': 'guide.md', 'text': 'postroom belongs to Messaging'}, trace=trace)
         self.assertEqual(len(result['triples']), 1)
-        self.assertEqual(self.saved(trace.trace_id)['spans'][0]['attributes'], {'triple_count': 1, 'llm_calls': 1, 'input_tokens': 20, 'output_tokens': 8})
+        attributes = self.saved(trace.trace_id)['spans'][0]['attributes']
+        # Cost is recorded too, so the metrics page can report indexing cost per document.
+        self.assertAlmostEqual(attributes.pop('cost_usd'), 2.6e-05)
+        self.assertEqual(attributes, {'triple_count': 1, 'llm_calls': 1, 'input_tokens': 20, 'output_tokens': 8})
         trace.finish('completed')
 
     def graph_result(self):

@@ -330,6 +330,26 @@ if FRONTEND_ASSETS_DIR.is_dir():
     )
 
 
+@app.get("/metrics")
+async def metrics_page():
+    """The usage page is part of the single-page app; /metrics opens it directly."""
+    index_file = FRONTEND_DIST_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return RedirectResponse(url="/api/metrics")
+
+
+@app.get("/api/metrics")
+async def metrics_endpoint(days: int = Query(default=30, ge=1, le=30)):
+    """Volume, outcomes, latency, tokens and cost, computed from stored traces.
+
+    Not traced itself: it only reads traces (no LLM call, no index change).
+    """
+    from backend.metrics import get_metrics
+
+    return get_metrics(days)
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
