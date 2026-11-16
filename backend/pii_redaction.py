@@ -171,3 +171,28 @@ def redact_contact_patterns(text: str) -> str:
     )
 
     return text
+
+
+_PLACEHOLDER = re.compile(r"\[REDACTED_([A-Z_]+)\]")
+
+
+def count_redactions(before: str, after: str) -> dict[str, int]:
+    """How many items of each type redaction replaced, e.g. {"PERSON": 1}.
+
+    Counts placeholders added between `before` and `after`, so placeholders
+    already in the input are not counted again. Only counts and types, never
+    the values, so the result is safe to put in a trace.
+    """
+    counts: dict[str, int] = {}
+    for kind in set(_PLACEHOLDER.findall(after or "")):
+        added = len(re.findall(rf"\[REDACTED_{kind}\]", after)) - len(
+            re.findall(rf"\[REDACTED_{kind}\]", before or "")
+        )
+        if added > 0:
+            counts[kind] = added
+    return counts
+
+
+def describe_redactions(counts: dict[str, int]) -> str:
+    """Trace-friendly summary, e.g. "EMAIL_ADDRESS:1, PERSON:2" (sorted)."""
+    return ", ".join(f"{kind}:{counts[kind]}" for kind in sorted(counts))

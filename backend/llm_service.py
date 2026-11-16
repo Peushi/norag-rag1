@@ -16,6 +16,8 @@ from backend.llm_config import (
     read_settings,
 )
 from backend.pii_redaction import (
+    count_redactions,
+    describe_redactions,
     redact_contact_patterns,
     redact_personal_data,
 )
@@ -427,7 +429,7 @@ def generate_answer(
         else nullcontext()
     )
 
-    with redaction_span:
+    with redaction_span as span:
         safe_question = redact_personal_data(question)
 
         prompt = build_prompt(
@@ -438,7 +440,21 @@ def generate_answer(
             style=style,
         )
 
+        unredacted_prompt = prompt
         prompt = redact_contact_patterns(prompt)
+
+        # Record what was removed as counts and types only, never the values,
+        # so a trace shows that redaction did something. (Attribute names
+        # avoid "question", "email" and "phone": the trace store refuses them.)
+        if span is not None:
+            user_text = count_redactions(question, safe_question)
+            patterns = count_redactions(unredacted_prompt, prompt)
+            span.set_attribute("user_text_redactions", sum(user_text.values()))
+            span.set_attribute("pattern_redactions", sum(patterns.values()))
+            if user_text:
+                span.set_attribute("user_text_redaction_types", describe_redactions(user_text))
+            if patterns:
+                span.set_attribute("pattern_redaction_types", describe_redactions(patterns))
 
     if client is None:
         raise LLMServiceUnavailable(MISSING_CONFIG_MESSAGE)

@@ -18,6 +18,9 @@ Definitions (also in the decision log):
   documents the build fully read (new + changed - left for the next build -
   failed and retried later), so a retried document is counted once.
   Uploads and index rebuilds embed locally, so they cost $0.
+- Personal data removed: the `pii_redaction` span's counts (Presidio on the
+  question, email/phone/secret patterns on the whole prompt); counts and
+  types only, never values.
 - Days are UTC calendar days.
 """
 
@@ -146,6 +149,31 @@ def compute_metrics(traces: list[dict], days: int) -> dict:
         costs = sorted(c["cost_usd"] for c in llm_calls)
         per_question["p95_cost_usd"] = round(costs[max(1, math.ceil(0.95 * len(costs))) - 1], 6)
 
+    # Personal data removed before the LLM call (counts and types only).
+    checked = with_personal_data = removed = 0
+    by_type: dict[str, int] = defaultdict(int)
+    for trace in questions:
+        redaction = next((s for s in trace["spans"] if s["name"] == "pii_redaction"), None)
+        if not redaction or "user_text_redactions" not in redaction["attributes"]:
+            continue  # traces from before redaction counts were recorded
+        checked += 1
+        attributes = redaction["attributes"]
+        items = _number(attributes.get("user_text_redactions")) + _number(attributes.get("pattern_redactions"))
+        if items:
+            with_personal_data += 1
+            removed += items
+        for key in ("user_text_redaction_types", "pattern_redaction_types"):
+            for part in str(attributes.get(key) or "").split(","):
+                if ":" in part:
+                    kind, number = part.strip().rsplit(":", 1)
+                    by_type[kind] += int(number) if number.isdigit() else 0
+    privacy = {
+        "questions_checked": checked,
+        "questions_with_personal_data": with_personal_data,
+        "items_removed": removed,
+        "by_type": dict(sorted(by_type.items())),
+    }
+
     # Indexing: uploads embed locally ($0); concept-map builds call the LLM.
     uploads = sum(1 for t in indexing if any(s["name"] == "document_storage" for s in t["spans"]))
     rebuilds = sum(1 for t in indexing if any(s["name"] == "embedding_indexing" for s in t["spans"]))
@@ -227,6 +255,7 @@ def compute_metrics(traces: list[dict], days: int) -> dict:
             [t for t in indexing if t["status"] != "running"], []
         ),
         "per_question": per_question,
+        "privacy": privacy,
         "per_document": per_document,
         "per_day": per_day,
     }
