@@ -69,6 +69,8 @@ configuration match.
 | Generation and manual review | Baking/Kestrel no-context and RAG runs, with reviewed result files | `*_no_context.jsonl`, `*_rag.jsonl`, and `*_rag_reviewed.jsonl`; analysis tools in `evaluation/`. |
 | V4 PII-redaction Kestrel run | Kestrel; 10 questions (8 answerable, 2 not in corpus); 800/80; Dense only; top-k=5; generation enabled | `evaluation/results/v4/kestrel_rag_redaction_current_summary.jsonl`; retrieval metrics do not directly measure redaction effectiveness. |
 | V4 labelled redaction effectiveness | 20 synthetic questions: 10 with personal data, 10 with technical terms; calls `redact_personal_data()` directly, no LLM | `evaluation/redaction_cases_v4.json` and `evaluation/results/v4/redaction_effectiveness_summary.json`: 10/10 personal-data targets removed, 10/10 technical terms preserved. |
+| V4 answer style controls | 5 questions (incl. technical, policy and off-topic) × 5 styles; full pipeline with Gemini; before/after fixes | [`evaluation/results/v4/ANSWER_STYLE_EVALUATION.md`](evaluation/results/v4/ANSWER_STYLE_EVALUATION.md): length now orders short < medium < long (43 / 95 / 139 words), ELI12 easier to read than expert in 3/3, off-topic refused in every style, 0/25 rejected answers (was 1/25). |
+| V4 graph retrieval on Baking | 10 answerable Baking questions; committed graph snapshot; Dense, +BM25, +Graph | [`evaluation/results/v4/BAKING_GRAPH_EVALUATION.md`](evaluation/results/v4/BAKING_GRAPH_EVALUATION.md): Recall@5 72.5% → 77.5% with graph, Hit@1 70% → 20%. |
 
 For V2/V3 retrieval metrics, a passage matches an expected evidence item when
 the expected source and complete quoted text occur in that passage after

@@ -400,11 +400,68 @@ before it can fail.
   every document); building automatically on upload (spends quota without the
   user deciding); reusing the Kestrel vocabulary (nothing useful extracted).
 
+### Concept graph for any corpus, and build speed (16 Nov)
+The professor may upload a new corpus during the presentation and time the
+graph build, so we tested exactly that with a non-cooking document (a software
+product guide, 12 passages) and real Gemini.
+- **Found:** the build was fast (12.7 s) but produced **0 links**: the user
+  vocabulary was kitchen-only. **Fix:** kitchen types plus domain-neutral ones
+  (PRODUCT, ORGANIZATION, CONCEPT; IS_A, INCLUDES, OWNED_BY) and a prompt that
+  says documents may be about any subject. Same guide afterwards: **25 links**.
+- **Parallel extraction:** passages are sent 4 at a time
+  (`LLM_GRAPH_CONCURRENCY`). Measured: **4.0 s** instead of 12.7 s.
+- **Found:** on Gemini's free tier, 4 at a time right after another build hit
+  the rate limit: 46 s and 3 lost passages. **Fix:** an adaptive throttle; at
+  the first 429 every worker pauses, the build continues one at a time, and
+  each passage is retried up to 3 times. Same situation afterwards: 30 s,
+  **0 lost passages**. The panel says when a build was slowed by a rate limit.
+- **Visible speed:** each build records its duration, calls, concurrency and
+  whether it was rate-limited (panel and trace), so the speed the professor
+  asks about is shown, not estimated.
+- **Rejected:** a fixed concurrency of 1 (3x slower on any server that allows
+  parallel calls); a fixed 4 (loses passages on free tiers); multi-file upload
+  (not chosen for now; files are added one at a time).
+
+### Graph retrieval evaluated on Baking (16 Nov)
+- **No new labels were needed:** the Baking questions' evidence labels (source
+  + exact quote) are what HitRate/Recall use for every method, graph included.
+  What blocked it: the evaluation refused graph for Baking, and there was no
+  fixed Baking graph (the user's graph changes with every upload).
+- **Decision:** a committed snapshot, `evaluation/graphs/baking/graph.json`,
+  built once with Gemini from the 10 bundled guides (144 links, 0 failed
+  passages, 92 calls including rate-limit retries), listed in the AI-BOM.
+  Evaluations read it through a per-thread override, so a run started from the
+  UI never changes the graph live questions use.
+- **Result (10 answerable, 800/80, top 5):** Dense + BM25 + Graph Recall@5
+  77.5% vs 72.5% without graph, Recall@10 unchanged (90.8%), but Hit@1 70% →
+  20%. It helps when a question names a specific relationship (B03: 50% →
+  100%) and adds loosely related passages when concepts are everyday words.
+  Details: `evaluation/results/v4/BAKING_GRAPH_EVALUATION.md`.
+- **Not tuned on these 10 questions** (that would fit the test set); a lower
+  fusion weight or stricter concept matching are next steps to evaluate on new
+  questions. "Concept graph" stays off by default for the user's documents.
+
+### Answer style controls: traced and checked (16 Nov)
+- **Why:** the V4 slides require every menu feature to be traced, costed and
+  "checked on several cases, including difficult ones"; answer styles had
+  neither a trace record nor a check.
+- **Traced:** the `llm_generation` span records level, tone, length and ELI12,
+  and how many glossary entries were dropped.
+- **Checked:** `evaluation/style_evaluation.py`, 5 questions × 5 styles with
+  real Gemini. The first run found that length was barely followed (short 73 vs
+  long 100 words on average) and that one ELI12 answer was rejected because a
+  glossary entry cited an uncited passage.
+- **Fixed, then re-measured:** concrete length targets → 43 / 95 / 139 words;
+  such glossary entries are dropped instead of rejecting the answer → 0/25
+  rejected. ELI12 reads easier than expert on 3/3; off-topic refused in every
+  style. Cost $0.0009-0.0014 per answer, 2-3 s, no extra LLM call.
+- **Kept strict:** a glossary entry with an invented passage ID still rejects
+  the answer (a sign of fabrication).
+- Details: `evaluation/results/v4/ANSWER_STYLE_EVALUATION.md`.
+
 ## Open points to resolve with the team
 
-- Person B: record the answer style in the `llm_generation` span; consider
-  dropping an invalid glossary entry instead of rejecting the whole answer
-  (a robustness case I reproduced with a fake model, not observed with
-  Gemini); finish the before/after redaction evaluation.
+- Person B: done on 16 Nov (style traced; uncited glossary entries dropped,
+  now observed with real Gemini); redaction evaluation done by Person B.
 - Person A: a delete trace's outcome reads `indexed`; `deleted` would be
   clearer.
