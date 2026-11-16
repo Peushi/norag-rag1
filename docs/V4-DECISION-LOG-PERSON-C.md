@@ -53,6 +53,17 @@ rejected. To be rewritten in my own words for the report.
   "Retrieved passages" list. Decimals are rounded for display.
 - **Why:** the same view everywhere; the demo is "ask, open Details, explain".
 
+### No passage IDs in answer text (16 Nov)
+- **Found in use:** an answer read "…too much sugar [61137270eed8::chunk_0000]":
+  the model sometimes writes passage IDs into the text as well as into
+  `cited_chunk_ids` (seen twice, once in the style evaluation).
+- **Fix, two layers:** the prompt now says IDs go only in `cited_chunk_ids`
+  (two live answers afterwards had none); and any ID that still appears is
+  turned into its source number ("[1]") under "Where this comes from", or
+  removed if that passage was retrieved but not cited. Markdown links and
+  other brackets are left alone. The trace counts replacements
+  (`inline_chunk_ids_replaced`).
+
 ### Redaction is visible in the trace (16 Nov)
 - **Before:** the `pii_redaction` span recorded only its duration, so a trace
   could not show that redaction did anything.
