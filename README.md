@@ -499,6 +499,8 @@ last 24 hours, 7 or 30 days, it shows:
   redaction, LLM, checks), and for indexing runs;
 - tokens and cost per question, per indexed document (concept-map builds;
   search indexing is local and free) and per day.
+- how often personal data was removed before the LLM call, and of which
+  kinds (counts only; the values are never stored).
 
 Every number is computed from the stored traces at request time
 (`GET /api/metrics?days=7`). Traces are kept 30 days, so that is the longest

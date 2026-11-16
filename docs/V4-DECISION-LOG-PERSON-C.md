@@ -53,6 +53,18 @@ rejected. To be rewritten in my own words for the report.
   "Retrieved passages" list. Decimals are rounded for display.
 - **Why:** the same view everywhere; the demo is "ask, open Details, explain".
 
+### Redaction is visible in the trace (16 Nov)
+- **Before:** the `pii_redaction` span recorded only its duration, so a trace
+  could not show that redaction did anything.
+- **Now:** it records how many items were removed and of which types:
+  `user_text_redactions` / `user_text_redaction_types` (Presidio on the
+  question, e.g. `EMAIL_ADDRESS:1, PERSON:1`) and `pattern_redactions` /
+  `pattern_redaction_types` (email, phone and secret patterns on the whole
+  prompt, including passages). Counts and types only, never the values; the
+  names avoid the words the trace store refuses ("question", "email", "phone").
+- The metrics page adds "Personal data removed before the LLM": questions
+  checked, questions with personal data, items removed, by type.
+
 ### Metrics page (Part A bonus, 16 Nov)
 - **Where:** "Behind the answers → Usage and cost", also opened directly at
   `/metrics`; data from `GET /api/metrics?days=1|7|30`.

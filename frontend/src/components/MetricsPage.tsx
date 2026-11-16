@@ -25,6 +25,12 @@ type Metrics = {
     total_output_tokens: number;
     total_cost_usd: number;
   };
+  privacy: {
+    questions_checked: number;
+    questions_with_personal_data: number;
+    items_removed: number;
+    by_type: Record<string, number>;
+  };
   per_document: {
     uploads: number;
     index_rebuilds: number;
@@ -70,6 +76,17 @@ const STEP_LABELS: Record<string, string> = {
   graph_extraction: "Extracting concepts (LLM)",
   graph_save: "Saving the concept map",
   concept_neighbourhood: "Opening a concept",
+};
+
+const REDACTION_LABELS: Record<string, string> = {
+  PERSON: "Names",
+  EMAIL_ADDRESS: "Email addresses",
+  PHONE_NUMBER: "Phone numbers",
+  IP_ADDRESS: "IP addresses",
+  CREDIT_CARD: "Card numbers",
+  IBAN_CODE: "Bank account numbers",
+  US_SSN: "ID numbers",
+  SECRET: "Passwords and keys",
 };
 
 const OUTCOMES = [
@@ -243,6 +260,31 @@ export function MetricsPage() {
               )}
             </section>
 
+            <section className="card metrics-card" aria-labelledby="metrics-privacy">
+              <h2 id="metrics-privacy">Personal data removed before the LLM</h2>
+              {metrics.privacy.questions_checked === 0 ? (
+                <p className="metrics-empty">No question has been checked in this period yet.</p>
+              ) : (
+                <dl className="metrics-facts">
+                  <div><dt>Questions checked</dt><dd className="num">{metrics.privacy.questions_checked}</dd></div>
+                  <div>
+                    <dt>Questions with personal data</dt>
+                    <dd className="num">
+                      {metrics.privacy.questions_with_personal_data}{" "}
+                      <small>({percent(metrics.privacy.questions_with_personal_data, metrics.privacy.questions_checked)})</small>
+                    </dd>
+                  </div>
+                  <div><dt>Items removed</dt><dd className="num">{metrics.privacy.items_removed}</dd></div>
+                  {Object.entries(metrics.privacy.by_type).map(([kind, total]) => (
+                    <div key={kind}>
+                      <dt>{REDACTION_LABELS[kind] ?? kind}</dt>
+                      <dd className="num">{total}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </section>
+
             <section className="card metrics-card" aria-labelledby="metrics-document-cost">
               <h2 id="metrics-document-cost">Cost per indexed document</h2>
               <dl className="metrics-facts">
@@ -320,6 +362,7 @@ export function MetricsPage() {
               <li>Every number comes from the traces BakeFix records for each question and each indexing run; nothing is counted separately.</li>
               <li><strong>Answered / not found</strong> come from the trace's outcome. A failed question is a <strong>rejected answer</strong> when the LLM's answer failed the format or source checks, and an <strong>error</strong> otherwise.</li>
               <li><strong>Time</strong> is measured from when the question arrived to when the answer was sent; each step is its own timed span. p50 and p95 use the nearest-rank method.</li>
+              <li><strong>Personal data removed</strong> comes from the redaction step: counts and types only, never the values themselves.</li>
               <li><strong>Tokens and cost</strong> come from the LLM step of each trace. Search indexing runs on this computer and costs nothing; only the concept map calls the LLM when indexing.</li>
               <li>Traces are kept for 30 days, so that is the longest period shown.</li>
             </ul>
