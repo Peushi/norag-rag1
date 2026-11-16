@@ -125,6 +125,7 @@ embedding API is used.
 | `LLM_API_KEY` | (none) | API key; may be empty for local servers. Keep it in `.env`/`.env.local` only. |
 | `LLM_MODEL` | `gemini-3.5-flash-lite` | Model name as the server knows it. |
 | `LLM_TIMEOUT_SECONDS` | `60` | Time limit per LLM call (one retry); raise it for slow local models. |
+| `LLM_GRAPH_CONCURRENCY` | `4` | Passages sent at once when building a concept map; drops to 1 automatically after a rate limit. |
 | `BAKEFIX_TRACE_DB` | `.bakefix/traces.sqlite3` | Where traces are stored. |
 | `BAKEFIX_ALLOWED_ORIGINS` | (none) | Extra comma-separated origins allowed to change data, if the UI is served from somewhere other than localhost. |
 | `HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE` | unset | Set to `1` to load the cached embedding model without network access. |
@@ -267,6 +268,13 @@ relationship, expand its supporting passage and open the original document.
   BakeFix sends each passage to the configured LLM once and extracts links
   between dishes, ingredients, equipment, techniques, problems and conditions
   (e.g. *cold oven → causes → pale, flat biscuits*), each with its exact quote.
+  Documents on other subjects work too: products, organizations and other
+  concepts are extracted (a software guide gave 25 links in a test).
+  - **Speed:** 4 passages are sent at once (`LLM_GRAPH_CONCURRENCY`). Measured
+    with Gemini: a 12-passage guide in 4 s (12.7 s one at a time). If the LLM
+    answers "rate limited" (common on free tiers), the build pauses, continues
+    one at a time and retries, instead of losing passages; the panel then says
+    so. The panel shows each build's duration.
   - **Incremental:** after uploading, changing or removing documents the panel
     says what is out of date; **Update the map** reads only new or changed
     documents (one LLM call per passage) and drops links from removed ones.
@@ -443,6 +451,11 @@ for 800/80 and 400/40:
 
 - `GET /api/evaluations/retrieval/retrieval-v2-baking/results`
 - `GET /api/evaluations/retrieval/retrieval-v2-kestrel/results`
+
+Graph retrieval is evaluated on both corpora. For Baking it uses a committed
+graph snapshot built from the 10 bundled guides
+(`evaluation/graphs/baking/graph.json`), not the user's own map; see
+[the Baking graph evaluation](evaluation/results/v4/BAKING_GRAPH_EVALUATION.md).
 
 The [V4 release comparison](evaluation/results/v4/RETRIEVAL_COMPARISON.md)
 contains five rerun configurations at 800/80, top-k=5, no distance threshold and

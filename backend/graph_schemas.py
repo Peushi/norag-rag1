@@ -14,6 +14,10 @@ KESTREL_ENTITY_TYPES = (
 KITCHEN_ENTITY_TYPES = (
     "DISH", "INGREDIENT", "EQUIPMENT", "TECHNIQUE", "PROBLEM", "CONDITION",
 )
+# Users may upload documents about anything, so their graph also gets
+# domain-neutral types; with kitchen types only, a software manual gave 0 links.
+GENERAL_ENTITY_TYPES = ("PRODUCT", "ORGANIZATION", "CONCEPT")
+USER_ENTITY_TYPES = KITCHEN_ENTITY_TYPES + GENERAL_ENTITY_TYPES
 
 EntityType = Literal[
     "ERROR_CODE",
@@ -32,6 +36,9 @@ EntityType = Literal[
     "TECHNIQUE",
     "PROBLEM",
     "CONDITION",
+    # Any subject (user documents)
+    "ORGANIZATION",
+    "CONCEPT",
 ]
 
 KESTREL_RELATIONS = (
@@ -41,6 +48,8 @@ KESTREL_RELATIONS = (
 KITCHEN_RELATIONS = (
     "CAUSES", "FIXES", "PREVENTS", "REQUIRES", "USES", "AFFECTS", "PART_OF", "SUBSTITUTES_FOR",
 )
+GENERAL_RELATIONS = ("IS_A", "INCLUDES", "OWNED_BY")
+USER_RELATIONS = KITCHEN_RELATIONS + GENERAL_RELATIONS
 
 RelationType = Literal[
     "HANDLED_BY",
@@ -63,24 +72,36 @@ RelationType = Literal[
     "AFFECTS",
     "PART_OF",
     "SUBSTITUTES_FOR",
+    # Any subject (user documents)
+    "IS_A",
 ]
 
 # Vocabulary per corpus: (entity types, relation types, how to describe them to the LLM).
 GRAPH_VOCABULARIES = {
     "kestrel": (KESTREL_ENTITY_TYPES, KESTREL_RELATIONS, ""),
     "baking": (
-        KITCHEN_ENTITY_TYPES,
-        KITCHEN_RELATIONS,
-        """Meaning of the types:
+        USER_ENTITY_TYPES,
+        USER_RELATIONS,
+        """The documents are usually about cooking, but may be about any subject.
+Meaning of the types, with cooking and general examples:
 - DISH: something being made (fudgy brownies, sourdough bread, pie crust)
 - INGREDIENT: flour, butter, baking powder, sourdough starter
-- EQUIPMENT: tools and appliances (loaf pan, oven thermometer, espresso machine)
-- TECHNIQUE: an action or process (chilling the dough, proofing, descaling)
-- PROBLEM: something going wrong (cookies spreading, dough not rising, soggy crust)
-- CONDITION: a temperature, time, amount or environment (cold kitchen, 30 minutes, hard water)
+- EQUIPMENT: a tool, appliance, device or system component (oven thermometer,
+  espresso machine, router, database, API gateway)
+- TECHNIQUE: an action, process or procedure (proofing, descaling, resetting a
+  password, escalating a ticket)
+- PROBLEM: something going wrong (cookies spreading, soggy crust, an error code,
+  a failed payment, an outage)
+- CONDITION: a setting, amount, time, environment or requirement (cold kitchen,
+  30 minutes, hard water, 60 days, admin rights)
+- PRODUCT: a product, service, plan or feature (Vellora Duo, Business plan, single sign-on)
+- ORGANIZATION: a company, team or department (Kestrel Analytics, Billing team)
+- CONCEPT: another important named thing (a policy, rule, document, role or topic)
 Relationships read subject -> object: X CAUSES PROBLEM; TECHNIQUE FIXES or PREVENTS
-PROBLEM; DISH REQUIRES or USES INGREDIENT/EQUIPMENT; X AFFECTS Y; X PART_OF Y;
-INGREDIENT SUBSTITUTES_FOR INGREDIENT.""",
+PROBLEM; X REQUIRES or USES Y; X AFFECTS Y; X PART_OF Y; Y INCLUDES X;
+X IS_A Y (a kind of); X OWNED_BY ORGANIZATION; X SUBSTITUTES_FOR Y.
+Prefer the most specific type. Extract from every chunk that states a relationship,
+whatever its subject.""",
     ),
 }
 
@@ -178,6 +199,11 @@ class GraphStatusResponse(BaseModel):
     building: bool = False
     progress_done: int = 0
     progress_total: int = 0
+    progress_elapsed_seconds: float | None = None
+    last_build_seconds: float | None = None
+    last_build_llm_calls: int | None = None
+    last_build_rate_limited: bool = False
+    concurrency: int = 1
     build_trace_id: str | None = None
     last_error: str | None = None
 

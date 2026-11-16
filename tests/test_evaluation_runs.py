@@ -127,8 +127,10 @@ class EvaluationRunTests(unittest.TestCase):
                 )
                 self.assertEqual(request.retrievers, retrievers)
 
-        with self.assertRaisesRegex(ValueError, "only available for the kestrel"):
-            EvaluationRunRequest(dataset="baking", retrievers=["graph"])
+        # Baking is evaluated against its committed graph snapshot (evaluation/graphs).
+        self.assertEqual(
+            EvaluationRunRequest(dataset="baking", retrievers=["graph"]).retrievers, ["graph"]
+        )
 
 
 if __name__ == "__main__":

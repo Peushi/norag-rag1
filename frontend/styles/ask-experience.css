@@ -879,3 +879,11 @@
     transition: none;
   }
 }
+
+:root .graph-build-timing {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}

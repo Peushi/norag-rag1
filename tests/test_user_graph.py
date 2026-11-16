@@ -164,6 +164,79 @@ class UserGraphTests(unittest.TestCase):
         self.assertFalse(status["up_to_date"])
 
 
+class ParallelBuildTests(unittest.TestCase):
+    setUp = UserGraphTests.setUp
+    chunk_by_id = UserGraphTests.chunk_by_id
+
+    def test_parallel_build_is_deterministic_and_reports_progress_and_time(self):
+        (self.corpus / "bread.md").write_text(BREAD, encoding="utf-8")
+        progress = []
+        with patch.object(user_graph, "GRAPH_CONCURRENCY", 4):
+            statistics = user_graph.build_graph(
+                "baking", trace=create_trace("indexing"),
+                on_progress=lambda done, total: progress.append((done, total)),
+            )
+        graph_a = (self.corpus.parent / "graphs" / "baking" / "graph.json").read_text()
+
+        with patch.object(user_graph, "GRAPH_CONCURRENCY", 1):
+            (self.corpus.parent / "graphs" / "baking" / "graph.json").unlink()
+            user_graph.build_graph("baking", trace=create_trace("indexing"))
+        graph_b = (self.corpus.parent / "graphs" / "baking" / "graph.json").read_text()
+
+        strip = lambda text: {k: v for k, v in json.loads(text).items() if k != "statistics"}
+        self.assertEqual(strip(graph_a), strip(graph_b))
+        self.assertEqual(progress[0], (0, 2))
+        self.assertEqual(progress[-1], (2, 2))
+        self.assertEqual(statistics["llm_calls"], 2)
+        self.assertIsInstance(statistics["build_seconds"], float)
+        status = user_graph.graph_status("baking")
+        self.assertEqual(status["last_build_llm_calls"], 2)
+        self.assertIsNotNone(status["last_build_seconds"])
+
+
+class RateLimitTests(unittest.TestCase):
+    setUp = UserGraphTests.setUp
+    chunk_by_id = UserGraphTests.chunk_by_id
+
+    def test_a_rate_limit_slows_the_build_down_instead_of_losing_passages(self):
+        import httpx
+        from openai import RateLimitError
+
+        (self.corpus / "bread.md").write_text(BREAD, encoding="utf-8")
+        limited = RateLimitError(
+            "429", response=httpx.Response(429, request=httpx.Request("POST", "http://x")), body=None
+        )
+        calls = []
+
+        def flaky(chunk, *, trace=None, dataset="kestrel"):
+            calls.append(chunk["source"])
+            if len(calls) == 1:
+                raise limited
+            return fake_extraction(chunk, trace=trace, dataset=dataset)
+
+        self.extract.side_effect = flaky
+        with patch.object(user_graph, "GRAPH_CONCURRENCY", 4), patch.object(user_graph, "RATE_LIMIT_WAIT_SECONDS", 0.05):
+            statistics = user_graph.build_graph("baking", trace=create_trace("indexing"))
+
+        self.assertEqual(statistics["failed_chunks"], 0)
+        self.assertTrue(statistics["rate_limited"])
+        self.assertEqual(len(calls), 3)  # 2 passages + 1 retry
+        self.assertTrue(user_graph.graph_status("baking")["up_to_date"])
+
+    def test_a_server_that_keeps_refusing_records_the_passage_as_failed(self):
+        import httpx
+        from openai import RateLimitError
+
+        self.extract.side_effect = RateLimitError(
+            "429", response=httpx.Response(429, request=httpx.Request("POST", "http://x")), body=None
+        )
+        with patch.object(user_graph, "RATE_LIMIT_WAIT_SECONDS", 0.01):
+            statistics = user_graph.build_graph("baking", trace=create_trace("indexing"))
+
+        self.assertEqual(statistics["failed_chunks"], 1)
+        self.assertEqual(self.extract.call_count, user_graph.RATE_LIMIT_ATTEMPTS)
+
+
 class UserGraphApiTests(UserGraphTests.__base__):
     setUp = UserGraphTests.setUp
     chunk_by_id = UserGraphTests.chunk_by_id
@@ -254,6 +327,33 @@ class WordFormMatchingTests(unittest.TestCase):
         )
 
 
+class EvaluationGraphRootTests(unittest.TestCase):
+    def test_an_evaluation_graph_root_only_affects_its_own_thread(self):
+        import threading
+        from backend import graph_retrieval
+
+        seen_elsewhere = []
+        with graph_retrieval.use_graph_root(Path("/evaluation/graphs")):
+            here = graph_retrieval.graph_file("baking")
+            other = threading.Thread(target=lambda: seen_elsewhere.append(graph_retrieval.graph_file("baking")))
+            other.start()
+            other.join()
+        after = graph_retrieval.graph_file("baking")
+
+        self.assertEqual(here, Path("/evaluation/graphs/baking/graph.json"))
+        self.assertEqual(seen_elsewhere[0], graph_retrieval.USER_GRAPH_ROOT / "baking" / "graph.json")
+        self.assertEqual(after, graph_retrieval.USER_GRAPH_ROOT / "baking" / "graph.json")
+        # Kestrel always uses its committed graph.
+        with graph_retrieval.use_graph_root(Path("/evaluation/graphs")):
+            self.assertEqual(graph_retrieval.graph_file("kestrel"), graph_retrieval.GRAPH_FILE)
+
+    def test_the_committed_baking_snapshot_is_complete(self):
+        snapshot = json.loads((Path(__file__).resolve().parent.parent / "evaluation" / "graphs" / "baking" / "graph.json").read_text())
+        self.assertEqual(snapshot["statistics"]["documents"], 10)
+        self.assertEqual(snapshot["failed_chunks"], [])
+        self.assertEqual((snapshot["statistics"]["chunk_size"], snapshot["statistics"]["overlap"]), (800, 80))
+
+
 class ExtractionVocabularyTests(unittest.TestCase):
     def response(self, triples):
         content = json.dumps({"triples": triples})
@@ -276,6 +376,25 @@ class ExtractionVocabularyTests(unittest.TestCase):
 
         self.assertEqual([t.relation for t in result["triples"]], ["CAUSES"])
         self.assertIn("vocabulary", result["invalid_triples"][0]["reason"])
+
+    def test_documents_on_any_subject_get_a_map(self):
+        # A software manual uploaded as "My documents" gave 0 links with kitchen-only types.
+        chunk = {"id": "c1", "source": "guide.md", "position": 0,
+                 "text": "The Business plan includes single sign-on. The API gateway is owned by Platform."}
+        client = MagicMock()
+        client.chat.completions.create.return_value = self.response([
+            {"subject": {"name": "Business plan", "entity_type": "PRODUCT"}, "relation": "INCLUDES",
+             "object": {"name": "single sign-on", "entity_type": "PRODUCT"}, "evidence_quote": "The Business plan includes single sign-on."},
+            {"subject": {"name": "API gateway", "entity_type": "EQUIPMENT"}, "relation": "OWNED_BY",
+             "object": {"name": "Platform", "entity_type": "ORGANIZATION"}, "evidence_quote": "The API gateway is owned by Platform."},
+        ])
+        with patch.object(graph_extraction, "client", client):
+            result = graph_extraction._extract_graph_from_chunk(chunk, "baking")
+
+        self.assertEqual([t.relation for t in result["triples"]], ["INCLUDES", "OWNED_BY"])
+        prompt = graph_extraction.build_graph_prompt(chunk, "baking")
+        self.assertIn("may be about any subject", prompt)
+        self.assertIn("ORGANIZATION", prompt)
 
     def test_the_extraction_prompt_frames_the_document_and_uses_its_vocabulary(self):
         prompt = graph_extraction.build_graph_prompt(
