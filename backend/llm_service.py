@@ -107,11 +107,21 @@ def build_style_instructions(style: AnswerStyle | None = None) -> str:
         "technical": "Use a precise, technical tone.",
     }
 
+    # Concrete targets: vague wording ("brief", "detailed") was largely ignored
+    # (measured: "short" 122 words vs "long" 154 on the same question).
     length_instructions = {
-        "short": "Keep the answer brief and focus on the essential information.",
-        "medium": "Give a balanced answer with the important supporting details.",
+        "short": (
+            "Keep the answer brief and focus on the essential information: "
+            "at most 3 sentences or 3 short bullet points, about 60 words."
+        ),
+        "medium": (
+            "Give a balanced answer with the important supporting details: "
+            "about 100 to 150 words."
+        ),
         "long": (
-            "Give a detailed answer, explaining the relevant steps and details."
+            "Give a detailed answer, explaining the relevant steps and details: "
+            "about 200 to 300 words, with numbered steps where there are steps. "
+            "Add detail only from the retrieved chunks; never pad with outside knowledge."
         ),
     }
 
@@ -434,10 +444,19 @@ def generate_answer(
         raise LLMServiceUnavailable(MISSING_CONFIG_MESSAGE)
 
     # Generate the answer using the injected trace context.
+    # The answer style is a feature setting, recorded so a trace shows how the
+    # answer was asked for (V4: every menu feature is traced like the rest).
+    applied_style = style or AnswerStyle()
     generation_span = (
         trace.span(
             "llm_generation",
-            attributes={"model": MODEL},
+            attributes={
+                "model": MODEL,
+                "style_level": applied_style.level,
+                "style_tone": applied_style.tone,
+                "style_length": applied_style.length,
+                "style_eli12": applied_style.eli12,
+            },
         )
         if trace is not None
         else nullcontext()
@@ -576,6 +595,7 @@ def generate_answer(
 
         glossary = []
         seen_terms = set()
+        dropped_glossary_entries = 0
 
         for entry in llm_answer.glossary:
             normalized_term = entry.term.strip().casefold()
@@ -595,10 +615,13 @@ def generate_answer(
                 )
 
             if entry.chunk_id not in seen_ids:
-                raise LLMResponseError(
-                    f"Glossary term '{entry.term}' references chunk "
-                    f"'{entry.chunk_id}', which was not cited by the answer."
-                )
+                # Grounded in a retrieved passage, but one the answer doesn't
+                # cite, so its [n] could not point to a listed source. Drop the
+                # entry and keep the (fully cited) answer: rejecting the whole
+                # answer here turned a real ELI12 answer into an error. An
+                # invented chunk ID above still rejects the answer.
+                dropped_glossary_entries += 1
+                continue
 
             seen_terms.add(normalized_term)
             glossary.append(entry)
@@ -606,6 +629,7 @@ def generate_answer(
         if span is not None:
             span.set_attribute("verified_citations", len(references))
             span.set_attribute("verified_glossary_entries", len(glossary))
+            span.set_attribute("dropped_glossary_entries", dropped_glossary_entries)
 
     return AskResponse(
         status="answered",

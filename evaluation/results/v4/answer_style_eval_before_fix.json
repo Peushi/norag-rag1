@@ -1,0 +1,705 @@
+{
+  "model": "gemini-3.5-flash-lite",
+  "styles": {
+    "short": {
+      "level": "beginner",
+      "tone": "friendly",
+      "length": "short",
+      "eli12": false
+    },
+    "medium": {
+      "level": "beginner",
+      "tone": "friendly",
+      "length": "medium",
+      "eli12": false
+    },
+    "long": {
+      "level": "beginner",
+      "tone": "friendly",
+      "length": "long",
+      "eli12": false
+    },
+    "eli12": {
+      "level": "beginner",
+      "tone": "friendly",
+      "length": "medium",
+      "eli12": true
+    },
+    "expert": {
+      "level": "expert",
+      "tone": "technical",
+      "length": "medium",
+      "eli12": false
+    }
+  },
+  "readability": "Flesch reading ease on the answer text (higher = easier; ~60-70 plain English, 80+ easy)",
+  "by_style": {
+    "short": {
+      "answered": 3,
+      "mean_words": 73.33,
+      "mean_flesch": 66.03,
+      "mean_glossary_entries": 1,
+      "mean_output_tokens": 248.67,
+      "mean_cost_usd": 0.0,
+      "mean_latency_ms": 2163.33
+    },
+    "medium": {
+      "answered": 3,
+      "mean_words": 87.67,
+      "mean_flesch": 47.77,
+      "mean_glossary_entries": 1,
+      "mean_output_tokens": 258.67,
+      "mean_cost_usd": 0.0,
+      "mean_latency_ms": 1476.33
+    },
+    "long": {
+      "answered": 3,
+      "mean_words": 100.33,
+      "mean_flesch": 51.17,
+      "mean_glossary_entries": 1,
+      "mean_output_tokens": 272,
+      "mean_cost_usd": 0.0,
+      "mean_latency_ms": 1902
+    },
+    "eli12": {
+      "answered": 2,
+      "mean_words": 128,
+      "mean_flesch": 82.3,
+      "mean_glossary_entries": 2,
+      "mean_output_tokens": 388,
+      "mean_cost_usd": 0.0,
+      "mean_latency_ms": 3309
+    },
+    "expert": {
+      "answered": 3,
+      "mean_words": 80.67,
+      "mean_flesch": 46.03,
+      "mean_glossary_entries": 1,
+      "mean_output_tokens": 257.67,
+      "mean_cost_usd": 0.0,
+      "mean_latency_ms": 1830.33
+    }
+  },
+  "per_question": [
+    {
+      "id": "S1",
+      "kind": "multi-step answer",
+      "length_order_holds": true,
+      "words_short_medium_long": [
+        122,
+        132,
+        154
+      ],
+      "eli12_easier_than_expert": true,
+      "flesch_eli12_expert": [
+        78.2,
+        20.4
+      ],
+      "outcomes": {
+        "short": "answered",
+        "medium": "answered",
+        "long": "answered",
+        "eli12": "answered",
+        "expert": "answered"
+      },
+      "refused_in_every_style": false,
+      "every_answer_cited": true,
+      "style_recorded_in_every_trace": true
+    },
+    {
+      "id": "S2",
+      "kind": "explanation",
+      "length_order_holds": true,
+      "words_short_medium_long": [
+        42,
+        44,
+        49
+      ],
+      "eli12_easier_than_expert": false,
+      "flesch_eli12_expert": [
+        null,
+        49.9
+      ],
+      "outcomes": {
+        "short": "answered",
+        "medium": "answered",
+        "long": "answered",
+        "eli12": "invalid_response",
+        "expert": "answered"
+      },
+      "refused_in_every_style": false,
+      "every_answer_cited": true,
+      "style_recorded_in_every_trace": true
+    },
+    {
+      "id": "S3",
+      "kind": "technical (hard for ELI12)",
+      "length_order_holds": false,
+      "words_short_medium_long": [
+        13,
+        13,
+        13
+      ],
+      "eli12_easier_than_expert": false,
+      "flesch_eli12_expert": [
+        44.0,
+        44.0
+      ],
+      "outcomes": {
+        "short": "not_found",
+        "medium": "not_found",
+        "long": "not_found",
+        "eli12": "not_found",
+        "expert": "not_found"
+      },
+      "refused_in_every_style": true,
+      "every_answer_cited": true,
+      "style_recorded_in_every_trace": true
+    },
+    {
+      "id": "S4",
+      "kind": "policy with dates",
+      "length_order_holds": true,
+      "words_short_medium_long": [
+        56,
+        87,
+        98
+      ],
+      "eli12_easier_than_expert": true,
+      "flesch_eli12_expert": [
+        86.4,
+        67.8
+      ],
+      "outcomes": {
+        "short": "answered",
+        "medium": "answered",
+        "long": "answered",
+        "eli12": "answered",
+        "expert": "answered"
+      },
+      "refused_in_every_style": false,
+      "every_answer_cited": true,
+      "style_recorded_in_every_trace": true
+    },
+    {
+      "id": "S5",
+      "kind": "not in the documents (must be refused)",
+      "length_order_holds": false,
+      "words_short_medium_long": [
+        13,
+        13,
+        13
+      ],
+      "eli12_easier_than_expert": false,
+      "flesch_eli12_expert": [
+        44.0,
+        44.0
+      ],
+      "outcomes": {
+        "short": "not_found",
+        "medium": "not_found",
+        "long": "not_found",
+        "eli12": "not_found",
+        "expert": "not_found"
+      },
+      "refused_in_every_style": true,
+      "every_answer_cited": true,
+      "style_recorded_in_every_trace": true
+    }
+  ],
+  "results": [
+    {
+      "id": "S1",
+      "dataset": "baking",
+      "style": "short",
+      "question": "How do I stop my cookies from spreading?",
+      "outcome": "answered",
+      "words": 122,
+      "flesch": 67.6,
+      "citations": 3,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "silicone baking mat"
+      ],
+      "input_tokens": 1484,
+      "output_tokens": 335,
+      "cost_usd": 0.0012827,
+      "latency_ms": 2380,
+      "generation_ms": 2052.591,
+      "style_recorded_in_trace": true,
+      "answer": "To stop your cookies from spreading too much, you can try several troubleshooting tips: \n1. Check your ingredient proportions and weigh your ingredients with a kitchen scale to avoid too much liquid, sugar, or oversized eggs compared to dry ingredients.\n2. Chill your cookie dough for 30 to 60 minutes to slow down fat melting and limit spreading.\n3. Use parchment paper or a silicone baking mat instead of greasing the cookie sheet, as greasing adds extra fat.\n4. Make sure to cool your baking trays completely between batches so the dough doesn't start melting before it goes into the oven.\n5. If a recipe continues to spread despite correct technique, you can try reducing the sugar by about 10% by weight."
+    },
+    {
+      "id": "S1",
+      "dataset": "baking",
+      "style": "medium",
+      "question": "How do I stop my cookies from spreading?",
+      "outcome": "answered",
+      "words": 132,
+      "flesch": 27.3,
+      "citations": 3,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "silicone baking mat"
+      ],
+      "input_tokens": 1483,
+      "output_tokens": 334,
+      "cost_usd": 0.0012799,
+      "latency_ms": 1746,
+      "generation_ms": 1686.365,
+      "style_recorded_in_trace": true,
+      "answer": "To stop your cookies from spreading too much, you can try several troubleshooting steps: check your ingredient proportions using a kitchen scale (as too much liquid, sugar, or oversized eggs can encourage spreading), ensure your butter temperature and oven temperature are correct, and check the freshness of your baking soda or baking powder. Additionally, you can chill the cookie dough for 30 to 60 minutes to slow down fat melting, use parchment paper or a silicone baking mat instead of greasing the cookie sheet (since extra fat increases spreading), and always allow baking trays to cool completely between batches so the dough doesn't start melting before it enters the oven. If a recipe repeatedly spreads despite correct technique, you can also try reducing the sugar by about 10% by weight."
+    },
+    {
+      "id": "S1",
+      "dataset": "baking",
+      "style": "long",
+      "question": "How do I stop my cookies from spreading?",
+      "outcome": "answered",
+      "words": 154,
+      "flesch": 51.6,
+      "citations": 3,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "silicone baking mat"
+      ],
+      "input_tokens": 1485,
+      "output_tokens": 359,
+      "cost_usd": 0.001343,
+      "latency_ms": 1486,
+      "generation_ms": 1454.698,
+      "style_recorded_in_trace": true,
+      "answer": "To stop your cookies from spreading too much, you can check and adjust several factors. First, ensure your ingredient proportions are accurate by using a kitchen scale to weigh ingredients rather than guessing, as too much liquid, sugar, or oversized eggs can encourage spreading. Next, check your butter temperature, the freshness of your baking soda or baking powder, and your actual oven temperature. Chilling your cookie dough for 30 to 60 minutes can also help by slowing down fat melting and limiting spreading. When baking, use parchment paper or a silicone baking mat instead of greasing the sheet, as greasing adds extra fat. Finally, make sure to cool your baking sheets completely between batches so that fresh dough is not placed on a hot pan and does not begin melting before entering the oven. If a recipe repeatedly spreads despite correct technique, you can also try reducing the sugar by about 10% by weight."
+    },
+    {
+      "id": "S1",
+      "dataset": "baking",
+      "style": "eli12",
+      "question": "How do I stop my cookies from spreading?",
+      "outcome": "answered",
+      "words": 207,
+      "flesch": 78.2,
+      "citations": 3,
+      "glossary_entries": 2,
+      "glossary_terms": [
+        "Chilling cookie dough",
+        "Silicone baking mat"
+      ],
+      "input_tokens": 1522,
+      "output_tokens": 508,
+      "cost_usd": 0.0017266,
+      "latency_ms": 2603,
+      "generation_ms": 2556.074,
+      "style_recorded_in_trace": true,
+      "answer": "If your cookies are spreading too much and turning out flat and thin, here are some friendly tips to help:\n\n1. Check your ingredient amounts: Too much liquid, too much sugar, or using eggs that are bigger than what the recipe asks for can cause extra spreading. Try weighing your ingredients with a kitchen scale. If the recipe keeps spreading even when you do everything right, you can try reducing the sugar by about 10% by weight.\n2. Chill your dough: Pop your cookie dough in the fridge for 30 to 60 minutes before baking. This helps slow down the melting butter so your cookies keep a better shape.\n3. Skip the grease on your baking sheet: Instead of greasing your pan, use parchment paper or a silicone baking mat. Greasing adds extra fat, which makes cookies spread more.\n4. Let your trays cool: Never put fresh cookie dough onto a baking sheet that is still warm from the last batch. Let the pan cool down completely so the dough doesn't start melting before it even goes into the oven!\n5. Check your oven and leaveners: Make sure your baking soda or baking powder is fresh, and check that your oven is actually at the right temperature."
+    },
+    {
+      "id": "S1",
+      "dataset": "baking",
+      "style": "expert",
+      "question": "How do I stop my cookies from spreading?",
+      "outcome": "answered",
+      "words": 142,
+      "flesch": 20.4,
+      "citations": 3,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "silicone baking mat"
+      ],
+      "input_tokens": 1483,
+      "output_tokens": 346,
+      "cost_usd": 0.0013099,
+      "latency_ms": 1737,
+      "generation_ms": 1690.86,
+      "style_recorded_in_trace": true,
+      "answer": "To stop cookies from spreading excessively, you can check and adjust several factors: ensure ingredient proportions are accurate by using a kitchen scale rather than having too much liquid or sugar compared to dry ingredients, and use the exact egg size specified by the recipe since oversized eggs add extra moisture. Additionally, you can chill the cookie dough for 30 to 60 minutes to slow down fat melting and limit spreading, avoid placing dough on a still-hot baking sheet between batches by allowing the tray to cool completely, use parchment paper or a silicone baking mat instead of greasing the sheet with extra fat, and check your butter temperature, the freshness of baking soda or baking powder, and the actual oven temperature. If a recipe repeatedly spreads despite correct technique, you can also try reducing the sugar by about 10% by weight."
+    },
+    {
+      "id": "S2",
+      "dataset": "baking",
+      "style": "short",
+      "question": "Why are my brownies cakey instead of fudgy?",
+      "outcome": "answered",
+      "words": 42,
+      "flesch": 62.6,
+      "citations": 1,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1551,
+      "output_tokens": 109,
+      "cost_usd": 0.0007378,
+      "latency_ms": 1288,
+      "generation_ms": 1235.339,
+      "style_recorded_in_trace": true,
+      "answer": "If your brownies are too cakey, the recipe may use comparatively more flour, eggs, extra liquid, or baking powder. If you want dense brownies, it is best to start with a fudgy or chewy recipe rather than just changing the baking time."
+    },
+    {
+      "id": "S2",
+      "dataset": "baking",
+      "style": "medium",
+      "question": "Why are my brownies cakey instead of fudgy?",
+      "outcome": "answered",
+      "words": 44,
+      "flesch": 53.8,
+      "citations": 1,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "baking powder"
+      ],
+      "input_tokens": 1550,
+      "output_tokens": 186,
+      "cost_usd": 0.00093,
+      "latency_ms": 1354,
+      "generation_ms": 1314.366,
+      "style_recorded_in_trace": true,
+      "answer": "If your brownies are too cakey, the recipe may use comparatively more flour, eggs, extra liquid, or baking powder. If you were hoping for dense brownies, it is recommended to start with a fudgy or chewy recipe rather than simply changing the baking time."
+    },
+    {
+      "id": "S2",
+      "dataset": "baking",
+      "style": "long",
+      "question": "Why are my brownies cakey instead of fudgy?",
+      "outcome": "answered",
+      "words": 49,
+      "flesch": 49.0,
+      "citations": 1,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "baking powder"
+      ],
+      "input_tokens": 1552,
+      "output_tokens": 191,
+      "cost_usd": 0.0009431,
+      "latency_ms": 2522,
+      "generation_ms": 2476.083,
+      "style_recorded_in_trace": true,
+      "answer": "If your brownies are too cakey instead of fudgy, it is likely because the recipe uses comparatively more flour, eggs, extra liquid, or baking powder. To get dense brownies, it is recommended to start with a fudgy or chewy recipe rather than trying to change the baking time alone."
+    },
+    {
+      "id": "S2",
+      "dataset": "baking",
+      "style": "eli12",
+      "question": "Why are my brownies cakey instead of fudgy?",
+      "outcome": "invalid_response",
+      "error": "Glossary term 'Cakey brownies' references chunk '38ecd406c965::chunk_0001', which was not cited by the answer."
+    },
+    {
+      "id": "S2",
+      "dataset": "baking",
+      "style": "expert",
+      "question": "Why are my brownies cakey instead of fudgy?",
+      "outcome": "answered",
+      "words": 44,
+      "flesch": 49.9,
+      "citations": 1,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "baking powder"
+      ],
+      "input_tokens": 1550,
+      "output_tokens": 184,
+      "cost_usd": 0.000925,
+      "latency_ms": 1662,
+      "generation_ms": 1611.765,
+      "style_recorded_in_trace": true,
+      "answer": "Brownies may turn out too cakey because the recipe uses comparatively more flour, eggs, extra liquid, or baking powder. If dense brownies are desired, a fudgy or chewy recipe should be used from the start rather than attempting to change the baking time alone."
+    },
+    {
+      "id": "S3",
+      "dataset": "kestrel",
+      "style": "short",
+      "question": "What does error KST-2044 mean and how do I fix it?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1591,
+      "output_tokens": 36,
+      "cost_usd": 0.0005673,
+      "latency_ms": 1623,
+      "generation_ms": 1025.363,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    },
+    {
+      "id": "S3",
+      "dataset": "kestrel",
+      "style": "medium",
+      "question": "What does error KST-2044 mean and how do I fix it?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1590,
+      "output_tokens": 36,
+      "cost_usd": 0.000567,
+      "latency_ms": 1617,
+      "generation_ms": 1567.041,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    },
+    {
+      "id": "S3",
+      "dataset": "kestrel",
+      "style": "long",
+      "question": "What does error KST-2044 mean and how do I fix it?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1592,
+      "output_tokens": 61,
+      "cost_usd": 0.0006301,
+      "latency_ms": 1037,
+      "generation_ms": 985.442,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    },
+    {
+      "id": "S3",
+      "dataset": "kestrel",
+      "style": "eli12",
+      "question": "What does error KST-2044 mean and how do I fix it?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1629,
+      "output_tokens": 36,
+      "cost_usd": 0.0005787,
+      "latency_ms": 756,
+      "generation_ms": 724.455,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    },
+    {
+      "id": "S3",
+      "dataset": "kestrel",
+      "style": "expert",
+      "question": "What does error KST-2044 mean and how do I fix it?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1590,
+      "output_tokens": 36,
+      "cost_usd": 0.000567,
+      "latency_ms": 1251,
+      "generation_ms": 1198.641,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    },
+    {
+      "id": "S4",
+      "dataset": "kestrel",
+      "style": "short",
+      "question": "Can I get a refund on my annual plan 45 days after it renewed?",
+      "outcome": "answered",
+      "words": 56,
+      "flesch": 67.9,
+      "citations": 2,
+      "glossary_entries": 2,
+      "glossary_terms": [
+        "annual plan",
+        "workspace Owner"
+      ],
+      "input_tokens": 1557,
+      "output_tokens": 302,
+      "cost_usd": 0.0012221,
+      "latency_ms": 2822,
+      "generation_ms": 2771.634,
+      "style_recorded_in_trace": true,
+      "answer": "Yes, you can get a refund on your annual plan 45 days after it renewed! Refund requests for annual plans can be made within 60 days of the purchase or renewal date. The refund will be pro-rated from the date of your request, meaning you are refunded for the unused full months of the annual period."
+    },
+    {
+      "id": "S4",
+      "dataset": "kestrel",
+      "style": "medium",
+      "question": "Can I get a refund on my annual plan 45 days after it renewed?",
+      "outcome": "answered",
+      "words": 87,
+      "flesch": 62.2,
+      "citations": 2,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "Workspace Owner"
+      ],
+      "input_tokens": 1556,
+      "output_tokens": 256,
+      "cost_usd": 0.0011068,
+      "latency_ms": 1329,
+      "generation_ms": 1276.118,
+      "style_recorded_in_trace": true,
+      "answer": "Yes, you can get a refund on your annual plan 45 days after it renewed. Under the 2026 billing policy, annual plans can be refunded if the request is made within 60 days of the purchase or renewal date. The refund is pro-rated from the date of the request, meaning you are refunded for the unused full months of the annual period. The request must be sent by the workspace Owner either from Settings → Plan → Request a refund or by e-mail to the support address."
+    },
+    {
+      "id": "S4",
+      "dataset": "kestrel",
+      "style": "long",
+      "question": "Can I get a refund on my annual plan 45 days after it renewed?",
+      "outcome": "answered",
+      "words": 98,
+      "flesch": 52.9,
+      "citations": 2,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "workspace Owner"
+      ],
+      "input_tokens": 1558,
+      "output_tokens": 266,
+      "cost_usd": 0.0011324,
+      "latency_ms": 1698,
+      "generation_ms": 1665.236,
+      "style_recorded_in_trace": true,
+      "answer": "Yes, you can get a refund on your annual plan 45 days after it renewed. Under the 2026 billing policy, annual plans can be refunded if the request is made within 60 days of the purchase or renewal date. The refund is pro-rated from the date of the request, meaning you are refunded the unused full months of the annual period. The refund request must be sent by the workspace Owner either from Settings → Plan → Request a refund or by e-mail, and approved refunds are processed within 14 days and returned to the original payment method."
+    },
+    {
+      "id": "S4",
+      "dataset": "kestrel",
+      "style": "eli12",
+      "question": "Can I get a refund on my annual plan 45 days after it renewed?",
+      "outcome": "answered",
+      "words": 49,
+      "flesch": 86.4,
+      "citations": 2,
+      "glossary_entries": 2,
+      "glossary_terms": [
+        "annual plan",
+        "workspace Owner"
+      ],
+      "input_tokens": 1595,
+      "output_tokens": 268,
+      "cost_usd": 0.0011485,
+      "latency_ms": 4015,
+      "generation_ms": 3965.911,
+      "style_recorded_in_trace": true,
+      "answer": "Yes, you can! If you are on an annual plan, you can get a refund if you ask within 60 days of your renewal date. Since 45 days is less than 60 days, your refund will be worked out for the unused full months left in your annual period."
+    },
+    {
+      "id": "S4",
+      "dataset": "kestrel",
+      "style": "expert",
+      "question": "Can I get a refund on my annual plan 45 days after it renewed?",
+      "outcome": "answered",
+      "words": 56,
+      "flesch": 67.8,
+      "citations": 2,
+      "glossary_entries": 1,
+      "glossary_terms": [
+        "Annual plans"
+      ],
+      "input_tokens": 1556,
+      "output_tokens": 243,
+      "cost_usd": 0.0010742999999999998,
+      "latency_ms": 2092,
+      "generation_ms": 2041.392,
+      "style_recorded_in_trace": true,
+      "answer": "Yes. Annual plans can be refunded if the request is made within 60 days of the purchase or renewal date. The refund is pro-rated from the date of the request, returning the unused full months of the annual period. A request at 45 days falls within the 60-day window and is eligible for a pro-rated refund."
+    },
+    {
+      "id": "S5",
+      "dataset": "baking",
+      "style": "short",
+      "question": "How long should I boil fresh pasta?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1611,
+      "output_tokens": 56,
+      "cost_usd": 0.0006232999999999999,
+      "latency_ms": 851,
+      "generation_ms": 800.254,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    },
+    {
+      "id": "S5",
+      "dataset": "baking",
+      "style": "medium",
+      "question": "How long should I boil fresh pasta?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1610,
+      "output_tokens": 36,
+      "cost_usd": 0.0005729999999999999,
+      "latency_ms": 1207,
+      "generation_ms": 1171.357,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    },
+    {
+      "id": "S5",
+      "dataset": "baking",
+      "style": "long",
+      "question": "How long should I boil fresh pasta?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1612,
+      "output_tokens": 36,
+      "cost_usd": 0.0005736,
+      "latency_ms": 1103,
+      "generation_ms": 1050.839,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    },
+    {
+      "id": "S5",
+      "dataset": "baking",
+      "style": "eli12",
+      "question": "How long should I boil fresh pasta?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1649,
+      "output_tokens": 56,
+      "cost_usd": 0.0006347,
+      "latency_ms": 1342,
+      "generation_ms": 1304.759,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    },
+    {
+      "id": "S5",
+      "dataset": "baking",
+      "style": "expert",
+      "question": "How long should I boil fresh pasta?",
+      "outcome": "not_found",
+      "words": 13,
+      "flesch": 44.0,
+      "citations": 0,
+      "glossary_entries": 0,
+      "glossary_terms": [],
+      "input_tokens": 1610,
+      "output_tokens": 36,
+      "cost_usd": 0.0005729999999999999,
+      "latency_ms": 1320,
+      "generation_ms": 1268.908,
+      "style_recorded_in_trace": true,
+      "answer": "I couldn't find enough information in the available documents to answer this question."
+    }
+  ]
+}

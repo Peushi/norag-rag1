@@ -261,6 +261,7 @@ def build_bom() -> dict:
             {"ref": "app:bakefix", "dependsOn": [*ai_refs, gemini_service["bom-ref"]]},
             {"ref": gemini_service["bom-ref"], "dependsOn": [gemini_model_component["bom-ref"]]},
             {"ref": "data:kestrel-graph", "dependsOn": ["data:kestrel-kb", gemini_service["bom-ref"]]},
+            {"ref": "data:baking-graph-snapshot", "dependsOn": ["data:baking-corpus", gemini_service["bom-ref"]]},
         ],
     }
     content = json.dumps(bom, sort_keys=True).encode()

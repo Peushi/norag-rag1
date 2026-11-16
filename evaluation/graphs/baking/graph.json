@@ -1,0 +1,1952 @@
+{
+  "triples": [
+    {
+      "subject": {
+        "name": "King Arthur Baking",
+        "entity_type": "ORGANIZATION"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "PJ Hamel",
+        "entity_type": "CONCEPT"
+      },
+      "chunk_id": "61137270eed8::chunk_0000",
+      "evidence_quote": "Author: PJ Hamel (King Arthur Baking)"
+    },
+    {
+      "subject": {
+        "name": "9 x 5-inch loaf pan",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "IS_A",
+      "object": {
+        "name": "loaf pan",
+        "entity_type": "EQUIPMENT"
+      },
+      "chunk_id": "61137270eed8::chunk_0000",
+      "evidence_quote": "A 9 x 5-inch loaf pan has roughly 30% more capacity tha"
+    },
+    {
+      "subject": {
+        "name": "9 x 5-inch loaf pan",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "30% more capacity",
+        "entity_type": "CONDITION"
+      },
+      "chunk_id": "61137270eed8::chunk_0001",
+      "evidence_quote": "A 9 x 5-inch loaf pan has roughly 30% more capacity than an 8 1/2 x 4 1/2-inch pan"
+    },
+    {
+      "subject": {
+        "name": "Allowing a shaped loaf to rise too far",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "Dough initially rises but loses volume before or during baking",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61137270eed8::chunk_0001",
+      "evidence_quote": "Allowing a shaped loaf to rise too far can leave it unable to retain its structure."
+    },
+    {
+      "subject": {
+        "name": "Too much flour or too little water",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "The dough is too dry",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61137270eed8::chunk_0002",
+      "evidence_quote": "Too much flour or too little water creates a stiff dough."
+    },
+    {
+      "subject": {
+        "name": "High whole-grain content",
+        "entity_type": "CONCEPT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "rising",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61137270eed8::chunk_0003",
+      "evidence_quote": "High whole-grain content limits rising"
+    },
+    {
+      "subject": {
+        "name": "Whole-wheat or mixed-grain bread",
+        "entity_type": "DISH"
+      },
+      "relation": "AFFECTS",
+      "object": {
+        "name": "rising",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61137270eed8::chunk_0003",
+      "evidence_quote": "Whole-wheat or mixed-grain bread rises less than a similar white-flour loaf."
+    },
+    {
+      "subject": {
+        "name": "whole-wheat flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "changes how effectively the dough forms and uses an extensible gluten network",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61137270eed8::chunk_0003",
+      "evidence_quote": "Replacing refined wheat flour with whole-wheat flour or adding rye, oats, or bran changes how effectively the dough forms and uses an extensible gluten network."
+    },
+    {
+      "subject": {
+        "name": "dish towel",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "dust",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61137270eed8::chunk_0004",
+      "evidence_quote": "A dish towel keeps dust off the dough but may not retain enough moisture."
+    },
+    {
+      "subject": {
+        "name": "sugar",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "Sweet enriched dough rises very slowly or not at all",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61137270eed8::chunk_0004",
+      "evidence_quote": "Sweet enriched dough rises very slowly or not at all."
+    },
+    {
+      "subject": {
+        "name": "Sugar",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "Sweet enriched dough rises very slowly or not at all",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61137270eed8::chunk_0005",
+      "evidence_quote": "Sweet enriched dough rises very slowly or not at all.\n\n**Cause:** Sugar binds available water, making it harder for ordinary yeast to function."
+    },
+    {
+      "subject": {
+        "name": "osmotolerant yeast",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "SUBSTITUTES_FOR",
+      "object": {
+        "name": "ordinary yeast",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "61137270eed8::chunk_0005",
+      "evidence_quote": "For doughs intentionally high in sugar, consider an osmotolerant yeast intended for sweet doughs."
+    },
+    {
+      "subject": {
+        "name": "Slow fermentation",
+        "entity_type": "PROBLEM"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "dense, short loaves",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "1e5d28778b38::chunk_0000",
+      "evidence_quote": "Slow fermentation can produce dense, short loaves if dough is baked before it has risen sufficiently."
+    },
+    {
+      "subject": {
+        "name": "cold room",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "slow down otherwise healthy dough",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "1e5d28778b38::chunk_0001",
+      "evidence_quote": "A cold room can slow down otherwise healthy dough."
+    },
+    {
+      "subject": {
+        "name": "colder room",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "will not warm up cool dough",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "1e5d28778b38::chunk_0001",
+      "evidence_quote": "a colder room will not warm up cool dough."
+    },
+    {
+      "subject": {
+        "name": "extend bulk fermentation",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "FIXES",
+      "object": {
+        "name": "dough is cool and rising slowly",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "1e5d28778b38::chunk_0001",
+      "evidence_quote": "If the dough is cool and rising slowly, extend bulk fermentation rather than following the recipe's timing"
+    },
+    {
+      "subject": {
+        "name": "Higher temperatures",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "overproof",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "1e5d28778b38::chunk_0003",
+      "evidence_quote": "Higher temperatures can speed fermentation but may also cause the dough to overproof."
+    },
+    {
+      "subject": {
+        "name": "Low dough and room temperatures",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "slow fermentation",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "1e5d28778b38::chunk_0005",
+      "evidence_quote": "Low dough and room temperatures slow fermentation."
+    },
+    {
+      "subject": {
+        "name": "Excessive warmth",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "overproofing",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "1e5d28778b38::chunk_0006",
+      "evidence_quote": "Excessive warmth risks overproofing."
+    },
+    {
+      "subject": {
+        "name": "Infrequent feeding",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "starter slower to become active",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "679d74382605::chunk_0000",
+      "evidence_quote": "Infrequent feeding may make a starter slower to become active when you want to bake."
+    },
+    {
+      "subject": {
+        "name": "kitchen scale",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "IS_A",
+      "object": {
+        "name": "kitchen scale",
+        "entity_type": "EQUIPMENT"
+      },
+      "chunk_id": "679d74382605::chunk_0001",
+      "evidence_quote": "A kitchen scale is more reliable than cups"
+    },
+    {
+      "subject": {
+        "name": "Room-temperature starter",
+        "entity_type": "DISH"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "more frequent feeding",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "679d74382605::chunk_0002",
+      "evidence_quote": "Room-temperature starter ferments faster than chilled starter and therefore requires more frequent feeding."
+    },
+    {
+      "subject": {
+        "name": "Whole-grain wheat and rye flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "IS_A",
+      "object": {
+        "name": "flour",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "679d74382605::chunk_0003",
+      "evidence_quote": "Whole-grain wheat and rye flour"
+    },
+    {
+      "subject": {
+        "name": "refrigerated starter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "feeding",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "679d74382605::chunk_0005",
+      "evidence_quote": "It may need feeding and time at room temperature to become active again"
+    },
+    {
+      "subject": {
+        "name": "Room-temperature maintenance",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "feeding every 12 hours",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "679d74382605::chunk_0005",
+      "evidence_quote": "Room-temperature maintenance typically involves feeding every 12 hours."
+    },
+    {
+      "subject": {
+        "name": "starter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "weekly feeding",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "679d74382605::chunk_0005",
+      "evidence_quote": "Refrigeration with a weekly feeding is a practical option."
+    },
+    {
+      "subject": {
+        "name": "all-purpose flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "SUBSTITUTES_FOR",
+      "object": {
+        "name": "rye",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "679d74382605::chunk_0006",
+      "evidence_quote": "Can I use all-purpose flour instead of rye for starter maintenance?"
+    },
+    {
+      "subject": {
+        "name": "flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "Brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0000",
+      "evidence_quote": "The key differences are the proportions of flour, fat, sugar, eggs, liquid, and leavening."
+    },
+    {
+      "subject": {
+        "name": "fat",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "Brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0000",
+      "evidence_quote": "The key differences are the proportions of flour, fat, sugar, eggs, liquid, and leavening."
+    },
+    {
+      "subject": {
+        "name": "sugar",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "Brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0000",
+      "evidence_quote": "The key differences are the proportions of flour, fat, sugar, eggs, liquid, and leavening."
+    },
+    {
+      "subject": {
+        "name": "eggs",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "Brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0000",
+      "evidence_quote": "The key differences are the proportions of flour, fat, sugar, eggs, liquid, and leavening."
+    },
+    {
+      "subject": {
+        "name": "liquid",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "Brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0000",
+      "evidence_quote": "The key differences are the proportions of flour, fat, sugar, eggs, liquid, and leavening."
+    },
+    {
+      "subject": {
+        "name": "leavening",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "Brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0000",
+      "evidence_quote": "The key differences are the proportions of flour, fat, sugar, eggs, liquid, and leavening."
+    },
+    {
+      "subject": {
+        "name": "baking powder",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "fudgy brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0001",
+      "evidence_quote": "ittle or no extra liquid or baking powder."
+    },
+    {
+      "subject": {
+        "name": "Cocoa-based formulations",
+        "entity_type": "DISH"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "fudgy brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0001",
+      "evidence_quote": "Cocoa-based formulations are common, although melted chocolate can also produce fudgy brownies."
+    },
+    {
+      "subject": {
+        "name": "melted chocolate",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "fudgy brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0001",
+      "evidence_quote": "melted chocolate can also produce fudgy brownies."
+    },
+    {
+      "subject": {
+        "name": "flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "cakey brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0001",
+      "evidence_quote": "More flour and eggs relative to other ingredients, often some water or coffee and baking powder for rise."
+    },
+    {
+      "subject": {
+        "name": "eggs",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "cakey brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0001",
+      "evidence_quote": "More flour and eggs relative to other ingredients, often some water or coffee and baking powder for rise."
+    },
+    {
+      "subject": {
+        "name": "water",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "cakey brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0001",
+      "evidence_quote": "often some water or coffee and baking powder for rise."
+    },
+    {
+      "subject": {
+        "name": "coffee",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "cakey brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0001",
+      "evidence_quote": "often some water or coffee and baking powder for rise."
+    },
+    {
+      "subject": {
+        "name": "baking powder",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "cakey brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0001",
+      "evidence_quote": "often some water or coffee and baking powder for rise."
+    },
+    {
+      "subject": {
+        "name": "Butter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "cakey brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0001",
+      "evidence_quote": "Butter is commonly used."
+    },
+    {
+      "subject": {
+        "name": "Oil",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "AFFECTS",
+      "object": {
+        "name": "brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0002",
+      "evidence_quote": "Oil contributes moisture because it is liquid at room temperature"
+    },
+    {
+      "subject": {
+        "name": "Butter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "AFFECTS",
+      "object": {
+        "name": "brownies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0002",
+      "evidence_quote": "butter contributes flavor."
+    },
+    {
+      "subject": {
+        "name": "Melted butter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "AFFECTS",
+      "object": {
+        "name": "fudgy textures",
+        "entity_type": "CONCEPT"
+      },
+      "chunk_id": "38ecd406c965::chunk_0002",
+      "evidence_quote": "Melted butter is frequently used for fudgy textures."
+    },
+    {
+      "subject": {
+        "name": "Sugar",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "chewier texture",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0003",
+      "evidence_quote": "High-sugar recipes can also have a chewier texture."
+    },
+    {
+      "subject": {
+        "name": "Cocoa powder",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "dry a brownie",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0003",
+      "evidence_quote": "Cocoa powder absorbs liquid and can dry a brownie without enough fat."
+    },
+    {
+      "subject": {
+        "name": "Melted chocolate",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "rich, fudgy result",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0003",
+      "evidence_quote": "Melted chocolate can support a rich, fudgy result."
+    },
+    {
+      "subject": {
+        "name": "Higher egg ratios",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cakier",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0003",
+      "evidence_quote": "Higher egg ratios may make brownies cakier."
+    },
+    {
+      "subject": {
+        "name": "Water or coffee",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cakier crumb",
+        "entity_type": "CONCEPT"
+      },
+      "chunk_id": "38ecd406c965::chunk_0003",
+      "evidence_quote": "Additional liquid can support a cakier crumb."
+    },
+    {
+      "subject": {
+        "name": "flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cakey",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0004",
+      "evidence_quote": "The recipe may use comparatively more flour, eggs, extra liquid, or baking powder. If you wanted dense brownies, start with a fudgy or chewy recipe instead of changing baking time alone."
+    },
+    {
+      "subject": {
+        "name": "eggs",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cakey",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0004",
+      "evidence_quote": "The recipe may use comparatively more flour, eggs, extra liquid, or baking powder."
+    },
+    {
+      "subject": {
+        "name": "extra liquid",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cakey",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0004",
+      "evidence_quote": "The recipe may use comparatively more flour, eggs, extra liquid, or baking powder."
+    },
+    {
+      "subject": {
+        "name": "baking powder",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cakey",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0004",
+      "evidence_quote": "The recipe may use comparatively more flour, eggs, extra liquid, or baking powder."
+    },
+    {
+      "subject": {
+        "name": "lower flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "dense",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0004",
+      "evidence_quote": "Dense brownies may be the intended result of lower flour, little or no baking powder, and a high proportion of fat or sugar."
+    },
+    {
+      "subject": {
+        "name": "little or no baking powder",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "dense",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0004",
+      "evidence_quote": "Dense brownies may be the intended result of lower flour, little or no baking powder, and a high proportion of fat or sugar."
+    },
+    {
+      "subject": {
+        "name": "high proportion of fat or sugar",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "dense",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "38ecd406c965::chunk_0004",
+      "evidence_quote": "Dense brownies may be the intended result of lower flour, little or no baking powder, and a high proportion of fat or sugar."
+    },
+    {
+      "subject": {
+        "name": "partially dissolving sugar before baking",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "shiny, crackly brownie top",
+        "entity_type": "CONCEPT"
+      },
+      "chunk_id": "38ecd406c965::chunk_0004",
+      "evidence_quote": "Some brownie recipes create a thin, shiny top by partially dissolving sugar before baking."
+    },
+    {
+      "subject": {
+        "name": "chocolate chips",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "shiny crust",
+        "entity_type": "CONCEPT"
+      },
+      "chunk_id": "38ecd406c965::chunk_0004",
+      "evidence_quote": "The source also notes that chocolate chips can help produce a shiny crust in its recipes"
+    },
+    {
+      "subject": {
+        "name": "Oil",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "SUBSTITUTES_FOR",
+      "object": {
+        "name": "butter",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "38ecd406c965::chunk_0005",
+      "evidence_quote": "Yes. Oil usually gives a moister impression; butter gives a distinct buttery flavor. Replacements can change texture, so follow a tested recipe if the result matters."
+    },
+    {
+      "subject": {
+        "name": "Fudge Brownies",
+        "entity_type": "DISH"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "sugar",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "38ecd406c965::chunk_0005",
+      "evidence_quote": "- **Fudge Brownies:** Moist, fudgy, with some rise and a crackly top; sugar and butter are heated together."
+    },
+    {
+      "subject": {
+        "name": "Fudge Brownies",
+        "entity_type": "DISH"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "butter",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "38ecd406c965::chunk_0005",
+      "evidence_quote": "- **Fudge Brownies:** Moist, fudgy, with some rise and a crackly top; sugar and butter are heated together."
+    },
+    {
+      "subject": {
+        "name": "Deep-Dark Fudgy Brownies",
+        "entity_type": "DISH"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "leavener",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "38ecd406c965::chunk_0005",
+      "evidence_quote": "- **Deep-Dark Fudgy Brownies:** Dense, dark, moist brownies without added leavener."
+    },
+    {
+      "subject": {
+        "name": "sugar",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "brownie recipes",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "38ecd406c965::chunk_0007",
+      "evidence_quote": "This helps compare ingredient ratios among brownie recipes without confusing weight and volume."
+    },
+    {
+      "subject": {
+        "name": "cookies spreading",
+        "entity_type": "PROBLEM"
+      },
+      "relation": "IS_A",
+      "object": {
+        "name": "Cookies spread too much",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61bd682c808d::chunk_0000",
+      "evidence_quote": "Problem: Cookies spread too much\n\nCookies can bake into thin, flat, greasy, or misshapen rounds instead of keeping their intended size or shape."
+    },
+    {
+      "subject": {
+        "name": "Too much liquid or sugar compared with dry ingredients",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cookies spreading",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61bd682c808d::chunk_0000",
+      "evidence_quote": "Too much liquid or sugar compared with dry ingredients encourages spreading."
+    },
+    {
+      "subject": {
+        "name": "Eggs are larger than the recipe specifies",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cookies spreading",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61bd682c808d::chunk_0000",
+      "evidence_quote": "Oversized eggs add extra"
+    },
+    {
+      "subject": {
+        "name": "Oversized eggs",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "extra moisture",
+        "entity_type": "CONDITION"
+      },
+      "chunk_id": "61bd682c808d::chunk_0001",
+      "evidence_quote": "Oversized eggs add extra moisture."
+    },
+    {
+      "subject": {
+        "name": "Very soft or partially melted butter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cookies to spread",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61bd682c808d::chunk_0001",
+      "evidence_quote": "Very soft or partially melted butter allows cookies to spread before their structure sets."
+    },
+    {
+      "subject": {
+        "name": "Old leaveners",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "not give cookies the intended lift",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61bd682c808d::chunk_0001",
+      "evidence_quote": "Old leaveners may not give cookies the intended lift."
+    },
+    {
+      "subject": {
+        "name": "oven thermometer",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "Confirm the temperature",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "61bd682c808d::chunk_0002",
+      "evidence_quote": "Confirm the temperature with an oven thermometer."
+    },
+    {
+      "subject": {
+        "name": "Chill the dough",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "spreading",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61bd682c808d::chunk_0002",
+      "evidence_quote": "Ways to reduce cookie spreading\n\n### Chill the dough"
+    },
+    {
+      "subject": {
+        "name": "Shortening",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "SUBSTITUTES_FOR",
+      "object": {
+        "name": "butter",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "61bd682c808d::chunk_0002",
+      "evidence_quote": "Shortening melts at a higher temperature than butter and can reduce spreading. In recipes where a substitution is appropriate, replace some or all of the butter with shortening by volume"
+    },
+    {
+      "subject": {
+        "name": "browned butter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "weight",
+        "entity_type": "CONDITION"
+      },
+      "chunk_id": "61bd682c808d::chunk_0003",
+      "evidence_quote": "measure the amount required by weight after browning."
+    },
+    {
+      "subject": {
+        "name": "sugar",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "AFFECTS",
+      "object": {
+        "name": "dough",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "61bd682c808d::chunk_0003",
+      "evidence_quote": "Less sugar can make dough firmer by allowing flour to absorb more moisture."
+    },
+    {
+      "subject": {
+        "name": "parchment paper",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "SUBSTITUTES_FOR",
+      "object": {
+        "name": "greasing the sheet",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "61bd682c808d::chunk_0003",
+      "evidence_quote": "Use parchment paper or a silicone baking mat. Greasing the sheet adds extra fat"
+    },
+    {
+      "subject": {
+        "name": "greasing the sheet",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "spreading",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61bd682c808d::chunk_0004",
+      "evidence_quote": "Greasing the sheet adds extra fat and can increase spreading."
+    },
+    {
+      "subject": {
+        "name": "Chilling",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "spreading",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61bd682c808d::chunk_0004",
+      "evidence_quote": "Chilling for 30–60 minutes can slow fat melting and limit spreading."
+    },
+    {
+      "subject": {
+        "name": "hot baking sheet",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "spread",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "61bd682c808d::chunk_0005",
+      "evidence_quote": "You may have placed the dough on a still-hot baking sheet."
+    },
+    {
+      "subject": {
+        "name": "larger eggs",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "more moisture",
+        "entity_type": "CONDITION"
+      },
+      "chunk_id": "61bd682c808d::chunk_0005",
+      "evidence_quote": "larger eggs introduce more moisture."
+    },
+    {
+      "subject": {
+        "name": "Prebaking",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "pale, damp, or undercooked bottom",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "8d9155c942e2::chunk_0000",
+      "evidence_quote": "It helps prevent a pale, damp, or undercooked bottom when the filling will not spend enough time in the oven to cook the crust fully."
+    },
+    {
+      "subject": {
+        "name": "Prebaking",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "IS_A",
+      "object": {
+        "name": "blind baking",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "8d9155c942e2::chunk_0000",
+      "evidence_quote": "Prebaking, also called blind baking, means baking an empty pastry crust before adding its filling."
+    },
+    {
+      "subject": {
+        "name": "pie weights",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "bubbling and slumping",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "8d9155c942e2::chunk_0002",
+      "evidence_quote": "The weights limit bubbling and slumping."
+    },
+    {
+      "subject": {
+        "name": "Prick the bottom of the crust with a fork",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "bubbling",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "8d9155c942e2::chunk_0003",
+      "evidence_quote": "Prick the bottom of the crust with a fork to discourage bubbling."
+    },
+    {
+      "subject": {
+        "name": "Pastry",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "shrink or slide down the pan",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "8d9155c942e2::chunk_0003",
+      "evidence_quote": "Pastry can contract as it heats, especially if it has not been chilled."
+    },
+    {
+      "subject": {
+        "name": "chocolate cream pie",
+        "entity_type": "DISH"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "fully prebaked",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "8d9155c942e2::chunk_0005",
+      "evidence_quote": "Because the filling is cooked before being added and the assembled pie is not baked, the pastry crust needs to be fully prebaked."
+    },
+    {
+      "subject": {
+        "name": "pumpkin or custard pie crust",
+        "entity_type": "DISH"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "Partial prebaking",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "8d9155c942e2::chunk_0005",
+      "evidence_quote": "Partial prebaking can help the bottom brown without overcooking the delicate filling"
+    },
+    {
+      "subject": {
+        "name": "crust",
+        "entity_type": "DISH"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "30 minutes",
+        "entity_type": "CONDITION"
+      },
+      "chunk_id": "8d9155c942e2::chunk_0005",
+      "evidence_quote": "The source recommends **30 minutes** before placing the weighted crust in the oven."
+    },
+    {
+      "subject": {
+        "name": "metal pan",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "bottom crust",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0001",
+      "evidence_quote": "A metal pan is a useful choice when the underside of a pie tends to remain underbaked."
+    },
+    {
+      "subject": {
+        "name": "Prebaking",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "pastry",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0001",
+      "evidence_quote": "Prebaking (also called blind baking) lets the pastry set before a wet filling is added."
+    },
+    {
+      "subject": {
+        "name": "baking stone",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "pie pan",
+        "entity_type": "EQUIPMENT"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0001",
+      "evidence_quote": "A hot baking or pizza stone transfers concentrated heat to the underside of the pie pan."
+    },
+    {
+      "subject": {
+        "name": "Frangipane",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "SUBSTITUTES_FOR",
+      "object": {
+        "name": "almond paste",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0002",
+      "evidence_quote": "Frangipane (almond cream) can provide a flavorful layer between fruit filling and pastry, limiting how much juice reaches the crust. Almond paste is another option"
+    },
+    {
+      "subject": {
+        "name": "beaten egg white",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "SUBSTITUTES_FOR",
+      "object": {
+        "name": "Melted chocolate",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0002",
+      "evidence_quote": "brush the bottom with beaten egg white before adding the filling. Melted chocolate can also act as a moisture barrier."
+    },
+    {
+      "subject": {
+        "name": "chocolate layer",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "pecan pie",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0003",
+      "evidence_quote": "a chocolate layer pairs well with pecan pie"
+    },
+    {
+      "subject": {
+        "name": "all-purpose flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "fruit pies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0003",
+      "evidence_quote": "It works especially well with apple and other fruit pies."
+    },
+    {
+      "subject": {
+        "name": "granulated sugar",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "fruit pies",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0003",
+      "evidence_quote": "It works especially well with apple and other fruit pies."
+    },
+    {
+      "subject": {
+        "name": "praline spread",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "pumpkin pie",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0003",
+      "evidence_quote": "Add praline spread for pumpkin pie"
+    },
+    {
+      "subject": {
+        "name": "crust dust or a compatible crumb layer",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "wet bottom",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0004",
+      "evidence_quote": "Try a metal pan, a preheated baking stone, and crust dust or a compatible crumb layer under the filling."
+    },
+    {
+      "subject": {
+        "name": "Prebaking",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "soggy bottom",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0004",
+      "evidence_quote": "Prebaking is a recommended way to help prevent a soggy bottom in single-crust custard pie"
+    },
+    {
+      "subject": {
+        "name": "single-crust custard pies",
+        "entity_type": "DISH"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "pumpkin pie",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0005",
+      "evidence_quote": "single-crust custard pies, including pumpkin pie."
+    },
+    {
+      "subject": {
+        "name": "Crust dust",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "SUBSTITUTES_FOR",
+      "object": {
+        "name": "barriers",
+        "entity_type": "CONCEPT"
+      },
+      "chunk_id": "ff67c37ea967::chunk_0005",
+      "evidence_quote": "Crust dust (about 1 teaspoon each flour and sugar), compatible fine crumbs, frangipane, or almond paste can serve as barriers."
+    },
+    {
+      "subject": {
+        "name": "sourdough bread",
+        "entity_type": "DISH"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "active sourdough starter",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0000",
+      "evidence_quote": "This guide describes a naturally leavened sourdough bread that rises using active sourdough starter rather than packaged yeast."
+    },
+    {
+      "subject": {
+        "name": "recipe",
+        "entity_type": "PRODUCT"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "commercial yeast",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0000",
+      "evidence_quote": "Beginners whose starters are not reliably active may prefer a recipe that also includes commercial yeast."
+    },
+    {
+      "subject": {
+        "name": "sourdough bread",
+        "entity_type": "DISH"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "active, fed sourdough starter",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0001",
+      "evidence_quote": "- 454 g active, fed sourdough starter"
+    },
+    {
+      "subject": {
+        "name": "sourdough bread",
+        "entity_type": "DISH"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "all-purpose flour",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0001",
+      "evidence_quote": "- 602 g all-purpose flour"
+    },
+    {
+      "subject": {
+        "name": "sourdough bread",
+        "entity_type": "DISH"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "whole wheat or white whole wheat flour",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0001",
+      "evidence_quote": "- 85 g whole wheat or white whole wheat flour"
+    },
+    {
+      "subject": {
+        "name": "sourdough bread",
+        "entity_type": "DISH"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "room-temperature water",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0001",
+      "evidence_quote": "- 397 g room-temperature water"
+    },
+    {
+      "subject": {
+        "name": "sourdough bread",
+        "entity_type": "DISH"
+      },
+      "relation": "INCLUDES",
+      "object": {
+        "name": "salt",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0001",
+      "evidence_quote": "- 2 1/2 teaspoons salt"
+    },
+    {
+      "subject": {
+        "name": "starter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "dough",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0002",
+      "evidence_quote": "Mix starter, both flours, and water until no dry flour remains and the mixture forms a cohesive, soft, slightly sticky dough."
+    },
+    {
+      "subject": {
+        "name": "both flours",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "dough",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0002",
+      "evidence_quote": "Mix starter, both flours, and water until no dry flour remains and the mixture forms a cohesive, soft, slightly sticky dough."
+    },
+    {
+      "subject": {
+        "name": "water",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "dough",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0002",
+      "evidence_quote": "Mix starter, both flours, and water until no dry flour remains and the mixture forms a cohesive, soft, slightly sticky dough."
+    },
+    {
+      "subject": {
+        "name": "salt",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "dough",
+        "entity_type": "DISH"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0002",
+      "evidence_quote": "Mix in the salt and knead until the dough is smooth, flexible, and still a little tacky."
+    },
+    {
+      "subject": {
+        "name": "autolyse",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "AFFECTS",
+      "object": {
+        "name": "flour",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0002",
+      "evidence_quote": "This pause hydrates the flour and starts gluten development, helping the dough become easier to knead."
+    },
+    {
+      "subject": {
+        "name": "gluten",
+        "entity_type": "CONCEPT"
+      },
+      "relation": "AFFECTS",
+      "object": {
+        "name": "final shaping",
+        "entity_type": "TECHNIQUE"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0003",
+      "evidence_quote": "The rest relaxes the gluten so final shaping is easier."
+    },
+    {
+      "subject": {
+        "name": "baking stone",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "oven",
+        "entity_type": "EQUIPMENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0004",
+      "evidence_quote": "A baking stone is optional."
+    },
+    {
+      "subject": {
+        "name": "cast-iron pan",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "oven",
+        "entity_type": "EQUIPMENT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0004",
+      "evidence_quote": "an empty cast-iron pan can be preheated on a lower rack"
+    },
+    {
+      "subject": {
+        "name": "Scoring",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "unwanted side splits",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0004",
+      "evidence_quote": "Scoring creates a controlled place for the dough to expand in the oven and can reduce unwanted side splits."
+    },
+    {
+      "subject": {
+        "name": "Steam",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "serious burns",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0004",
+      "evidence_quote": "Steam and the pan can cause serious burns"
+    },
+    {
+      "subject": {
+        "name": "pan",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "serious burns",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0004",
+      "evidence_quote": "Steam and the pan can cause serious burns"
+    },
+    {
+      "subject": {
+        "name": "oven mitts",
+        "entity_type": "EQUIPMENT"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "ous burns",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0005",
+      "evidence_quote": "ous burns**: wear suitable oven mitts and keep hands and face away from escaping steam."
+    },
+    {
+      "subject": {
+        "name": "King Arthur Baking guide",
+        "entity_type": "ORGANIZATION"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "King Arthur Baking guide",
+        "entity_type": "PRODUCT"
+      },
+      "chunk_id": "3d93f33d5680::chunk_0007",
+      "evidence_quote": "These timings describe the particular King Arthur Baking guide"
+    },
+    {
+      "subject": {
+        "name": "water",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "sourdough starter",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0000",
+      "evidence_quote": "A refrigerated starter has not been fed for a long time, has liquid on top, or produces few bubbles."
+    },
+    {
+      "subject": {
+        "name": "gliadin",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "gluten",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0001",
+      "evidence_quote": "Flour proteins gliadin and glutenin form gluten when mixed with water and worked into a dough."
+    },
+    {
+      "subject": {
+        "name": "glutenin",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "PART_OF",
+      "object": {
+        "name": "gluten",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0001",
+      "evidence_quote": "Flour proteins gliadin and glutenin form gluten when mixed with water and worked into a dough."
+    },
+    {
+      "subject": {
+        "name": "gliadin",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "IS_A",
+      "object": {
+        "name": "Flour proteins",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0001",
+      "evidence_quote": "Flour proteins gliadin and glutenin form gluten when mixed with water and worked into a dough."
+    },
+    {
+      "subject": {
+        "name": "glutenin",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "IS_A",
+      "object": {
+        "name": "Flour proteins",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0001",
+      "evidence_quote": "Flour proteins gliadin and glutenin form gluten when mixed with water and worked into a dough."
+    },
+    {
+      "subject": {
+        "name": "Kneading",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "network",
+        "entity_type": "CONCEPT"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0001",
+      "evidence_quote": "Kneading helps build a network that can trap carbon dioxide produced during fermentation."
+    },
+    {
+      "subject": {
+        "name": "weak gluten structure",
+        "entity_type": "PROBLEM"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "harder for dough to hold its rise",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0001",
+      "evidence_quote": "A weak gluten structure can make it harder for dough to hold its rise."
+    },
+    {
+      "subject": {
+        "name": "gluten structure",
+        "entity_type": "CONCEPT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "harder for dough to hold its rise",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0002",
+      "evidence_quote": "gluten structure can make it harder for dough to hold its rise."
+    },
+    {
+      "subject": {
+        "name": "basic sourdough starter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "flour",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0002",
+      "evidence_quote": "A basic sourdough starter needs flour and water: flour supplies food for the microorganisms."
+    },
+    {
+      "subject": {
+        "name": "basic sourdough starter",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "water",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0002",
+      "evidence_quote": "A basic sourdough starter needs flour and water: flour supplies food for the microorganisms."
+    },
+    {
+      "subject": {
+        "name": "Gluten structure",
+        "entity_type": "CONCEPT"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "dough doesn't retain the gas",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0004",
+      "evidence_quote": "Gluten structure helps trap gas."
+    },
+    {
+      "subject": {
+        "name": "Gluten structure",
+        "entity_type": "CONCEPT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "trap gas",
+        "entity_type": "CONCEPT"
+      },
+      "chunk_id": "46fde8e431d2::chunk_0005",
+      "evidence_quote": "Gluten structure helps trap gas."
+    },
+    {
+      "subject": {
+        "name": "excess of flour",
+        "entity_type": "CONDITION"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "dry or crumbly",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "48b29066ef44::chunk_0000",
+      "evidence_quote": "An excess of flour can make baked goods dry or crumbly."
+    },
+    {
+      "subject": {
+        "name": "all-purpose flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "REQUIRES",
+      "object": {
+        "name": "120 g",
+        "entity_type": "CONDITION"
+      },
+      "chunk_id": "48b29066ef44::chunk_0001",
+      "evidence_quote": "If following a King Arthur recipe calling for 1 cup of all-purpose flour, weigh **120 g**."
+    },
+    {
+      "subject": {
+        "name": "flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "USES",
+      "object": {
+        "name": "kitchen scale",
+        "entity_type": "EQUIPMENT"
+      },
+      "chunk_id": "48b29066ef44::chunk_0001",
+      "evidence_quote": "How to measure flour with a kitchen scale (preferred method)"
+    },
+    {
+      "subject": {
+        "name": "packing a measuring cup too tightly",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "extra flour",
+        "entity_type": "INGREDIENT"
+      },
+      "chunk_id": "48b29066ef44::chunk_0002",
+      "evidence_quote": "This helps avoid the extra flour that results from packing a measuring cup too tightly."
+    },
+    {
+      "subject": {
+        "name": "adding more flour than the recipe intended",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "bread turn out dry",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "48b29066ef44::chunk_0003",
+      "evidence_quote": "One possible cause is adding more flour than the recipe intended."
+    },
+    {
+      "subject": {
+        "name": "Excess flour",
+        "entity_type": "INGREDIENT"
+      },
+      "relation": "CAUSES",
+      "object": {
+        "name": "cookies crumbly or dry",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "48b29066ef44::chunk_0003",
+      "evidence_quote": "Excess flour may have made the dough too dry."
+    },
+    {
+      "subject": {
+        "name": "fluff, sprinkle, and scrape technique",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "PREVENTS",
+      "object": {
+        "name": "cookies crumbly or dry",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "48b29066ef44::chunk_0003",
+      "evidence_quote": "Measure with a scale, or use the fluff, sprinkle, and scrape technique when measuring by volume."
+    },
+    {
+      "subject": {
+        "name": "120 g",
+        "entity_type": "CONDITION"
+      },
+      "relation": "IS_A",
+      "object": {
+        "name": "King Arthur Baking's standard for a cup of its all-purpose flour",
+        "entity_type": "CONCEPT"
+      },
+      "chunk_id": "48b29066ef44::chunk_0003",
+      "evidence_quote": "120 g is King Arthur Baking's standard for a cup of its all-purpose flour."
+    },
+    {
+      "subject": {
+        "name": "King Arthur Baking",
+        "entity_type": "ORGANIZATION"
+      },
+      "relation": "OWNED_BY",
+      "object": {
+        "name": "King Arthur Baking",
+        "entity_type": "ORGANIZATION"
+      },
+      "chunk_id": "48b29066ef44::chunk_0003",
+      "evidence_quote": "120 g is King Arthur Baking's standard for a cup of its all-purpose flour."
+    },
+    {
+      "subject": {
+        "name": "flour measurement",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "AFFECTS",
+      "object": {
+        "name": "dry bread",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "48b29066ef44::chunk_0004",
+      "evidence_quote": "When troubleshooting dry bread or crumbly cookies, check flour measurement first."
+    },
+    {
+      "subject": {
+        "name": "flour measurement",
+        "entity_type": "TECHNIQUE"
+      },
+      "relation": "AFFECTS",
+      "object": {
+        "name": "crumbly cookies",
+        "entity_type": "PROBLEM"
+      },
+      "chunk_id": "48b29066ef44::chunk_0004",
+      "evidence_quote": "When troubleshooting dry bread or crumbly cookies, check flour measurement first."
+    }
+  ],
+  "documents": {
+    "bread/bread_not_rising.md": {
+      "sha256": "e5978b5ded02dc2edd84e11ede5674a38d189874153f7fd6a4fe9cb11c67ccaa",
+      "chunks": 7,
+      "triples": 12,
+      "failed_chunks": 0
+    },
+    "bread/bread_proofing_problems.md": {
+      "sha256": "e6bc73df94ee185100a28820c276b2dcaf0f01d30541af126082360cbb8e86d2",
+      "chunks": 7,
+      "triples": 7,
+      "failed_chunks": 0
+    },
+    "bread/sourdough_starter_maintenance.md": {
+      "sha256": "386ae0f0bf75dfd4aa0d814df2125a8d1d8acbe9d2f0fe9fc8792a703159f3bc",
+      "chunks": 7,
+      "triples": 8,
+      "failed_chunks": 0
+    },
+    "brownies/brownie_texture.md": {
+      "sha256": "796836274aed3d02316c25cf0166db34bcd9d1e27f78949b2cbe0fb65750d527",
+      "chunks": 8,
+      "triples": 37,
+      "failed_chunks": 0
+    },
+    "cookies/cookies_spreading.md": {
+      "sha256": "a380a0efcbe43d71e1eb5d3a91b8557be0b5240c585b5098531e7a6d526b1838",
+      "chunks": 6,
+      "triples": 16,
+      "failed_chunks": 0
+    },
+    "pies/prebaking_pie_crust.md": {
+      "sha256": "6d55ac2bdd2632f55aeb8d5a9cb827d674e11e3ad7703cda8f58368660cad46e",
+      "chunks": 7,
+      "triples": 8,
+      "failed_chunks": 0
+    },
+    "pies/soggy_pie_crust.md": {
+      "sha256": "387d9e257691d6de844556f12e5ee4ac53f28bd1b0d188f1a7b5da283a6bc27a",
+      "chunks": 7,
+      "triples": 13,
+      "failed_chunks": 0
+    },
+    "bread/sourdough_baking_guide.md": {
+      "sha256": "9bbcef9d9cee525bd3961fb8b266a9d792d945fd8947c046a17abf8366d5a243",
+      "chunks": 8,
+      "triples": 20,
+      "failed_chunks": 0
+    },
+    "bread/sourdough_troubleshooting.md": {
+      "sha256": "36e29e0eabd463296389e25b97b9f612a18b88bf6309010ce855eaedbff95f65",
+      "chunks": 6,
+      "triples": 12,
+      "failed_chunks": 0
+    },
+    "general/how_to_measure_flour.md": {
+      "sha256": "6daa04d44ed71521ba4fef68141bde753e736d6601f5691624cff66d4482e3ee",
+      "chunks": 5,
+      "triples": 11,
+      "failed_chunks": 0
+    }
+  },
+  "failed_chunks": [],
+  "statistics": {
+    "documents": 10,
+    "triples": 144,
+    "chunk_size": 800,
+    "overlap": 80,
+    "built_at": "2026-11-16T08:41:49+00:00",
+    "llm_calls": 5,
+    "build_seconds": 2.7,
+    "concurrency": 4,
+    "rate_limited": false,
+    "failed_chunks": 0,
+    "documents_left_for_next_build": 0
+  }
+}

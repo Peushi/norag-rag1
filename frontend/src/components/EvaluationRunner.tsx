@@ -29,18 +29,16 @@ const RETRIEVER_CONFIGURATIONS: Array<{
     label: "Dense + BM25 (RRF)",
     retrievers: ["dense", "bm25"],
   },
-  { id: "graph", label: "Graph (Kestrel)", retrievers: ["graph"], requiresKestrel: true },
+  { id: "graph", label: "Graph", retrievers: ["graph"] },
   {
     id: "dense_graph",
-    label: "Dense + Graph (RRF, Kestrel)",
+    label: "Dense + Graph (RRF)",
     retrievers: ["dense", "graph"],
-    requiresKestrel: true,
   },
   {
     id: "dense_bm25_graph",
-    label: "Dense + BM25 + Graph (RRF, Kestrel)",
+    label: "Dense + BM25 + Graph (RRF)",
     retrievers: ["dense", "bm25", "graph"],
-    requiresKestrel: true,
   },
 ];
 
@@ -167,7 +165,9 @@ export function EvaluationRunner({
         </label>
         <p className="evaluation-config-note">
           Dense, BM25, and Graph adapters are available and selected methods
-          are fused with RRF. Graph retrieval is Kestrel-only.
+          are fused with RRF. Graph runs use committed graphs: Kestrel’s
+          reviewed graph, and a snapshot built from the 10 bundled Baking
+          guides (not your own map, which changes with every upload).
         </p>
         <label>
           Chunking preset

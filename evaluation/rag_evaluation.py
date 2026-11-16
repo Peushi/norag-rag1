@@ -145,8 +145,22 @@ def count_document_chunks(documents, chunk_size, overlap):
 
 Dataset = Literal["baking", "kestrel"]
 
+# Graph retrieval is evaluated against committed graphs, so results are
+# reproducible: Kestrel's reviewed graph, and for Baking a snapshot built once
+# from the 10 bundled guides (the user's own graph in .bakefix changes with
+# every upload, so it is not used here).
+EVALUATION_GRAPH_ROOT = EVALUATION_DIR / "graphs"
 
-def run_evaluation(
+
+def run_evaluation(**kwargs) -> Path:
+    """Run one evaluation; graph retrieval reads the committed evaluation graphs."""
+    from backend.graph_retrieval import use_graph_root
+
+    with use_graph_root(EVALUATION_GRAPH_ROOT):
+        return _run_evaluation(**kwargs)
+
+
+def _run_evaluation(
     *,
     dataset: Dataset,
     top_k: int = 5,
@@ -205,10 +219,6 @@ def run_evaluation(
             "retrievers must contain unique supported retriever names"
         )
 
-    if "graph" in selected_retrievers and dataset != "kestrel":
-        raise ValueError(
-            "Graph retrieval is only available for the kestrel dataset"
-        )
 
     if compare_path_context and "graph" not in selected_retrievers:
         raise ValueError(
@@ -216,7 +226,7 @@ def run_evaluation(
         )
 
     if "graph" in selected_retrievers:
-        validate_graph_chunking(chunk_size, overlap)
+        validate_graph_chunking(chunk_size, overlap, dataset)
 
     config = DATASETS[dataset]
 
@@ -365,6 +375,7 @@ def run_evaluation(
                             if query.document_ids is not None
                             else None
                         ),
+                        dataset=dataset,
                     )
                 finally:
                     retriever_latency_ms["graph"] = (

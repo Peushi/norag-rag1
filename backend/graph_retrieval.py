@@ -1,6 +1,8 @@
 import json
 import re
 from collections import defaultdict
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from backend.chunking import chunk_text
@@ -17,6 +19,21 @@ USER_GRAPH_ROOT = PROJECT_ROOT / ".bakefix" / "graphs"
 BUILDABLE_DATASETS = {"baking"}
 
 
+# An evaluation reads a committed graph snapshot instead of the user's graph.
+# A context variable, so it only affects the thread running the evaluation,
+# never questions answered at the same time.
+_graph_root_override: ContextVar[Path | None] = ContextVar("graph_root_override", default=None)
+
+
+@contextmanager
+def use_graph_root(root: Path):
+    token = _graph_root_override.set(root)
+    try:
+        yield
+    finally:
+        _graph_root_override.reset(token)
+
+
 def graph_file(dataset: str = "kestrel") -> Path:
     """Kestrel uses its committed, reviewed graph; other corpora use a built one.
 
@@ -26,7 +43,7 @@ def graph_file(dataset: str = "kestrel") -> Path:
         return GRAPH_FILE
     if dataset not in BUILDABLE_DATASETS:
         raise ValueError(f"No concept graph for dataset: {dataset}")
-    return USER_GRAPH_ROOT / dataset / "graph.json"
+    return (_graph_root_override.get() or USER_GRAPH_ROOT) / dataset / "graph.json"
 
 
 def graph_exists(dataset: str = "kestrel") -> bool:

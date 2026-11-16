@@ -18,6 +18,22 @@ function formatTime(iso: string): string {
     : date.toLocaleDateString([], { day: "numeric", month: "short" });
 }
 
+function formatSeconds(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)} s`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes} min ${Math.round(seconds - minutes * 60)} s`;
+}
+
+/** "Last update: 12 passages in 4 s (4 at a time)." Shown so build speed is visible. */
+function lastBuild(status: GraphStatus): string | null {
+  if (status.last_build_seconds === null || !status.last_build_llm_calls) return null;
+  const passages = status.last_build_llm_calls === 1 ? "1 passage" : `${status.last_build_llm_calls} passages`;
+  const pace = status.last_build_rate_limited
+    ? "slowed down by the LLM’s rate limit"
+    : `${status.concurrency} at a time`;
+  return `Last update: ${passages} in ${formatSeconds(status.last_build_seconds)} (${pace}).`;
+}
+
 function calls(count: number): string {
   return count === 1 ? "1 LLM call" : `${count} LLM calls`;
 }
@@ -42,11 +58,14 @@ export function GraphBuildPanel({ status, isStarting, startError, onBuild }: Gra
     return (
       <div className="graph-build building" role="status" aria-live="polite">
         <p>
-          Reading your documents for ingredients, techniques and problems…{" "}
+          Reading your documents for concepts and how they connect…{" "}
           <strong>
             {status.progress_done} of {status.progress_total}
           </strong>{" "}
           passages
+          {status.progress_elapsed_seconds !== null
+            ? ` · ${formatSeconds(status.progress_elapsed_seconds)}`
+            : ""}
         </p>
         <div className="graph-progress" aria-hidden="true">
           <span style={{ width: `${percent}%` }} />
@@ -67,9 +86,10 @@ export function GraphBuildPanel({ status, isStarting, startError, onBuild }: Gra
         <>
           <p className="graph-build-title">Map how your documents connect</p>
           <p>
-            BakeFix reads your documents once and links dishes, ingredients,
-            techniques and problems, with the passage behind each link. You can
-            then explore the map and use it in search.
+            BakeFix reads your documents once and links the things they talk
+            about (dishes, ingredients, techniques, problems, products and more),
+            with the passage behind each link. You can then explore the map and
+            use it in search.
           </p>
         </>
       ) : status.settings_changed ? (
@@ -81,6 +101,7 @@ export function GraphBuildPanel({ status, isStarting, startError, onBuild }: Gra
           Up to date: {status.triple_count} links from {status.document_count}{" "}
           {status.document_count === 1 ? "document" : "documents"}
           {status.built_at ? `, updated ${formatTime(status.built_at)}` : ""}.
+          {lastBuild(status) && <span className="graph-build-timing"> {lastBuild(status)}</span>}
         </p>
       )}
 

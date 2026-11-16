@@ -32,6 +32,8 @@ const TYPE_LABELS: Record<string, string> = {
   TECHNIQUE: "Techniques",
   PROBLEM: "Problems",
   CONDITION: "Conditions",
+  ORGANIZATION: "Organizations",
+  CONCEPT: "Other concepts",
 };
 
 const TYPE_SINGULAR: Record<string, string> = {
@@ -50,6 +52,8 @@ const TYPE_SINGULAR: Record<string, string> = {
   TECHNIQUE: "Technique",
   PROBLEM: "Problem",
   CONDITION: "Condition",
+  ORGANIZATION: "Organization",
+  CONCEPT: "Concept",
 };
 
 /** How each relation reads from the open concept's side: [outgoing, incoming]. */
@@ -73,6 +77,7 @@ const RELATION_PHRASES: Record<string, [string, string]> = {
   AFFECTS: ["affects", "is affected by"],
   PART_OF: ["is part of", "includes"],
   SUBSTITUTES_FOR: ["can replace", "can be replaced by"],
+  IS_A: ["is a kind of", "has the kind"],
 };
 
 function relationPhrase(neighbour: ConceptNeighbour): string {
@@ -112,7 +117,7 @@ const COPY: Record<EvaluationDataset, { intro: string; placeholder: string }> = 
     placeholder: "For example: KST-5031, Billing, postroom",
   },
   baking: {
-    intro: "How the dishes, ingredients, techniques and problems in your documents connect, with the passage behind each link.",
+    intro: "How the things in your documents connect (dishes, ingredients, techniques, problems, products and more), with the passage behind each link.",
     placeholder: "For example: dough, butter, spreading",
   },
 };

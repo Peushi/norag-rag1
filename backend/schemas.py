@@ -342,8 +342,6 @@ class EvaluationRunRequest(BaseModel):
             raise ValueError("overlap must be smaller than chunk_size")
         if len(set(self.retrievers)) != len(self.retrievers):
             raise ValueError("retrievers cannot contain duplicates")
-        if "graph" in self.retrievers and self.dataset != "kestrel":
-            raise ValueError("Graph retrieval is only available for the kestrel dataset")
         if self.compare_path_context and "graph" not in self.retrievers:
             raise ValueError("Path as Context comparison requires graph retrieval")
         if self.compare_path_context and not self.generate_answers:

@@ -630,6 +630,11 @@ export type GraphStatus = {
   building: boolean;
   progress_done: number;
   progress_total: number;
+  progress_elapsed_seconds: number | null;
+  last_build_seconds: number | null;
+  last_build_llm_calls: number | null;
+  last_build_rate_limited: boolean;
+  concurrency: number;
   build_trace_id: string | null;
   last_error: string | null;
 };

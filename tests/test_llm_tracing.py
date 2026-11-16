@@ -363,7 +363,7 @@ class LLMTracingTests(unittest.TestCase):
                 [self.chunk],
             )
 
-    def test_glossary_rejects_retrieved_but_uncited_chunk(self):
+    def test_glossary_entry_for_an_uncited_chunk_is_dropped_not_fatal(self):
         second_chunk = {
             "id": "chunk-2",
             "text": "Sugar adds sweetness to the recipe.",
@@ -386,14 +386,17 @@ class LLMTracingTests(unittest.TestCase):
 
         client = self.mock_client(content=response_content)
 
-        with (
-            patch.object(llm_service, "client", client),
-            self.assertRaises(llm_service.LLMResponseError),
-        ):
-            llm_service.generate_answer(
+        # Seen with real Gemini (ELI12 style): the whole answer used to be rejected.
+        with patch.object(llm_service, "client", client):
+            result = llm_service.generate_answer(
                 "How much flour is required?",
                 [self.chunk, second_chunk],
             )
+
+        self.assertEqual(result.status, "answered")
+        self.assertEqual(result.answer, "Use 200 grams of flour.")
+        self.assertEqual(result.glossary, [])
+        self.assertEqual([ref.chunk_id for ref in result.references], ["chunk-1"])
 
     def test_not_found_with_empty_answer_text_is_a_refusal_not_an_error(self):
         # Seen with real Gemini on an off-topic question: status not_found, answer "".
