@@ -329,6 +329,10 @@ def build_graph(dataset: str, *, trace, on_progress=lambda done, total: None) ->
         span.set_attribute("triple_count", len(triples))
         span.set_attribute("document_count", len(documents))
         span.set_attribute("failed_chunk_count", len(failed_chunks))
+        span.set_attribute(
+            "failed_document_count",
+            sum(1 for info in documents.values() if info.get("failed_chunks")),
+        )
         span.set_attribute("documents_left_count", len(remaining))
         span.set_attribute("llm_calls", done)
         span.set_attribute("build_seconds", build_seconds)

@@ -76,6 +76,9 @@ def extract_graph_from_chunk(
         for key, attribute in (("prompt_tokens", "input_tokens"), ("completion_tokens", "output_tokens")):
             if result[key] is not None:
                 span.set_attribute(attribute, result[key])
+        # Cost too, so the metrics page can report indexing cost per document.
+        if result.get("cost_usd") is not None:
+            span.set_attribute("cost_usd", result["cost_usd"])
         return result
 
 

@@ -5,6 +5,7 @@ import { ConceptMap } from "./components/ConceptMap";
 import { DocumentLibrary } from "./components/DocumentLibrary";
 import { DocumentSelector } from "./components/DocumentSelector";
 import { EvaluationRunner } from "./components/EvaluationRunner";
+import { MetricsPage } from "./components/MetricsPage";
 import { RetrievalSettings } from "./components/RetrievalSettings";
 import { RetrievalComparison } from "./components/RetrievalComparison";
 import { RetrieverControls } from "./components/RetrieverControls";
@@ -23,7 +24,7 @@ import "../styles/option-1.css";
 import "../styles/ask-experience.css";
 import "../styles/delight.css";
 
-type AppView = "ask" | "words" | "evaluation";
+type AppView = "ask" | "words" | "evaluation" | "metrics";
 
 /** Starter questions shown under the question box, per knowledge base. */
 const EXAMPLE_QUESTIONS: Record<EvaluationDataset, string[]> = {
@@ -42,10 +43,21 @@ const EXAMPLE_QUESTIONS: Record<EvaluationDataset, string[]> = {
 const INSIGHT_VIEWS: { id: Exclude<AppView, "ask">; label: string }[] = [
   { id: "words", label: "Words in your documents" },
   { id: "evaluation", label: "Answer quality checks" },
+  { id: "metrics", label: "Usage and cost" },
 ];
 
 export default function App() {
-  const [activeView, setActiveView] = useState<AppView>("ask");
+  // /metrics opens the usage page directly (the backend serves the app there).
+  const [activeView, setActiveView] = useState<AppView>(() =>
+    window.location.pathname === "/metrics" ? "metrics" : "ask",
+  );
+
+  useEffect(() => {
+    const path = activeView === "metrics" ? "/metrics" : "/";
+    if (window.location.pathname !== path) {
+      window.history.replaceState(null, "", path);
+    }
+  }, [activeView]);
   const [selectedCorpus, setSelectedCorpus] =
     useState<EvaluationDataset>("baking");
   const [askDataset, setAskDataset] = useState<EvaluationDataset>("baking");
@@ -267,6 +279,10 @@ export default function App() {
               <>
                 The words <em>in your documents.</em>
               </>
+            ) : activeView === "metrics" ? (
+              <>
+                Usage, speed <em>and cost.</em>
+              </>
             ) : (
               <>
                 How well <em>BakeFix finds answers.</em>
@@ -276,7 +292,9 @@ export default function App() {
           <p className="intro-copy">
             {activeView === "words"
               ? "See which words appear in your documents, how often, and in which passages. Useful when a question isn't finding what you expect."
-              : "Run the fixed test questions and compare search settings using hit rate, evidence recall and per-question results."}
+              : activeView === "metrics"
+                ? "How many questions BakeFix answered, how long each step took, and what the LLM cost, all computed from the traces of each question and indexing run."
+                : "Run the fixed test questions and compare search settings using hit rate, evidence recall and per-question results."}
           </p>
         </section>
       )}
@@ -487,6 +505,11 @@ export default function App() {
             corpus={selectedCorpus}
             onCorpusChange={setSelectedCorpus}
           />
+        </div>
+      )}
+      {activeView === "metrics" && (
+        <div id="metrics-panel">
+          <MetricsPage />
         </div>
       )}
       {activeView === "evaluation" && (

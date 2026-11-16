@@ -53,6 +53,40 @@ rejected. To be rewritten in my own words for the report.
   "Retrieved passages" list. Decimals are rounded for display.
 - **Why:** the same view everywhere; the demo is "ask, open Details, explain".
 
+### Metrics page (Part A bonus, 16 Nov)
+- **Where:** "Behind the answers → Usage and cost", also opened directly at
+  `/metrics`; data from `GET /api/metrics?days=1|7|30`.
+- **How the numbers are computed from traces** (the slides' question):
+  everything is read from the SQLite trace store at request time; nothing is
+  counted separately, so the page and the traces cannot disagree.
+  - *Volume and outcomes:* one `question` trace = one question. `answered` and
+    `abstained` come from the trace outcome (`answered`, `not_found`). A failed
+    trace is `invalid` if a step failed with `LLMResponseError` (the model's
+    answer was rejected by validation), otherwise `error` (provider down,
+    timeout, retrieval error, rejected request, crash). Running = in progress.
+  - *Latency:* whole request = `completed_at - started_at`; each step = its
+    span's `duration_ms`. p50 and p95 use the nearest-rank method.
+  - *Tokens and cost per question:* from each `llm_generation` span; average,
+    the 95th-percentile cost, and totals.
+  - *Per indexed document:* search indexing embeds locally ($0). Concept-map
+    builds are the only indexing LLM calls: the `graph_extraction` spans' cost
+    divided by the documents fully read (new + changed - left for the next
+    build - failed). A document that fails is counted once, when it succeeds.
+    For this, extraction spans now record `cost_usd`, and the save span records
+    `failed_document_count`.
+  - *Per day:* UTC calendar days; question cost plus indexing cost.
+- **Window:** 1, 7 or 30 days; 30 is the trace retention, so older data does
+  not exist.
+- **Found while building it:** the test suite wrote 14 fake traces into the
+  user's real trace database on every run (four test modules didn't redirect
+  it), so the page showed test noise as usage. Fixed in `tests/__init__.py`,
+  which points every test at a throwaway trace file; verified that a full run
+  no longer changes the real database.
+- **Rejected:** a separate metrics log (could drift from the traces);
+  Langfuse/Phoenix dashboards (an extra service, and traces would leave the
+  machine); computing averages instead of percentiles (one slow LLM call hides
+  in an average).
+
 ## User experience clean-up
 
 ### Audience

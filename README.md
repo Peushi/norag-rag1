@@ -487,6 +487,23 @@ higher.
 - `POST /api/words/analyze-question` accepts dataset, question, chunk size, and
   overlap, then returns found/missing words and matching chunks.
 
+## Usage and cost (metrics page)
+
+Open **Behind the answers → Usage and cost**, or go straight to
+`http://localhost:8000/metrics` (or `/metrics` on the Vite dev server). For the
+last 24 hours, 7 or 30 days, it shows:
+
+- how many questions were asked, and how many were answered, not found in the
+  documents, rejected by the answer checks, or failed with an error;
+- p50 and p95 time for the whole question and for each step (search,
+  redaction, LLM, checks), and for indexing runs;
+- tokens and cost per question, per indexed document (concept-map builds;
+  search indexing is local and free) and per day.
+
+Every number is computed from the stored traces at request time
+(`GET /api/metrics?days=7`). Traces are kept 30 days, so that is the longest
+period. Running the test suite never writes to your trace database.
+
 ## Security and privacy
 
 BakeFix is a local, single-user app: the backend listens on `127.0.0.1` and
