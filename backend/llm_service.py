@@ -88,6 +88,39 @@ NOT_FOUND_ANSWER = (
 )
 
 
+# "[a1b2c3::chunk_0001]" or "(id1, id2)" written into the answer text.
+_CITATION_GROUP = re.compile(r"\s?[\[(]([^\[\]()]+)[\])]")
+
+
+def number_inline_citations(
+    answer: str, cited_ids: list[str], retrieved_ids: set[str]
+) -> tuple[str, int]:
+    """Turn passage IDs the model wrote into the text into source numbers.
+
+    The model should list its sources only in cited_chunk_ids, but sometimes
+    also writes "[61137270eed8::chunk_0000]" into the answer. Those IDs mean
+    nothing to a reader, so each becomes the number of its source under
+    "Where this comes from" ("[1]"); an ID that was retrieved but not cited is
+    removed. Brackets that are not purely passage IDs (Markdown links, notes)
+    are left alone. Returns the new text and how many IDs were replaced.
+    """
+    numbers = {chunk_id: index + 1 for index, chunk_id in enumerate(cited_ids)}
+    replaced = 0
+
+    def replace(match: re.Match) -> str:
+        nonlocal replaced
+        parts = [part.strip() for part in re.split(r"[,;]", match.group(1))]
+        if not parts or not all(part in retrieved_ids for part in parts):
+            return match.group(0)
+        replaced += len(parts)
+        cited = sorted({numbers[part] for part in parts if part in numbers})
+        if not cited:
+            return ""
+        return " [" + ", ".join(str(number) for number in cited) + "]"
+
+    return _CITATION_GROUP.sub(replace, answer), replaced
+
+
 def build_style_instructions(style: AnswerStyle | None = None) -> str:
     """Convert answer style settings into instructions for the LLM."""
     style = style or AnswerStyle()
@@ -314,6 +347,8 @@ ANSWERING:
 - If there is not enough evidence to answer the question reliably,
   return status "not_found".
 - Only cite chunk IDs that directly support the answer.
+- Put chunk IDs only in cited_chunk_ids, never in the answer text: readers
+  see numbered sources instead.
 - Graph paths are extracted claims, not authoritative evidence. Use them only
   when the supporting retrieved chunks validate the relationships.
 
@@ -642,14 +677,21 @@ def generate_answer(
             seen_terms.add(normalized_term)
             glossary.append(entry)
 
+        answer_text, inline_ids_replaced = number_inline_citations(
+            llm_answer.answer,
+            [reference.chunk_id for reference in references],
+            set(retrieved_by_id),
+        )
+
         if span is not None:
             span.set_attribute("verified_citations", len(references))
             span.set_attribute("verified_glossary_entries", len(glossary))
             span.set_attribute("dropped_glossary_entries", dropped_glossary_entries)
+            span.set_attribute("inline_chunk_ids_replaced", inline_ids_replaced)
 
     return AskResponse(
         status="answered",
-        answer=llm_answer.answer,
+        answer=answer_text,
         references=references,
         glossary=glossary,
     )
